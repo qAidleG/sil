@@ -1,65 +1,20 @@
 'use client'
 
-import { Tldraw, Store } from '@tldraw/tldraw'
+import { Tldraw, Editor } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 import Link from 'next/link'
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 
 export default function TlDrawPage() {
-  const [error, setError] = useState<boolean>(false)
-
   // Handle store changes
-  const handlePersist = useCallback((store: Store) => {
+  const handleChange = useCallback((editor: Editor) => {
+    const document = editor.store.serialize()
     try {
-      localStorage.setItem('tldraw', JSON.stringify(store.serialize()))
-    } catch (e) {
-      console.error('Failed to save TlDraw data:', e)
-      setError(true)
+      localStorage.setItem('tldraw-document', JSON.stringify(document))
+    } catch (err) {
+      console.error('Failed to save document', err)
     }
   }, [])
-
-  // Load persisted state
-  const loadInitialContent = useCallback(() => {
-    if (typeof window === 'undefined') return undefined
-    
-    try {
-      const persisted = localStorage.getItem('tldraw')
-      if (persisted) {
-        return JSON.parse(persisted)
-      }
-    } catch (e) {
-      console.error('Failed to load TlDraw data:', e)
-      setError(true)
-    }
-    return undefined
-  }, [])
-
-  // Error UI Component
-  const ErrorDisplay = () => (
-    <div className="h-full flex items-center justify-center bg-gray-800 text-white p-8">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold mb-4">Something went wrong</h2>
-        <p className="mb-4">There was an error loading your drawing.</p>
-        <div className="space-x-4">
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-          >
-            Refresh Page
-          </button>
-          <button
-            onClick={() => {
-              localStorage.removeItem('tldraw')
-              setError(false)
-            }}
-            className="px-4 py-2 bg-red-500 rounded hover:bg-red-600 transition-colors"
-          >
-            Reset Data
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   return (
     <main className="h-screen flex flex-col bg-gray-900">
@@ -79,19 +34,23 @@ export default function TlDrawPage() {
 
       {/* TlDraw Canvas */}
       <div className="flex-1">
-        {error ? (
-          <ErrorDisplay />
-        ) : (
-          <Tldraw
-            persistenceKey="sil-tldraw"
-            store={loadInitialContent()}
-            onMount={(editor) => {
-              editor.store.listen(() => {
-                handlePersist(editor.store)
-              })
-            }}
-          />
-        )}
+        <Tldraw
+          persistenceKey="tldraw-document"
+          onMount={(editor) => {
+            try {
+              const savedDocument = localStorage.getItem('tldraw-document')
+              if (savedDocument) {
+                const document = JSON.parse(savedDocument)
+                editor.store.loadSnapshot(document)
+              }
+            } catch (err) {
+              console.error('Failed to load document', err)
+            }
+
+            const handleStoreChange = () => handleChange(editor)
+            editor.store.listen(handleStoreChange, { source: 'user', scope: 'document' })
+          }}
+        />
       </div>
     </main>
   )
