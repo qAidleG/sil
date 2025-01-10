@@ -13,7 +13,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@vercel/kv": "^3.0.0",
+    "@vercel/edge-config": "^1.4.0",
     "autoprefixer": "latest",
     "eslint": "latest",
     "next": "latest",
