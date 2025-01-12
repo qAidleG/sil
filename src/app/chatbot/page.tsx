@@ -131,10 +131,15 @@ export default function ChatbotPage() {
 
       if (response.content.toLowerCase().includes('generate') && response.content.toLowerCase().includes('image')) {
         try {
-          const imageResponse = await generateImage(input, fluxKey || undefined)
+          // Extract the image description from Grok's response
+          const description = response.content.match(/generate image:?\s*([^.!?\n]+)/i)?.[1] ||
+                            response.content.match(/generating:?\s*([^.!?\n]+)/i)?.[1] ||
+                            input;
+          
+          const imageResponse = await generateImage(description, fluxKey || undefined)
           const imageMessage: Message = {
             role: 'assistant',
-            content: 'Here\'s the generated image:',
+            content: `I've generated an image based on this description: "${description}"`,
             image_url: imageResponse.image_url
           }
           const finalMessages = [...updatedMessages, imageMessage]
@@ -143,7 +148,7 @@ export default function ChatbotPage() {
           // Add to gallery
           setGeneratedImages([{
             url: imageResponse.image_url,
-            prompt: input,
+            prompt: description,
             createdAt: Date.now()
           }, ...generatedImages])
         } catch (error) {
@@ -254,9 +259,9 @@ export default function ChatbotPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4 h-[calc(100vh-8rem)]">
         {/* Thread List */}
-        <div className="col-span-1 bg-gray-800 rounded-lg p-4">
+        <div className="col-span-1 bg-gray-800 rounded-lg p-4 overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold">Threads</h2>
             <Button
@@ -298,16 +303,16 @@ export default function ChatbotPage() {
         </div>
 
         {/* Main Content */}
-        <div className="col-span-3">
-          <Tabs defaultValue="chat" className="w-full">
+        <div className="col-span-3 flex flex-col h-full">
+          <Tabs defaultValue="chat" className="w-full h-full">
             <TabsList className="grid w-full grid-cols-3 bg-gray-800">
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="image">Image Generation</TabsTrigger>
               <TabsTrigger value="gallery">Gallery</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="chat" className="mt-4">
-              <div className="h-[600px] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
+            <TabsContent value="chat" className="flex-1 mt-4">
+              <div className="h-[calc(100vh-16rem)] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
                 {currentThreadId ? (
                   getCurrentThread()?.messages.map((message, index) => (
                     <div
@@ -317,19 +322,19 @@ export default function ChatbotPage() {
                       }`}
                     >
                       <div
-                        className={`inline-block p-3 rounded-lg ${
+                        className={`inline-block p-3 rounded-lg max-w-[80%] ${
                           message.role === 'user'
                             ? 'bg-blue-600'
                             : 'bg-gray-700'
                         }`}
                       >
-                        {message.content}
+                        <div className="break-words">{message.content}</div>
                         {message.image_url && (
                           <div className="mt-4">
                             <img
                               src={message.image_url}
                               alt="Generated artwork"
-                              className="rounded-lg max-w-full h-auto"
+                              className="rounded-lg w-full h-auto"
                               loading="lazy"
                             />
                           </div>
