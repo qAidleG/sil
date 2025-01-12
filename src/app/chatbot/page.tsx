@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Settings, Home } from 'lucide-react'
+import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 
@@ -15,16 +15,60 @@ interface Message {
   image_url?: string
 }
 
+interface Thread {
+  id: string
+  name: string
+  messages: Message[]
+  createdAt: number
+}
+
+interface GeneratedImage {
+  url: string
+  prompt: string
+  createdAt: number
+}
+
 export default function ChatbotPage() {
   const [grokKey, setGrokKey] = useState('')
   const [fluxKey, setFluxKey] = useState('')
   const [showSettings, setShowSettings] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [threads, setThreads] = useState<Thread[]>([])
+  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [imagePrompt, setImagePrompt] = useState('')
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Load threads and images from local storage
+  useEffect(() => {
+    const savedThreads = localStorage.getItem('chatThreads')
+    if (savedThreads) {
+      const parsedThreads = JSON.parse(savedThreads)
+      setThreads(parsedThreads)
+      if (parsedThreads.length > 0 && !currentThreadId) {
+        setCurrentThreadId(parsedThreads[0].id)
+      }
+    }
+
+    const savedImages = localStorage.getItem('generatedImages')
+    if (savedImages) {
+      setGeneratedImages(JSON.parse(savedImages))
+    }
+  }, [])
+
+  // Save threads and images to local storage
+  useEffect(() => {
+    if (threads.length > 0) {
+      localStorage.setItem('chatThreads', JSON.stringify(threads))
+    }
+  }, [threads])
+
+  useEffect(() => {
+    if (generatedImages.length > 0) {
+      localStorage.setItem('generatedImages', JSON.stringify(generatedImages))
+    }
+  }, [generatedImages])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -32,29 +76,59 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [threads, currentThreadId])
+
+  const createNewThread = () => {
+    const newThread: Thread = {
+      id: Date.now().toString(),
+      name: `Chat ${threads.length + 1}`,
+      messages: [],
+      createdAt: Date.now()
+    }
+    setThreads([newThread, ...threads])
+    setCurrentThreadId(newThread.id)
+  }
+
+  const deleteThread = (threadId: string) => {
+    setThreads(threads.filter(t => t.id !== threadId))
+    if (currentThreadId === threadId) {
+      setCurrentThreadId(threads[0]?.id || null)
+    }
+  }
+
+  const getCurrentThread = () => {
+    return threads.find(t => t.id === currentThreadId)
+  }
+
+  const updateThreadMessages = (threadId: string, messages: Message[]) => {
+    setThreads(threads.map(t => 
+      t.id === threadId ? { ...t, messages } : t
+    ))
+  }
 
   const handleSendMessage = async () => {
-    if (!input.trim()) return
+    if (!input.trim() || !currentThreadId) return
     
+    const thread = getCurrentThread()
+    if (!thread) return
+
     const newMessage: Message = { role: 'user', content: input }
-    const newMessages = [...messages, newMessage]
-    setMessages(newMessages)
+    const newMessages = [...thread.messages, newMessage]
+    updateThreadMessages(currentThreadId, newMessages)
     setInput('')
     setIsLoading(true)
 
     try {
-      // Convert messages to API format
-      const messageHistory = messages.map(msg => ({
+      const messageHistory = thread.messages.map(msg => ({
         role: msg.role,
         content: msg.content
       }))
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
-      setMessages([...newMessages, assistantMessage])
+      const updatedMessages = [...newMessages, assistantMessage]
+      updateThreadMessages(currentThreadId, updatedMessages)
 
-      // Check if Grok's response indicates it wants to generate an image
       if (response.content.toLowerCase().includes('generate') && response.content.toLowerCase().includes('image')) {
         try {
           const imageResponse = await generateImage(input, fluxKey || undefined)
@@ -63,15 +137,22 @@ export default function ChatbotPage() {
             content: 'Here\'s the generated image:',
             image_url: imageResponse.image_url
           }
-          setMessages(prev => [...prev, imageMessage])
-          setGeneratedImage(imageResponse.image_url)
+          const finalMessages = [...updatedMessages, imageMessage]
+          updateThreadMessages(currentThreadId, finalMessages)
+
+          // Add to gallery
+          setGeneratedImages([{
+            url: imageResponse.image_url,
+            prompt: input,
+            createdAt: Date.now()
+          }, ...generatedImages])
         } catch (error) {
           console.error('Error generating image:', error)
           const errorMessage: Message = {
             role: 'assistant',
             content: 'Sorry, there was an error generating the image. Please try again.'
           }
-          setMessages(prev => [...prev, errorMessage])
+          updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
         }
       }
     } catch (error) {
@@ -80,7 +161,7 @@ export default function ChatbotPage() {
         role: 'assistant',
         content: 'Sorry, there was an error processing your message. Please try again.'
       }
-      setMessages([...newMessages, errorMessage])
+      updateThreadMessages(currentThreadId, [...newMessages, errorMessage])
     } finally {
       setIsLoading(false)
     }
@@ -92,23 +173,39 @@ export default function ChatbotPage() {
     setIsLoading(true)
     try {
       const response = await generateImage(imagePrompt, fluxKey || undefined)
-      setGeneratedImage(response.image_url)
       
-      const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
-      const assistantMessage: Message = { 
-        role: 'assistant', 
-        content: 'Here\'s your generated image:', 
-        image_url: response.image_url 
+      // Add to gallery
+      setGeneratedImages([{
+        url: response.image_url,
+        prompt: imagePrompt,
+        createdAt: Date.now()
+      }, ...generatedImages])
+
+      if (currentThreadId) {
+        const thread = getCurrentThread()
+        if (thread) {
+          const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
+          const assistantMessage: Message = { 
+            role: 'assistant', 
+            content: 'Here\'s your generated image:', 
+            image_url: response.image_url 
+          }
+          updateThreadMessages(currentThreadId, [...thread.messages, userMessage, assistantMessage])
+        }
       }
-      setMessages([...messages, userMessage, assistantMessage])
       setImagePrompt('')
     } catch (error) {
       console.error('Error generating image:', error)
-      const errorMessage: Message = { 
-        role: 'assistant', 
-        content: 'Sorry, there was an error generating the image. Please try again.' 
+      if (currentThreadId) {
+        const thread = getCurrentThread()
+        if (thread) {
+          const errorMessage: Message = { 
+            role: 'assistant', 
+            content: 'Sorry, there was an error generating the image. Please try again.' 
+          }
+          updateThreadMessages(currentThreadId, [...thread.messages, errorMessage])
+        }
       }
-      setMessages([...messages, errorMessage])
     } finally {
       setIsLoading(false)
     }
@@ -157,97 +254,178 @@ export default function ChatbotPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="chat" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="image">Image Generation</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="chat" className="mt-4">
-          <div className="h-[600px] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`mb-4 ${
-                  message.role === 'user' ? 'text-right' : 'text-left'
-                }`}
-              >
-                <div
-                  className={`inline-block p-3 rounded-lg ${
-                    message.role === 'user'
-                      ? 'bg-blue-600'
-                      : 'bg-gray-700'
-                  }`}
-                >
-                  {message.content}
-                  {message.image_url && (
-                    <div className="mt-4">
-                      <img
-                        src={message.image_url}
-                        alt="Generated artwork"
-                        className="rounded-lg max-w-full h-auto"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white text-gray-800 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-              placeholder="Type your message..."
-              className="bg-gray-800 border-gray-700"
-              disabled={isLoading}
-            />
-            <Button onClick={handleSendMessage} disabled={isLoading}>
-              {isLoading ? 'Sending...' : 'Send'}
+      <div className="grid grid-cols-4 gap-4">
+        {/* Thread List */}
+        <div className="col-span-1 bg-gray-800 rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold">Threads</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={createNewThread}
+              className="hover:bg-gray-700"
+            >
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="image" className="mt-4">
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={imagePrompt}
-                onChange={(e) => setImagePrompt(e.target.value)}
-                placeholder="Describe the image you want to generate..."
-                className="bg-gray-800 border-gray-700"
-                disabled={isLoading}
-              />
-              <Button onClick={handleGenerateImage} disabled={isLoading}>
-                {isLoading ? 'Generating...' : 'Generate'}
-              </Button>
-            </div>
-            
-            {generatedImage && (
-              <div className="mt-4">
-                <img
-                  src={generatedImage}
-                  alt="Generated"
-                  className="max-w-full rounded-lg"
-                />
+          <div className="space-y-2">
+            {threads.map(thread => (
+              <div
+                key={thread.id}
+                className={`flex justify-between items-center p-2 rounded-lg cursor-pointer ${
+                  currentThreadId === thread.id ? 'bg-blue-600' : 'hover:bg-gray-700'
+                }`}
+                onClick={() => setCurrentThreadId(thread.id)}
+              >
+                <div className="flex items-center space-x-2">
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="truncate">{thread.name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteThread(thread.id)
+                  }}
+                  className="hover:bg-gray-600"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
-            )}
+            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+
+        {/* Main Content */}
+        <div className="col-span-3">
+          <Tabs defaultValue="chat" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-gray-800">
+              <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="image">Image Generation</TabsTrigger>
+              <TabsTrigger value="gallery">Gallery</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="chat" className="mt-4">
+              <div className="h-[600px] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
+                {currentThreadId ? (
+                  getCurrentThread()?.messages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`mb-4 ${
+                        message.role === 'user' ? 'text-right' : 'text-left'
+                      }`}
+                    >
+                      <div
+                        className={`inline-block p-3 rounded-lg ${
+                          message.role === 'user'
+                            ? 'bg-blue-600'
+                            : 'bg-gray-700'
+                        }`}
+                      >
+                        {message.content}
+                        {message.image_url && (
+                          <div className="mt-4">
+                            <img
+                              src={message.image_url}
+                              alt="Generated artwork"
+                              className="rounded-lg max-w-full h-auto"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <MessageSquare className="w-12 h-12 mb-4" />
+                    <p>Create a new thread to start chatting</p>
+                    <Button
+                      variant="ghost"
+                      onClick={createNewThread}
+                      className="mt-4"
+                    >
+                      New Thread
+                    </Button>
+                  </div>
+                )}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white text-gray-800 rounded-lg p-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+                  placeholder={currentThreadId ? "Type your message..." : "Create a thread to start chatting"}
+                  className="bg-gray-800 border-gray-700"
+                  disabled={isLoading || !currentThreadId}
+                />
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={isLoading || !currentThreadId}
+                >
+                  {isLoading ? 'Sending...' : 'Send'}
+                </Button>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="image" className="mt-4">
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                    placeholder="Describe the image you want to generate..."
+                    className="bg-gray-800 border-gray-700"
+                    disabled={isLoading}
+                  />
+                  <Button onClick={handleGenerateImage} disabled={isLoading}>
+                    {isLoading ? 'Generating...' : 'Generate'}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="gallery" className="mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {generatedImages.map((image, index) => (
+                  <div key={index} className="bg-gray-800 rounded-lg overflow-hidden">
+                    <img
+                      src={image.url}
+                      alt={image.prompt}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="p-4">
+                      <p className="text-sm text-gray-300 line-clamp-2">{image.prompt}</p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        {new Date(image.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {generatedImages.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center h-48 text-gray-400">
+                    <ImageIcon className="w-12 h-12 mb-4" />
+                    <p>No images generated yet</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
     </div>
   )
 } 
