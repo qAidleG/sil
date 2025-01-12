@@ -1,94 +1,38 @@
 import { NextResponse } from 'next/server'
 
-const FLUX_API_URL = 'https://api.bfl.ml';
-const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-
-// Validate the request body against required parameters
-function validateRequest(body: any) {
-  const requiredFields = ['prompt'];
-  const missingFields = requiredFields.filter(field => !body[field]);
-  
-  if (missingFields.length > 0) {
-    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-  }
-}
-
-async function getGenerationResult(taskId: string, apiKey: string): Promise<string> {
-  const maxAttempts = 40;
-  const pollInterval = 500; // 0.5 seconds
-  const maxRetries = 3; // Max retries for network errors
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    let retryCount = 0;
-    
-    while (retryCount < maxRetries) {
-      try {
-        const response = await fetch(`${FLUX_API_URL}/v1/generation/${taskId}`, {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to get generation result: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log(`Poll attempt ${attempt}/${maxAttempts}`);
-        console.log('Result response:', data);
-
-        if (data.status === 'Ready' && data.result?.sample) {
-          console.log('Image is ready!');
-          return data.result.sample;
-        }
-
-        // If we get here, the task is still processing
-        break;
-
-      } catch (error) {
-        retryCount++;
-        if (retryCount === maxRetries) {
-          console.error(`Failed after ${maxRetries} retries:`, error);
-          throw error;
-        }
-        console.log(`Retry ${retryCount}/${maxRetries} after error:`, error);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-      }
-    }
-
-    // Wait before next poll attempt
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-  }
-
-  throw new Error('Timeout waiting for generation');
-}
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export async function POST(request: Request) {
-  console.log('=== Starting Flux Generation Process ===');
   try {
-    const { prompt, apiKey } = await request.json();
-    console.log('1. Initial Request Data:', {
-      prompt,
-      apiKey: apiKey?.substring(0, 4) + '...'
-    });
+    const { prompt, apiKey } = await request.json()
 
-    validateRequest({ prompt });
+    if (!prompt) {
+      return NextResponse.json(
+        { error: 'Prompt is required' },
+        { status: 400 }
+      )
+    }
 
-    // Use provided API key or fall back to environment variable
-    const fluxApiKey = apiKey || process.env.FLUX_API_KEY;
+    const fluxApiKey = apiKey || process.env.FLUX_API_KEY
 
     if (!fluxApiKey) {
       return NextResponse.json(
         { error: 'No API key provided' },
         { status: 401 }
-      );
+      )
     }
 
-    // Format the prompt to match the desired style
-    const formattedPrompt = `Create a League of Legends style splash art of ${prompt}. High quality anime art style with dynamic lighting and composition.`;
-    console.log('2. Formatted Prompt:', formattedPrompt);
+    console.log('=== Starting Flux Generation Process ===')
+    console.log('1. Initial Request Data:', {
+      prompt,
+      apiKey: fluxApiKey.substring(0, 4) + '...'
+    })
 
-    // Prepare the request body
+    // Format the prompt to enhance image quality
+    const formattedPrompt = `Create a League of Legends style splash art of ${prompt}. High quality anime art style with dynamic lighting and composition.`
+    console.log('2. Formatted Prompt:', formattedPrompt)
+
+    // Initial request to create the generation task
     const requestBody = {
       prompt: formattedPrompt,
       width: 512,
@@ -97,44 +41,72 @@ export async function POST(request: Request) {
       seed: Math.floor(Math.random() * 1000000),
       safety_tolerance: 6,
       output_format: "jpeg"
-    };
-    console.log('3. Request Body:', JSON.stringify(requestBody, null, 2));
+    }
+    console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
-    // Create the generation task
-    console.log('4. Creating generation task...');
-    const createResponse = await fetch(`${FLUX_API_URL}/v1/generation`, {
+    console.log('4. Creating generation task...')
+    const response = await fetch('https://api.flux.ai/v1/images/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${fluxApiKey}`,
+        'Authorization': `Bearer ${fluxApiKey}`
       },
-      body: JSON.stringify(requestBody),
-    });
+      body: JSON.stringify(requestBody)
+    })
 
-    if (!createResponse.ok) {
-      const error = await createResponse.text();
-      console.error('Flux API Error:', error);
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Flux API Error:', errorText)
       return NextResponse.json(
-        { error: 'Failed to create generation task' },
+        { error: 'Error creating generation task' },
         { status: 200 }
-      );
+      )
     }
 
-    const { id: taskId } = await createResponse.json();
-    console.log('Task created:', { id: taskId });
+    const task = await response.json()
+    console.log('Task created:', task)
 
-    // Poll for the result
-    console.log('5. Polling for task completion...');
-    const imageUrl = await getGenerationResult(taskId, fluxApiKey);
-    console.log('Generation complete:', imageUrl);
+    // Poll for task completion
+    console.log('5. Polling for task completion...')
+    const maxAttempts = 40
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(`Poll attempt ${attempt}/${maxAttempts}`)
+      
+      const resultResponse = await fetch(`https://api.flux.ai/v1/images/generations/${task.id}`, {
+        headers: {
+          'Authorization': `Bearer ${fluxApiKey}`
+        }
+      })
 
-    return NextResponse.json({ image_url: imageUrl });
-  } catch (error) {
-    console.error('Error:', error);
+      if (!resultResponse.ok) {
+        console.error('Error checking generation status:', await resultResponse.text())
+        continue
+      }
+
+      const result = await resultResponse.json()
+      console.log('Result response:', result)
+
+      if (result.status === 'Ready' && result.result?.sample) {
+        console.log('Image is ready!')
+        console.log('Generation complete:', result.result.sample)
+        return NextResponse.json({ image_url: result.result.sample })
+      }
+
+      if (attempt < maxAttempts) {
+        await sleep(500) // Wait 500ms between polls
+      }
+    }
+
     return NextResponse.json(
-      { error: 'Failed to generate image' },
+      { error: 'Generation timed out' },
       { status: 200 }
-    );
+    )
+  } catch (error) {
+    console.error('Error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 200 }
+    )
   }
 }
 
