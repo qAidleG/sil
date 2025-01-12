@@ -39,19 +39,22 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('Flux API Error:', errorText)
       return NextResponse.json(
-        { error: errorText || 'Failed to communicate with Flux API' },
-        { status: response.status }
+        { image_url: null, error: 'Sorry, there was an error generating the image.' },
+        { status: 200 }
       )
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+    return NextResponse.json({
+      image_url: data.image_url || null
+    })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process request' },
-      { status: 500 }
+      { image_url: null, error: 'Sorry, there was an error processing your request.' },
+      { status: 200 }
     )
   }
 }

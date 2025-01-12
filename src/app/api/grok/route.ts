@@ -43,19 +43,23 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('Grok API Error:', errorText)
       return NextResponse.json(
-        { error: errorText || 'Failed to communicate with Grok API' },
-        { status: response.status }
+        { content: 'Sorry, there was an error communicating with Grok.' },
+        { status: 200 }
       )
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+    // Ensure we return the expected format
+    return NextResponse.json({
+      content: data.fields?.profile_bio || 'No response from Grok'
+    })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process request' },
-      { status: 500 }
+      { content: 'Sorry, there was an error processing your request.' },
+      { status: 200 }
     )
   }
 }
