@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const FLUX_API_URL = 'https://api.bfl.ai'
+const FLUX_API_URL = 'https://api.bfl.ml'
 
 export async function POST(request: Request) {
   try {
@@ -37,19 +37,19 @@ export async function POST(request: Request) {
       prompt: formattedPrompt,
       width: 512,
       height: 768,
+      output_format: "jpeg",
       prompt_upsampling: false,
       seed: Math.floor(Math.random() * 1000000),
-      safety_tolerance: 6,
-      output_format: "jpeg"
+      safety_tolerance: 6
     }
     console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
     console.log('4. Creating generation task...')
-    const response = await fetch(`${FLUX_API_URL}/v1/images/generate`, {
+    const response = await fetch(`${FLUX_API_URL}/v1/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${fluxApiKey}`
+        'X-Key': fluxApiKey
       },
       body: JSON.stringify(requestBody)
     })
@@ -69,30 +69,56 @@ export async function POST(request: Request) {
     // Poll for task completion
     console.log('5. Polling for task completion...')
     const maxAttempts = 40
+    const pollInterval = 500 // 0.5 seconds
+    const maxRetries = 3 // Max retries for network errors
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       console.log(`Poll attempt ${attempt}/${maxAttempts}`)
       
-      const resultResponse = await fetch(`${FLUX_API_URL}/v1/images/generations/${task.id}`, {
-        headers: {
-          'Authorization': `Bearer ${fluxApiKey}`
+      let retryCount = 0
+      while (retryCount < maxRetries) {
+        try {
+          const resultResponse = await fetch(`${FLUX_API_URL}/v1/get_result?id=${task.id}`, {
+            method: 'GET',
+            headers: {
+              'X-Key': fluxApiKey
+            }
+          })
+
+          if (!resultResponse.ok) {
+            const errorData = await resultResponse.json()
+            if (resultResponse.status === 404) {
+              // Task not found yet, continue polling
+              break
+            }
+            throw new Error(`Result check failed: ${resultResponse.status} ${JSON.stringify(errorData)}`)
+          }
+
+          const result = await resultResponse.json()
+          console.log('Result response:', result)
+
+          if (result.status === 'Ready' && result.result?.sample) {
+            console.log('Image is ready!')
+            console.log('Generation complete:', result.result.sample)
+            return NextResponse.json({ image_url: result.result.sample })
+          }
+
+          // If we get here, the task is still processing
+          break
+
+        } catch (error) {
+          retryCount++
+          if (retryCount === maxRetries) {
+            console.error(`Failed after ${maxRetries} retries:`, error)
+            throw error
+          }
+          console.log(`Retry ${retryCount}/${maxRetries} after error:`, error)
+          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1s before retry
         }
-      })
-
-      if (!resultResponse.ok) {
-        console.error('Error checking generation status:', await resultResponse.text())
-        continue
       }
 
-      const result = await resultResponse.json()
-      console.log('Result response:', result)
-
-      if (result.status === 'Ready' && result.result?.sample) {
-        console.log('Image is ready!')
-        console.log('Generation complete:', result.result.sample)
-        return NextResponse.json({ image_url: result.result.sample })
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms between polls
+      // Wait before next poll attempt
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
     }
 
     return NextResponse.json(
