@@ -6,6 +6,7 @@ A modern hub for all my projects, featuring a beautiful UI and PWA support.
 
 - 📱 PWA support - installable on mobile devices
 - 🎨 TlDraw integration with persistent storage
+- 📊 AI Assistant with Grok and Flux integration
 - 📊 Project showcase with scrollable cards
 - 🌙 Dark theme with modern design
 - 📱 Touch and mobile-friendly
