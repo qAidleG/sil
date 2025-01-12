@@ -3,6 +3,7 @@
 import { Tldraw, Editor } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 import Link from 'next/link'
+import { Home } from 'lucide-react'
 import { useCallback, useState, useEffect } from 'react'
 
 export default function TlDrawPage() {
@@ -77,40 +78,27 @@ export default function TlDrawPage() {
   )
 
   return (
-    <main className="h-screen flex flex-col bg-gray-900">
-      {/* Navigation Bar */}
-      <nav className="bg-gray-800 px-4 py-2 flex items-center justify-between">
-        <Link 
-          href="/" 
-          className="text-white hover:text-blue-400 flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-          </svg>
-          Back to Hub
+    <div className="h-screen w-screen flex flex-col">
+      {/* Navigation Header */}
+      <div className="flex items-center gap-4 p-4 bg-gray-900">
+        <Link href="/" className="text-white hover:text-blue-400 transition-colors">
+          <Home className="h-6 w-6" />
         </Link>
-        <div className="flex items-center gap-4">
-          {isSaving && (
-            <span className="text-gray-400 text-sm">Saving...</span>
-          )}
-          {saveError && (
-            <span className="text-red-400 text-sm">{saveError}</span>
-          )}
-          <h1 className="text-white font-semibold">TlDraw</h1>
-        </div>
-      </nav>
+        <h1 className="text-xl font-bold text-white">TLDraw</h1>
+        {saveError && (
+          <div className="text-red-500 ml-4">{saveError}</div>
+        )}
+        {isSaving && (
+          <div className="text-gray-400 ml-4">Saving...</div>
+        )}
+      </div>
 
-      {/* TlDraw Canvas */}
+      {/* TLDraw Editor */}
       <div className="flex-1">
         <Tldraw
-          persistenceKey="tldraw-document"
-          onMount={(editor) => {
-            setEditor(editor)
-            const handleStoreChange = () => handleChange(editor)
-            editor.store.listen(handleStoreChange, { source: 'user', scope: 'document' })
-          }}
+          onMount={setEditor}
         />
       </div>
-    </main>
+    </div>
   )
 } 

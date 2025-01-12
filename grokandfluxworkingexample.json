@@ -1,0 +1,330 @@
+{
+  Grok Docs:
+  Chat
+  Chat is one of the most fundamental capabilities of Large Language Models (LLMs) and serves as an excellent starting point for beginners and seasoned developers alike when exploring the functionalities offered by these models.
+  
+  #Prerequisites
+  xAI Account: You need an xAI account to access the API.
+  API Key: Ensure that your API key has access to the chat endpoint and the chat model is enabled.
+  If you don't have these and are unsure of how to create one, follow the Hitchhiker's Guide to Grok.
+  
+  You can create an API key on the xAI Console API Keys Page.
+  
+  Set your API key in your environment:
+  
+  bash
+  
+  
+  export XAI_API_KEY="your_api_key"
+  #Getting batch responses
+  The easiest way is to get familiar with chat capability is to request batch response. Batch responses are ideal when you want complete answers at once. You can also stream the response, which is covered in Streaming Response.
+  
+  The user sends a request to the xAI API endpoint. The API processes this and returns a complete response.
+  
+  
+  python
+  
+  
+  import os
+  from openai import OpenAI
+  
+  XAI_API_KEY = os.getenv("XAI_API_KEY")
+  client = OpenAI(
+      api_key=XAI_API_KEY,
+      base_url="https://api.x.ai/v1",
+  )
+  
+  completion = client.chat.completions.create(
+      model="grok-2-latest",
+      messages=[
+          {"role": "system", "content": "You are Grok, a chatbot inspired by the Hitchhikers Guide to the Galaxy."},
+          {"role": "user", "content": "What is the meaning of life, the universe, and everything?"},
+      ],
+  )
+  
+  print(completion.choices[0].message)
+  Response:
+  
+  
+  python
+  
+  
+  ChatCompletionMessage(
+    content='The meaning of life, the universe, and everything is a question that has puzzled philosophers, scientists, and thinkers for centuries. In Douglas Adams' "The Hitchhiker's Guide to the Galaxy," the answer to this ultimate question is given as **42**. However, this answer is intentionally humorous and satirical, highlighting the absurdity of seeking a simple numeric or definitive answer to such a profound question.
+  
+  In a broader, more philosophical context:
+  
+  - **Existentialists** might argue that life has no inherent meaning, and it's up to each individual to create their own purpose through actions, relationships, and personal growth.
+  - **Religious and spiritual perspectives** offer varied answers, often suggesting that life's meaning involves understanding one's place in a larger divine plan or achieving spiritual enlightenment.
+  - **Science and naturalism** might suggest that life's meaning comes from the natural processes of evolution, survival, and the propagation of species, with human meaning derived from our social, intellectual, and emotional interactions.
+  - **Humanistic views** focus on the potential for human growth, self-actualization, and the pursuit of happiness and fulfillment.
+  
+  Ultimately, the meaning of life might be:
+  
+  - **Personal**: Each person finds or creates their own meaning through their experiences, relationships, passions, and contributions to the world.
+  - **Collective**: In the context of humanity, our shared stories, cultures, progress, and the quest for understanding the universe could be seen as part of the larger meaning.
+  
+  So, while "42" might be the most famous answer from Adams' universe, in reality, the quest for meaning is deeply personal and collective, ever-evolving with human thought and understanding.',
+    refusal=None,
+    role='assistant',
+    audio=None,
+    function_call=None,
+    tool_calls=None)
+  #Conversations
+  The xAI API is stateless and does not process new request with the context of your previous request history.
+  
+  However, you can provide previous chat generation prompts and results to a new chat generation request to let the model process your new request with the context in mind.
+  
+  An example message:
+  
+  json
+  
+  
+  {
+    "role": "user",
+    "content": [{ "type": "text", "text": "Why don't eggs tell jokes?" }]
+  },
+  {
+    "role": "assistant",
+    "content": [{ "type": "text", "text": "They'd crack up!" }]
+  },
+  {
+    "role": "user",
+    "content": [{"type": "text", "text": "Can you explain the joke?"}],
+  }
+  This strategy can be used within function calling, in which the model response will invoke a tool call, the user's program responds to the tool call and continues the conversation by appending tool call result to the message. For more details, check out our guide on Function Calling.
+  
+  #Message role flexibility
+  Unlike some models from other providers, one of the unique aspects of xAI API is its flexibility with message roles:
+  
+  No Order Limitation: You can mix 
+  system
+  , 
+  user
+  , or 
+  assistant
+   roles in any sequence for your conversation context.
+  Example 1 - Multiple System Messages:
+  
+  json
+  
+  
+  [
+  {"role": "system", "content": "..."},
+  {"role": "system", "content": "..."},
+  {"role": "user", "content": "..."},
+  {"role": "user", "content": "..."}
+  ]
+  Example 2 - User Messages First:
+  
+  json
+  
+  
+  {"role": "user", "content": "..."},
+  {"role": "user", "content": "..."},
+  {"role": "system", "content": "..."}
+  #Parameters
+  You can customize the following parameters in the request to achieve different generation results.
+  
+  Request body
+  Search
+  messages
+  
+  array
+  
+  required
+  
+  A list of messages that make up the the chat conversation. Different models support different message types, such as image and text.
+  
+  model
+  
+  string
+  
+  required
+  
+  Model name for the model to use.
+  
+Flux Image generation example:
+
+import { NextResponse } from 'next/server';
+
+const FLUX_API_KEY = process.env.FLUX_API_KEY;
+const FLUX_API_URL = 'https://api.bfl.ml';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+// Debug environment variables
+console.log('Environment variables check:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- FLUX_API_KEY exists:', !!process.env.FLUX_API_KEY);
+console.log('- FLUX_API_KEY length:', process.env.FLUX_API_KEY?.length || 0);
+console.log('- First few chars:', process.env.FLUX_API_KEY?.substring(0, 4) || 'none');
+
+if (!FLUX_API_KEY) {
+  throw new Error('FLUX_API_KEY is not configured');
+}
+
+// Validate the request body against required parameters
+function validateRequest(body: any) {
+  const requiredFields = ['prompt', 'width', 'height', 'output_format'];
+  const missingFields = requiredFields.filter(field => !body[field]);
+  
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+}
+
+async function getGenerationResult(taskId: string): Promise<string> {
+  const maxAttempts = 40;
+  const pollInterval = 500; // 0.5 seconds
+  const maxRetries = 3; // Max retries for network errors
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`\nPoll attempt ${attempt}/${maxAttempts}`);
+    
+    let retryCount = 0;
+    while (retryCount < maxRetries) {
+      try {
+        const resultResponse = await fetch(`${FLUX_API_URL}/v1/get_result?id=${taskId}`, {
+          method: 'GET',
+          headers: {
+            'X-Key': FLUX_API_KEY || ''
+          } as HeadersInit,
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (!resultResponse.ok) {
+          const errorData = await resultResponse.json();
+          if (resultResponse.status === 404) {
+            // Task not found yet, continue polling
+            break;
+          }
+          throw new Error(`Result check failed: ${resultResponse.status} ${JSON.stringify(errorData)}`);
+        }
+
+        const resultData = await resultResponse.json();
+        console.log('Result response:', resultData);
+
+        if (resultData.status === 'Ready' && resultData.result?.sample) {
+          console.log('Image is ready!');
+          return resultData.result.sample;
+        }
+
+        // If we get here, the task is still processing
+        break;
+
+      } catch (error) {
+        retryCount++;
+        if (retryCount === maxRetries) {
+          console.error(`Failed after ${maxRetries} retries:`, error);
+          throw error;
+        }
+        console.log(`Retry ${retryCount}/${maxRetries} after error:`, error);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+      }
+    }
+
+    // Wait before next poll attempt
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+
+  throw new Error('Timeout waiting for generation');
+}
+
+export async function POST(request: Request) {
+  try {
+    console.log('=== Starting Flux Generation Process ===');
+
+    const requestData = await request.json();
+    console.log('\n1. Initial Request Data:', requestData);
+    
+    // Format the prompt based on whether it's a scene or pull request
+    let prompt;
+    let characterName;
+    if (requestData.scene) {
+      characterName = requestData.character.name;
+      prompt = `Create a League of Legends style splash art of ${characterName} in ${requestData.scene.room_name}. ${requestData.scene.description} High quality anime art style with dynamic lighting and composition.`;
+    } else {
+      characterName = typeof requestData.character === 'string' ? requestData.character : requestData.character.name;
+      const description = requestData.description || '';
+      prompt = `Create a League of Legends style splash art of ${characterName}. ${description} High quality anime art style with dynamic lighting and composition.`;
+    }
+    
+    console.log('\n2. Formatted Prompt:', prompt);
+    
+    const requestBody = {
+      prompt,
+      width: 512,
+      height: 768,
+      prompt_upsampling: false,
+      seed: requestData.seed || Math.floor(Math.random() * 1000000),
+      safety_tolerance: 6,
+      output_format: "jpeg"
+    };
+
+    validateRequest(requestBody);
+    console.log('\n3. Request Body:', JSON.stringify(requestBody, null, 2));
+
+    // Step 1: Create generation task
+    console.log('\n4. Creating generation task...');
+    const createResponse = await fetch(`${FLUX_API_URL}/v1/flux-pro-1.1`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Key': FLUX_API_KEY || ''
+      } as HeadersInit,
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json();
+      throw new Error(`Task creation failed: ${createResponse.status} ${JSON.stringify(errorData)}`);
+    }
+
+    const createData = await createResponse.json();
+    console.log('Task created:', createData);
+
+    if (!createData.id) {
+      throw new Error('No task ID received');
+    }
+
+    // Step 2: Poll for task completion
+    console.log('\n5. Polling for task completion...');
+    const fluxImageUrl = await getGenerationResult(createData.id);
+    console.log('Generation complete:', fluxImageUrl);
+
+    // Step 3: Save the image locally
+    console.log('\n6. Saving image locally...');
+    const saveImageResponse = await fetch(`${APP_URL}/api/images`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imageUrl: fluxImageUrl,
+        characterName: characterName
+      }),
+    });
+
+    if (!saveImageResponse.ok) {
+      throw new Error('Failed to save image locally');
+    }
+
+    const { localUrl } = await saveImageResponse.json();
+    console.log('Image saved locally:', localUrl);
+
+    // Step 4: Return the result with local URL
+    return NextResponse.json({
+      success: true,
+      imageUrl: localUrl,
+      seed: requestBody.seed,
+      prompt
+    });
+
+  } catch (error) {
+    console.error('\n❌ Flux API error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+} 

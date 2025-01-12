@@ -1,16 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Settings } from 'lucide-react'
+import { Settings, Home } from 'lucide-react'
+import Link from 'next/link'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 
-type Message = {
-  role: 'user' | 'assistant';
-  content: string;
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  image_url?: string
 }
 
 export default function ChatbotPage() {
@@ -22,6 +24,15 @@ export default function ChatbotPage() {
   const [imagePrompt, setImagePrompt] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   const handleSendMessage = async () => {
     if (!input.trim() || !grokKey) return
@@ -67,7 +78,12 @@ export default function ChatbotPage() {
     <main className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">AI Assistant</h1>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="text-white hover:text-blue-400 transition-colors">
+              <Home className="h-6 w-6" />
+            </Link>
+            <h1 className="text-4xl font-bold">AI Assistant</h1>
+          </div>
           <Button variant="ghost" size="icon" onClick={() => setShowSettings(!showSettings)}>
             <Settings className="h-6 w-6" />
           </Button>
@@ -83,8 +99,8 @@ export default function ChatbotPage() {
                   type="password"
                   value={grokKey}
                   onChange={(e) => setGrokKey(e.target.value)}
-                  className="bg-gray-700 border-gray-600"
                   placeholder="Enter your Grok API key"
+                  className="bg-gray-700 border-gray-600"
                 />
               </div>
               <div>
@@ -93,8 +109,8 @@ export default function ChatbotPage() {
                   type="password"
                   value={fluxKey}
                   onChange={(e) => setFluxKey(e.target.value)}
-                  className="bg-gray-700 border-gray-600"
                   placeholder="Enter your Flux API key"
+                  className="bg-gray-700 border-gray-600"
                 />
               </div>
             </div>
@@ -124,9 +140,31 @@ export default function ChatbotPage() {
                     }`}
                   >
                     {message.content}
+                    {message.image_url && (
+                      <div className="mt-4">
+                        <img
+                          src={message.image_url}
+                          alt="Generated artwork"
+                          className="rounded-lg max-w-full h-auto"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white text-gray-800 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
             <div className="flex gap-2">
               <Input
