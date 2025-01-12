@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
     console.log('4. Creating generation task...')
-    const response = await fetch('https://api.flux.ai/v1/images/generate', {
+    const response = await fetch('https://api.bfl.ai/v1/generation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       console.log(`Poll attempt ${attempt}/${maxAttempts}`)
       
-      const resultResponse = await fetch(`https://api.flux.ai/v1/images/generations/${task.id}`, {
+      const resultResponse = await fetch(`https://api.bfl.ai/v1/generation/${task.id}`, {
         headers: {
           'Authorization': `Bearer ${fluxApiKey}`
         }
