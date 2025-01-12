@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const FLUX_API_URL = 'https://api.bfl.ml'
+const FLUX_API_URL = 'https://api.bfl.ai'
 
 export async function POST(request: Request) {
   try {
