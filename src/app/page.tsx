@@ -90,6 +90,24 @@ const Home = () => {
               </div>
             </Link>
             
+            {/* Chatbot Card */}
+            <Link 
+              href="/chatbot" 
+              className="group flex-none w-[calc(33%-1rem)] min-w-[300px] block relative aspect-[4/3] border-2 border-gray-700 rounded-lg hover:border-blue-500 transition-all duration-300 overflow-hidden snap-start"
+              onClick={(e) => isDragging && e.preventDefault()}
+            >
+              {/* Background Image */}
+              <div className="absolute inset-0">
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-gray-900/20" />
+              </div>
+
+              {/* Content */}
+              <div className="relative z-10 p-4 flex flex-col justify-end h-full">
+                <h2 className="text-2xl font-semibold mb-2 text-white group-hover:text-blue-400 transition-colors">AI Assistant</h2>
+                <p className="text-gray-300">Chat with Grok and generate images with Flux</p>
+              </div>
+            </Link>
+
             {/* Other project cards */}
             {[...Array(5)].map((_, i) => (
               <div 

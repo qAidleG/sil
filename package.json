@@ -9,16 +9,22 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-tabs": "^1.1.2",
     "@tldraw/tldraw": "^3.7.0",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "eslint": "latest",
+    "lucide-react": "^0.471.0",
     "next": "latest",
     "postcss": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "tailwind-merge": "^2.6.0",
     "tailwindcss": "latest",
     "typescript": "latest"
   }
