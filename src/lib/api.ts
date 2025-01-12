@@ -7,25 +7,14 @@ interface FluxResponse {
 }
 
 export async function sendGrokMessage(message: string, apiKey: string): Promise<GrokResponse> {
-  const response = await fetch('https://api.x.ai/v1/generate', {
+  const response = await fetch('/api/grok', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      prompt_template: "Create a detailed character profile for the gacha pull.",
-      variables: {
-        character_name: message,
-        series: "Unknown",
-        rarity: "Unknown"
-      },
-      output_format: "json",
-      fields: {
-        profile_bio: "[Generated Bio]",
-        traits: "[Generated Personality Traits]",
-        dialog_samples: ["Dialog 1"]
-      }
+      message,
+      apiKey,
     }),
   });
 
@@ -37,21 +26,14 @@ export async function sendGrokMessage(message: string, apiKey: string): Promise<
 }
 
 export async function generateImage(prompt: string, apiKey: string): Promise<FluxResponse> {
-  const response = await fetch('https://api.bfl.ai/v1/generate_image', {
+  const response = await fetch('/api/flux', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      prompt_template: "Generate artwork for [Character Name] in [Room Name].",
-      variables: {
-        character_name: prompt,
-        series: "Unknown",
-        room_name: "Default Room",
-        art_style_instructions: "Modern, high-quality digital art style"
-      },
-      output_format: "image_url"
+      prompt,
+      apiKey,
     }),
   });
 
