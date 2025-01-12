@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
 
-const FLUX_API_URL = 'https://api.bfl.ai'
-
 export async function POST(request: Request) {
   try {
     const { prompt, apiKey } = await request.json()
@@ -35,7 +33,7 @@ export async function POST(request: Request) {
     // Initial request to create the generation task
     const requestBody = {
       prompt: formattedPrompt,
-      width: 512,
+      width: 1024,
       height: 768,
       output_format: "jpeg",
       prompt_upsampling: false,
@@ -45,11 +43,11 @@ export async function POST(request: Request) {
     console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
     console.log('4. Creating generation task...')
-    const response = await fetch(`${FLUX_API_URL}/v1/generate`, {
+    const response = await fetch('https://api.bfl.ai/v1/flux-pro-1.1', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Key': fluxApiKey
+        'x-key': fluxApiKey
       },
       body: JSON.stringify(requestBody)
     })
@@ -78,20 +76,21 @@ export async function POST(request: Request) {
       let retryCount = 0
       while (retryCount < maxRetries) {
         try {
-          const resultResponse = await fetch(`${FLUX_API_URL}/v1/get_result?id=${task.id}`, {
+          const resultResponse = await fetch(`https://api.bfl.ai/v1/get_result?id=${task.id}`, {
             method: 'GET',
             headers: {
-              'X-Key': fluxApiKey
+              'x-key': fluxApiKey
             }
           })
 
           if (!resultResponse.ok) {
-            const errorData = await resultResponse.json()
+            const errorData = await resultResponse.text()
+            console.error(`Result check failed: ${resultResponse.status} ${errorData}`)
             if (resultResponse.status === 404) {
               // Task not found yet, continue polling
               break
             }
-            throw new Error(`Result check failed: ${resultResponse.status} ${JSON.stringify(errorData)}`)
+            throw new Error(`Result check failed: ${resultResponse.status}`)
           }
 
           const result = await resultResponse.json()
