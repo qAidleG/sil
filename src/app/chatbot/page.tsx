@@ -8,11 +8,16 @@ import { Card } from "@/components/ui/card"
 import { Settings } from 'lucide-react'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 
+type Message = {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export default function ChatbotPage() {
   const [grokKey, setGrokKey] = useState('')
   const [fluxKey, setFluxKey] = useState('')
   const [showSettings, setShowSettings] = useState(false)
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [imagePrompt, setImagePrompt] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
@@ -21,17 +26,23 @@ export default function ChatbotPage() {
   const handleSendMessage = async () => {
     if (!input.trim() || !grokKey) return
     
-    const newMessages = [...messages, { role: 'user', content: input }]
+    const newMessage: Message = { role: 'user', content: input }
+    const newMessages = [...messages, newMessage]
     setMessages(newMessages)
     setInput('')
     setIsLoading(true)
 
     try {
       const response = await sendGrokMessage(input, grokKey)
-      setMessages([...newMessages, { role: 'assistant', content: response.content }])
+      const assistantMessage: Message = { role: 'assistant', content: response.content }
+      setMessages([...newMessages, assistantMessage])
     } catch (error) {
       console.error('Error:', error)
-      setMessages([...newMessages, { role: 'assistant', content: 'Sorry, there was an error processing your request.' }])
+      const errorMessage: Message = { 
+        role: 'assistant', 
+        content: 'Sorry, there was an error processing your request.' 
+      }
+      setMessages([...newMessages, errorMessage])
     } finally {
       setIsLoading(false)
     }
