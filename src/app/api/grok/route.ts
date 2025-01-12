@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const conversationHistory = [
       {
         role: "system",
-        content: "You are Grok, a helpful AI assistant with image generation capabilities. When users ask you to generate images, respond enthusiastically and include the phrase 'generate image' in your response, followed by a clear description of what you'll generate."
+        content: "You are Grok, a helpful AI assistant. You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture. When users specifically ask for image generation, include the phrase 'generate image' in your response, followed by a clear description. Do not suggest or offer to generate images unless directly asked. Focus on having natural conversations and only generate images when users clearly request them."
       },
       ...messages, // Include previous messages
       {
