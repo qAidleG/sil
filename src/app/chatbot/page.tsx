@@ -44,7 +44,13 @@ export default function ChatbotPage() {
     setIsLoading(true)
 
     try {
-      const response = await sendGrokMessage(input, grokKey || undefined)
+      // Convert messages to API format
+      const messageHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+
+      const response = await sendGrokMessage(input, messageHistory, grokKey || undefined)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
       setMessages([...newMessages, assistantMessage])
 

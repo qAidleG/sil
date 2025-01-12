@@ -6,9 +6,14 @@ interface FluxResponse {
   image_url: string;
 }
 
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
-export async function sendGrokMessage(message: string, apiKey?: string): Promise<GrokResponse> {
+export async function sendGrokMessage(message: string, messages: Message[] = [], apiKey?: string): Promise<GrokResponse> {
   const response = await fetch(`${BASE_URL}/api/grok`, {
     method: 'POST',
     headers: {
@@ -16,6 +21,7 @@ export async function sendGrokMessage(message: string, apiKey?: string): Promise
     },
     body: JSON.stringify({
       message,
+      messages,
       apiKey,
     }),
     credentials: 'same-origin',

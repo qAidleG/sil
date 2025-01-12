@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const { message, apiKey } = await request.json()
+    const { message, messages = [], apiKey } = await request.json()
 
     if (!message) {
       return NextResponse.json(
@@ -11,39 +11,37 @@ export async function POST(request: Request) {
       )
     }
 
-    // Use provided API key or fall back to environment variable
-    const grokApiKey = apiKey || process.env.GROK_API_KEY
+    const grokKey = apiKey || process.env.GROK_API_KEY
 
-    if (!grokApiKey) {
+    if (!grokKey) {
       return NextResponse.json(
         { error: 'No API key provided' },
         { status: 401 }
       )
     }
 
-    console.log('Sending request to Grok with:', {
-      apiKey: grokApiKey.substring(0, 4) + '...',
-      message
-    })
+    // Prepare the conversation history
+    const conversationHistory = [
+      {
+        role: "system",
+        content: "You are Grok, a helpful AI assistant with image generation capabilities. When users ask you to generate images, respond enthusiastically and include the phrase 'generate image' in your response, followed by a clear description of what you'll generate."
+      },
+      ...messages, // Include previous messages
+      {
+        role: "user",
+        content: message
+      }
+    ]
 
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${grokApiKey}`,
+        'Authorization': `Bearer ${grokKey}`
       },
       body: JSON.stringify({
-        model: "grok-2-1212",
-        messages: [
-          {
-            role: "system",
-            content: "You are Grok, a helpful AI assistant with image generation capabilities. When users ask you to generate images, respond enthusiastically and include the phrase 'generate image' in your response, followed by a clear description of what you'll generate. For example: 'I'll generate image of [description]' or 'Let me generate image based on [description]'."
-          },
-          {
-            role: "user",
-            content: message
-          }
-        ]
+        messages: conversationHistory,
+        model: "grok-2-1212"
       })
     })
 
@@ -51,7 +49,7 @@ export async function POST(request: Request) {
       const errorText = await response.text()
       console.error('Grok API Error:', errorText)
       return NextResponse.json(
-        { content: 'Sorry, there was an error communicating with Grok.' },
+        { error: 'Error communicating with Grok' },
         { status: 200 }
       )
     }
@@ -63,7 +61,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
-      { content: 'Sorry, there was an error processing your request.' },
+      { error: 'Internal server error' },
       { status: 200 }
     )
   }
