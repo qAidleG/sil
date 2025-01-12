@@ -8,7 +8,7 @@ interface FluxResponse {
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
-export async function sendGrokMessage(message: string, apiKey: string): Promise<GrokResponse> {
+export async function sendGrokMessage(message: string, apiKey?: string): Promise<GrokResponse> {
   const response = await fetch(`${BASE_URL}/api/grok`, {
     method: 'POST',
     headers: {
@@ -29,7 +29,7 @@ export async function sendGrokMessage(message: string, apiKey: string): Promise<
   return response.json();
 }
 
-export async function generateImage(prompt: string, apiKey: string): Promise<FluxResponse> {
+export async function generateImage(prompt: string, apiKey?: string): Promise<FluxResponse> {
   const response = await fetch(`${BASE_URL}/api/flux`, {
     method: 'POST',
     headers: {
@@ -44,7 +44,7 @@ export async function generateImage(prompt: string, apiKey: string): Promise<Flu
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(error || 'Failed to generate image with Flux');
+    throw new Error(error || 'Failed to generate image');
   }
 
   return response.json();

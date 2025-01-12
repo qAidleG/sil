@@ -35,7 +35,7 @@ export default function ChatbotPage() {
   }, [messages])
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !grokKey) return
+    if (!input.trim()) return
     
     const newMessage: Message = { role: 'user', content: input }
     const newMessages = [...messages, newMessage]
@@ -44,14 +44,14 @@ export default function ChatbotPage() {
     setIsLoading(true)
 
     try {
-      const response = await sendGrokMessage(input, grokKey)
+      const response = await sendGrokMessage(input, grokKey || undefined)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
       setMessages([...newMessages, assistantMessage])
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error sending message:', error)
       const errorMessage: Message = { 
         role: 'assistant', 
-        content: 'Sorry, there was an error processing your request.' 
+        content: 'Sorry, there was an error processing your message. Please try again.' 
       }
       setMessages([...newMessages, errorMessage])
     } finally {
@@ -60,155 +60,167 @@ export default function ChatbotPage() {
   }
 
   const handleGenerateImage = async () => {
-    if (!imagePrompt.trim() || !fluxKey) return
-    setIsLoading(true)
+    if (!imagePrompt.trim()) return
     
+    setIsLoading(true)
     try {
-      const response = await generateImage(imagePrompt, fluxKey)
+      const response = await generateImage(imagePrompt, fluxKey || undefined)
       setGeneratedImage(response.image_url)
+      
+      const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
+      const assistantMessage: Message = { 
+        role: 'assistant', 
+        content: 'Here\'s your generated image:', 
+        image_url: response.image_url 
+      }
+      setMessages([...messages, userMessage, assistantMessage])
+      setImagePrompt('')
     } catch (error) {
-      console.error('Error:', error)
-      alert('Failed to generate image. Please try again.')
+      console.error('Error generating image:', error)
+      const errorMessage: Message = { 
+        role: 'assistant', 
+        content: 'Sorry, there was an error generating the image. Please try again.' 
+      }
+      setMessages([...messages, errorMessage])
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-white hover:text-blue-400 transition-colors">
-              <Home className="h-6 w-6" />
-            </Link>
-            <h1 className="text-4xl font-bold">AI Assistant</h1>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => setShowSettings(!showSettings)}>
-            <Settings className="h-6 w-6" />
-          </Button>
-        </div>
+    <div className="min-h-screen bg-gray-900 text-white p-4">
+      <div className="flex justify-between items-center mb-4">
+        <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+          <Home className="w-6 h-6" />
+        </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowSettings(!showSettings)}
+          className="hover:bg-gray-800"
+        >
+          <Settings className="w-6 h-6" />
+        </Button>
+      </div>
 
-        {showSettings && (
-          <Card className="p-6 mb-8 bg-gray-800 border-gray-700">
-            <h2 className="text-xl font-semibold mb-4">API Settings</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Grok API Key</label>
-                <Input
-                  type="password"
-                  value={grokKey}
-                  onChange={(e) => setGrokKey(e.target.value)}
-                  placeholder="Enter your Grok API key"
-                  className="bg-gray-700 border-gray-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Flux API Key</label>
-                <Input
-                  type="password"
-                  value={fluxKey}
-                  onChange={(e) => setFluxKey(e.target.value)}
-                  placeholder="Enter your Flux API key"
-                  className="bg-gray-700 border-gray-600"
-                />
-              </div>
+      {showSettings && (
+        <Card className="p-4 mb-4 bg-gray-800 border-gray-700">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Grok API Key (Optional)</label>
+              <Input
+                type="password"
+                value={grokKey}
+                onChange={(e) => setGrokKey(e.target.value)}
+                placeholder="Enter to override environment variable"
+                className="bg-gray-700 border-gray-600"
+              />
             </div>
-          </Card>
-        )}
+            <div>
+              <label className="block text-sm font-medium mb-1">Flux API Key (Optional)</label>
+              <Input
+                type="password"
+                value={fluxKey}
+                onChange={(e) => setFluxKey(e.target.value)}
+                placeholder="Enter to override environment variable"
+                className="bg-gray-700 border-gray-600"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
-        <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800">
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="image">Image Generation</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="chat" className="mt-4">
-            <div className="h-[600px] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
-              {messages.map((message, index) => (
+      <Tabs defaultValue="chat" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-gray-800">
+          <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="image">Image Generation</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="chat" className="mt-4">
+          <div className="h-[600px] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`mb-4 ${
+                  message.role === 'user' ? 'text-right' : 'text-left'
+                }`}
+              >
                 <div
-                  key={index}
-                  className={`mb-4 ${
-                    message.role === 'user' ? 'text-right' : 'text-left'
+                  className={`inline-block p-3 rounded-lg ${
+                    message.role === 'user'
+                      ? 'bg-blue-600'
+                      : 'bg-gray-700'
                   }`}
                 >
-                  <div
-                    className={`inline-block p-3 rounded-lg ${
-                      message.role === 'user'
-                        ? 'bg-blue-600'
-                        : 'bg-gray-700'
-                    }`}
-                  >
-                    {message.content}
-                    {message.image_url && (
-                      <div className="mt-4">
-                        <img
-                          src={message.image_url}
-                          alt="Generated artwork"
-                          className="rounded-lg max-w-full h-auto"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white text-gray-800 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                  {message.content}
+                  {message.image_url && (
+                    <div className="mt-4">
+                      <img
+                        src={message.image_url}
+                        alt="Generated artwork"
+                        className="rounded-lg max-w-full h-auto"
+                        loading="lazy"
+                      />
                     </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white text-gray-800 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                   </div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
+              placeholder={!grokKey ? "Please enter your Grok API key in settings first" : "Type your message..."}
+              className="bg-gray-800 border-gray-700"
+              disabled={!grokKey || isLoading}
+            />
+            <Button onClick={handleSendMessage} disabled={!grokKey || isLoading}>
+              {isLoading ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="image" className="mt-4">
+          <div className="space-y-4">
             <div className="flex gap-2">
               <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                placeholder={!grokKey ? "Please enter your Grok API key in settings first" : "Type your message..."}
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder={!fluxKey ? "Please enter your Flux API key in settings first" : "Describe the image you want to generate..."}
                 className="bg-gray-800 border-gray-700"
-                disabled={!grokKey || isLoading}
+                disabled={!fluxKey || isLoading}
               />
-              <Button onClick={handleSendMessage} disabled={!grokKey || isLoading}>
-                {isLoading ? 'Sending...' : 'Send'}
+              <Button onClick={handleGenerateImage} disabled={!fluxKey || isLoading}>
+                {isLoading ? 'Generating...' : 'Generate'}
               </Button>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="image" className="mt-4">
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder={!fluxKey ? "Please enter your Flux API key in settings first" : "Describe the image you want to generate..."}
-                  className="bg-gray-800 border-gray-700"
-                  disabled={!fluxKey || isLoading}
+            
+            {generatedImage && (
+              <div className="mt-4">
+                <img
+                  src={generatedImage}
+                  alt="Generated"
+                  className="max-w-full rounded-lg"
                 />
-                <Button onClick={handleGenerateImage} disabled={!fluxKey || isLoading}>
-                  {isLoading ? 'Generating...' : 'Generate'}
-                </Button>
               </div>
-              
-              {generatedImage && (
-                <div className="mt-4">
-                  <img
-                    src={generatedImage}
-                    alt="Generated"
-                    className="max-w-full rounded-lg"
-                  />
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </main>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 } 

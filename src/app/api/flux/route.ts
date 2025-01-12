@@ -5,7 +5,7 @@ const APP_URL = typeof window !== 'undefined' ? window.location.origin : 'http:/
 
 // Validate the request body against required parameters
 function validateRequest(body: any) {
-  const requiredFields = ['prompt', 'width', 'height', 'output_format'];
+  const requiredFields = ['prompt'];
   const missingFields = requiredFields.filter(field => !body[field]);
   
   if (missingFields.length > 0) {
@@ -19,34 +19,27 @@ async function getGenerationResult(taskId: string, apiKey: string): Promise<stri
   const maxRetries = 3; // Max retries for network errors
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`\nPoll attempt ${attempt}/${maxAttempts}`);
-    
     let retryCount = 0;
+    
     while (retryCount < maxRetries) {
       try {
-        const resultResponse = await fetch(`${FLUX_API_URL}/v1/get_result?id=${taskId}`, {
-          method: 'GET',
+        const response = await fetch(`${FLUX_API_URL}/v1/generation/${taskId}`, {
           headers: {
-            'X-Key': apiKey
-          },
-          signal: AbortSignal.timeout(5000)
+            'Authorization': `Bearer ${apiKey}`,
+          }
         });
 
-        if (!resultResponse.ok) {
-          const errorData = await resultResponse.json();
-          if (resultResponse.status === 404) {
-            // Task not found yet, continue polling
-            break;
-          }
-          throw new Error(`Result check failed: ${resultResponse.status} ${JSON.stringify(errorData)}`);
+        if (!response.ok) {
+          throw new Error(`Failed to get generation result: ${response.statusText}`);
         }
 
-        const resultData = await resultResponse.json();
-        console.log('Result response:', resultData);
+        const data = await response.json();
+        console.log(`Poll attempt ${attempt}/${maxAttempts}`);
+        console.log('Result response:', data);
 
-        if (resultData.status === 'Ready' && resultData.result?.sample) {
+        if (data.status === 'Ready' && data.result?.sample) {
           console.log('Image is ready!');
-          return resultData.result.sample;
+          return data.result.sample;
         }
 
         // If we get here, the task is still processing
@@ -71,30 +64,31 @@ async function getGenerationResult(taskId: string, apiKey: string): Promise<stri
 }
 
 export async function POST(request: Request) {
+  console.log('=== Starting Flux Generation Process ===');
   try {
-    console.log('=== Starting Flux Generation Process ===');
+    const { prompt, apiKey } = await request.json();
+    console.log('1. Initial Request Data:', {
+      prompt,
+      apiKey: apiKey?.substring(0, 4) + '...'
+    });
 
-    const requestData = await request.json();
-    const { prompt, apiKey } = requestData;
-    console.log('\n1. Initial Request Data:', { prompt, apiKey: apiKey?.substring(0, 4) + '...' });
+    validateRequest({ prompt });
 
-    if (!apiKey) {
+    // Use provided API key or fall back to environment variable
+    const fluxApiKey = apiKey || process.env.FLUX_API_KEY;
+
+    if (!fluxApiKey) {
       return NextResponse.json(
-        { error: 'API key is required' },
+        { error: 'No API key provided' },
         { status: 401 }
-      )
+      );
     }
 
-    if (!prompt) {
-      return NextResponse.json(
-        { error: 'Prompt is required' },
-        { status: 400 }
-      )
-    }
-    
+    // Format the prompt to match the desired style
     const formattedPrompt = `Create a League of Legends style splash art of ${prompt}. High quality anime art style with dynamic lighting and composition.`;
-    console.log('\n2. Formatted Prompt:', formattedPrompt);
-    
+    console.log('2. Formatted Prompt:', formattedPrompt);
+
+    // Prepare the request body
     const requestBody = {
       prompt: formattedPrompt,
       width: 512,
@@ -104,52 +98,43 @@ export async function POST(request: Request) {
       safety_tolerance: 6,
       output_format: "jpeg"
     };
+    console.log('3. Request Body:', JSON.stringify(requestBody, null, 2));
 
-    validateRequest(requestBody);
-    console.log('\n3. Request Body:', JSON.stringify(requestBody, null, 2));
-
-    // Step 1: Create generation task
-    console.log('\n4. Creating generation task...');
-    const createResponse = await fetch(`${FLUX_API_URL}/v1/flux-pro-1.1`, {
+    // Create the generation task
+    console.log('4. Creating generation task...');
+    const createResponse = await fetch(`${FLUX_API_URL}/v1/generation`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Key': apiKey
+        'Authorization': `Bearer ${fluxApiKey}`,
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
     });
 
     if (!createResponse.ok) {
-      const errorData = await createResponse.json();
-      throw new Error(`Task creation failed: ${createResponse.status} ${JSON.stringify(errorData)}`);
+      const error = await createResponse.text();
+      console.error('Flux API Error:', error);
+      return NextResponse.json(
+        { error: 'Failed to create generation task' },
+        { status: 200 }
+      );
     }
 
-    const createData = await createResponse.json();
-    console.log('Task created:', createData);
+    const { id: taskId } = await createResponse.json();
+    console.log('Task created:', { id: taskId });
 
-    if (!createData.id) {
-      throw new Error('No task ID received');
-    }
+    // Poll for the result
+    console.log('5. Polling for task completion...');
+    const imageUrl = await getGenerationResult(taskId, fluxApiKey);
+    console.log('Generation complete:', imageUrl);
 
-    // Step 2: Poll for task completion
-    console.log('\n5. Polling for task completion...');
-    const fluxImageUrl = await getGenerationResult(createData.id, apiKey);
-    console.log('Generation complete:', fluxImageUrl);
-
-    // Return the result
-    return NextResponse.json({
-      success: true,
-      image_url: fluxImageUrl,
-      seed: requestBody.seed,
-      prompt: formattedPrompt
-    });
-
+    return NextResponse.json({ image_url: imageUrl });
   } catch (error) {
-    console.error('\n❌ Flux API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate image' },
+      { status: 200 }
+    );
   }
 }
 
