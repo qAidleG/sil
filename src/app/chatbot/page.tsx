@@ -47,11 +47,32 @@ export default function ChatbotPage() {
       const response = await sendGrokMessage(input, grokKey || undefined)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
       setMessages([...newMessages, assistantMessage])
+
+      // Check if Grok's response indicates it wants to generate an image
+      if (response.content.toLowerCase().includes('generate') && response.content.toLowerCase().includes('image')) {
+        try {
+          const imageResponse = await generateImage(input, fluxKey || undefined)
+          const imageMessage: Message = {
+            role: 'assistant',
+            content: 'Here\'s the generated image:',
+            image_url: imageResponse.image_url
+          }
+          setMessages(prev => [...prev, imageMessage])
+          setGeneratedImage(imageResponse.image_url)
+        } catch (error) {
+          console.error('Error generating image:', error)
+          const errorMessage: Message = {
+            role: 'assistant',
+            content: 'Sorry, there was an error generating the image. Please try again.'
+          }
+          setMessages(prev => [...prev, errorMessage])
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error)
-      const errorMessage: Message = { 
-        role: 'assistant', 
-        content: 'Sorry, there was an error processing your message. Please try again.' 
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: 'Sorry, there was an error processing your message. Please try again.'
       }
       setMessages([...newMessages, errorMessage])
     } finally {
