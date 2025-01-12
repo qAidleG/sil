@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const FLUX_API_URL = 'https://api.bfl.ai'
 
 export async function POST(request: Request) {
   try {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
     console.log('4. Creating generation task...')
-    const response = await fetch('https://api.bfl.ai/v1/generation', {
+    const response = await fetch(`${FLUX_API_URL}/v1/images/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       console.log(`Poll attempt ${attempt}/${maxAttempts}`)
       
-      const resultResponse = await fetch(`https://api.bfl.ai/v1/generation/${task.id}`, {
+      const resultResponse = await fetch(`${FLUX_API_URL}/v1/images/generations/${task.id}`, {
         headers: {
           'Authorization': `Bearer ${fluxApiKey}`
         }
@@ -92,9 +92,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ image_url: result.result.sample })
       }
 
-      if (attempt < maxAttempts) {
-        await sleep(500) // Wait 500ms between polls
-      }
+      await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms between polls
     }
 
     return NextResponse.json(
