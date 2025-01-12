@@ -184,11 +184,11 @@ export default function ChatbotPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-              placeholder={!grokKey ? "Please enter your Grok API key in settings first" : "Type your message..."}
+              placeholder="Type your message..."
               className="bg-gray-800 border-gray-700"
-              disabled={!grokKey || isLoading}
+              disabled={isLoading}
             />
-            <Button onClick={handleSendMessage} disabled={!grokKey || isLoading}>
+            <Button onClick={handleSendMessage} disabled={isLoading}>
               {isLoading ? 'Sending...' : 'Send'}
             </Button>
           </div>
@@ -200,11 +200,11 @@ export default function ChatbotPage() {
               <Input
                 value={imagePrompt}
                 onChange={(e) => setImagePrompt(e.target.value)}
-                placeholder={!fluxKey ? "Please enter your Flux API key in settings first" : "Describe the image you want to generate..."}
+                placeholder="Describe the image you want to generate..."
                 className="bg-gray-800 border-gray-700"
-                disabled={!fluxKey || isLoading}
+                disabled={isLoading}
               />
-              <Button onClick={handleGenerateImage} disabled={!fluxKey || isLoading}>
+              <Button onClick={handleGenerateImage} disabled={isLoading}>
                 {isLoading ? 'Generating...' : 'Generate'}
               </Button>
             </div>
