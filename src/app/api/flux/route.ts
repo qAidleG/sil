@@ -21,18 +21,11 @@ export async function POST(request: Request) {
     }
 
     console.log('=== Starting Flux Generation Process ===')
-    console.log('1. Initial Request Data:', {
-      prompt,
-      apiKey: fluxApiKey.substring(0, 4) + '...'
-    })
-
-    // Format the prompt to enhance image quality
-    const formattedPrompt = `Create a League of Legends style splash art of ${prompt}. High quality anime art style with dynamic lighting and composition.`
-    console.log('2. Formatted Prompt:', formattedPrompt)
+    console.log('1. Initial Request:', { prompt })
 
     // Initial request to create the generation task
     const requestBody = {
-      prompt: formattedPrompt,
+      prompt,
       width: 1024,
       height: 768,
       output_format: "jpeg",
@@ -40,79 +33,69 @@ export async function POST(request: Request) {
       seed: Math.floor(Math.random() * 1000000),
       safety_tolerance: 6
     }
-    console.log('3. Request Body:', JSON.stringify(requestBody, null, 2))
 
-    console.log('4. Creating generation task...')
+    console.log('2. Creating generation task...')
     const response = await fetch('https://api.bfl.ai/v1/flux-pro-1.1', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-key': fluxApiKey
+        'X-Key': fluxApiKey
       },
       body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Flux API Error:', errorText)
+      console.error('Flux API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      })
       return NextResponse.json(
-        { error: 'Error creating generation task' },
-        { status: 200 }
+        { error: `Error creating generation task: ${response.status} ${response.statusText}` },
+        { status: response.status }
       )
     }
 
     const task = await response.json()
-    console.log('Task created:', task)
+    console.log('3. Task created:', task)
 
     // Poll for task completion
-    console.log('5. Polling for task completion...')
+    console.log('4. Polling for task completion...')
     const maxAttempts = 40
     const pollInterval = 500 // 0.5 seconds
-    const maxRetries = 3 // Max retries for network errors
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       console.log(`Poll attempt ${attempt}/${maxAttempts}`)
       
-      let retryCount = 0
-      while (retryCount < maxRetries) {
-        try {
-          const resultResponse = await fetch(`https://api.bfl.ai/v1/get_result?id=${task.id}`, {
-            method: 'GET',
-            headers: {
-              'x-key': fluxApiKey
-            }
-          })
+      const resultResponse = await fetch(`https://api.bfl.ai/v1/get_result?id=${task.id}`, {
+        method: 'GET',
+        headers: {
+          'X-Key': fluxApiKey
+        }
+      })
 
-          if (!resultResponse.ok) {
-            const errorData = await resultResponse.text()
-            console.error(`Result check failed: ${resultResponse.status} ${errorData}`)
-            if (resultResponse.status === 404) {
-              // Task not found yet, continue polling
-              break
-            }
-            throw new Error(`Result check failed: ${resultResponse.status}`)
-          }
+      if (!resultResponse.ok) {
+        const errorText = await resultResponse.text()
+        console.error('Result check failed:', {
+          status: resultResponse.status,
+          statusText: resultResponse.statusText,
+          error: errorText
+        })
+        
+        if (resultResponse.status !== 404) {
+          return NextResponse.json(
+            { error: `Error checking generation status: ${resultResponse.status} ${resultResponse.statusText}` },
+            { status: resultResponse.status }
+          )
+        }
+      } else {
+        const result = await resultResponse.json()
+        console.log('5. Result response:', result)
 
-          const result = await resultResponse.json()
-          console.log('Result response:', result)
-
-          if (result.status === 'Ready' && result.result?.sample) {
-            console.log('Image is ready!')
-            console.log('Generation complete:', result.result.sample)
-            return NextResponse.json({ image_url: result.result.sample })
-          }
-
-          // If we get here, the task is still processing
-          break
-
-        } catch (error) {
-          retryCount++
-          if (retryCount === maxRetries) {
-            console.error(`Failed after ${maxRetries} retries:`, error)
-            throw error
-          }
-          console.log(`Retry ${retryCount}/${maxRetries} after error:`, error)
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1s before retry
+        if (result.status === 'Ready' && result.result?.sample) {
+          console.log('6. Image is ready!')
+          return NextResponse.json({ image_url: result.result.sample })
         }
       }
 
@@ -121,14 +104,14 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { error: 'Generation timed out' },
-      { status: 200 }
+      { error: 'Generation timed out after 20 seconds' },
+      { status: 408 }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 200 }
+      { status: 500 }
     )
   }
 }
@@ -139,7 +122,7 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Key',
     },
   })
 } 
