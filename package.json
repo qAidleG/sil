@@ -27,6 +27,7 @@
     "react-dom": "latest",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "latest",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "latest"
   }
 }
