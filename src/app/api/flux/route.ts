@@ -49,10 +49,11 @@ export async function POST(request: Request) {
       console.error('Flux API Error:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText
+        error: errorText,
+        headers: Object.fromEntries(response.headers.entries())
       })
       return NextResponse.json(
-        { error: `Error creating generation task: ${response.status} ${response.statusText}` },
+        { error: `Error creating generation task: ${errorText}` },
         { status: response.status }
       )
     }
@@ -80,12 +81,13 @@ export async function POST(request: Request) {
         console.error('Result check failed:', {
           status: resultResponse.status,
           statusText: resultResponse.statusText,
-          error: errorText
+          error: errorText,
+          headers: Object.fromEntries(resultResponse.headers.entries())
         })
         
         if (resultResponse.status !== 404) {
           return NextResponse.json(
-            { error: `Error checking generation status: ${resultResponse.status} ${resultResponse.statusText}` },
+            { error: `Error checking generation status: ${errorText}` },
             { status: resultResponse.status }
           )
         }
