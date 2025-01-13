@@ -314,46 +314,57 @@ export default function ChatbotPage() {
             <TabsContent value="chat" className="flex-1 mt-4">
               <div className="h-[calc(100vh-16rem)] bg-gray-800 rounded-lg p-4 mb-4 overflow-y-auto">
                 {currentThreadId ? (
-                  getCurrentThread()?.messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`mb-4 flex ${
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}
-                    >
-                      {message.role === 'assistant' && (
-                        <img
-                          src="/grok_icon.png"
-                          alt="Grok AI"
-                          className="w-8 h-8 rounded-full mr-2 self-end"
-                        />
-                      )}
+                  getCurrentThread()?.messages.map((message, index, messages) => {
+                    const isLastMessage = index === messages.length - 1;
+                    return (
                       <div
-                        className={`p-3 rounded-lg max-w-[80%] ${
-                          message.role === 'user'
-                            ? 'bg-blue-600'
-                            : 'bg-gray-700'
-                        }`}
+                        key={index}
+                        className={`mb-4 flex ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        } ${isLastMessage ? 'scale-105 transform transition-all duration-300' : ''}`}
                       >
-                        <div className="break-words">{message.content}</div>
-                        {message.image_url && (
-                          <div className="mt-4">
-                            <img
-                              src={message.image_url}
-                              alt="Generated artwork"
-                              className="rounded-lg w-full h-auto"
-                              loading="lazy"
-                            />
+                        {message.role === 'assistant' && (
+                          <img
+                            src="/grok_icon.png"
+                            alt="Grok AI"
+                            className={`rounded-full mr-2 self-end transition-all duration-300 ${
+                              isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
+                            }`}
+                          />
+                        )}
+                        <div
+                          className={`p-3 rounded-lg max-w-[80%] transition-all duration-300 ${
+                            message.role === 'user'
+                              ? 'bg-blue-600'
+                              : 'bg-gray-700'
+                          } ${isLastMessage ? 'shadow-lg' : ''}`}
+                        >
+                          <div className={`break-words transition-all duration-300 ${
+                            isLastMessage ? 'text-lg' : 'text-base'
+                          }`}>{message.content}</div>
+                          {message.image_url && (
+                            <div className="mt-4">
+                              <img
+                                src={message.image_url}
+                                alt="Generated artwork"
+                                className="rounded-lg w-full h-auto"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        {message.role === 'user' && (
+                          <div className={`rounded-full ml-2 flex items-center justify-center self-end bg-blue-500 transition-all duration-300 ${
+                            isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
+                          }`}>
+                            <span className={`transition-all duration-300 ${
+                              isLastMessage ? 'text-base' : 'text-sm'
+                            }`}>You</span>
                           </div>
                         )}
                       </div>
-                      {message.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-blue-500 ml-2 flex items-center justify-center self-end">
-                          <span className="text-sm">You</span>
-                        </div>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <MessageSquare className="w-12 h-12 mb-4" />
