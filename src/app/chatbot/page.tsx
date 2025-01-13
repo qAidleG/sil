@@ -170,29 +170,26 @@ export default function ChatbotPage() {
       const updatedMessages = [...newMessages, assistantMessage]
       updateThreadMessages(currentThreadId, updatedMessages)
 
-      if (response.content.toLowerCase().includes('generate an image of')) {
+      // Check if the response indicates an image generation request
+      const imageMatch = response.content.toLowerCase().match(/generate (?:an? )?image (?:of|showing|featuring|depicting|with) (.*?)(?:\.|\?|!|$)/i)
+      
+      if (imageMatch) {
+        const imagePrompt = imageMatch[1].trim()
         try {
-          // Extract the image description from Grok's response using a more precise regex
-          const description = response.content.match(/generate an image of\s*"?([^"\.!\?]+)"?/i)?.[1] ||
-                             response.content.match(/generating an image of\s*"?([^"\.!\?]+)"?/i)?.[1];
-          
-          if (description) {
-            const imageResponse = await generateImage(description.trim(), fluxKey || undefined)
-            const imageMessage: Message = {
-              role: 'assistant',
-              content: `Here's your generated image of "${description.trim()}"`,
-              image_url: imageResponse.image_url
-            }
-            const finalMessages = [...updatedMessages, imageMessage]
-            updateThreadMessages(currentThreadId, finalMessages)
-
-            // Add to gallery
-            setGeneratedImages([{
-              url: imageResponse.image_url,
-              prompt: description,
-              createdAt: Date.now()
-            }, ...generatedImages])
+          const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
+          const imageMessage: Message = {
+            role: 'assistant',
+            content: `Here's the generated image based on: "${imagePrompt}"`,
+            image_url: imageResponse.image_url
           }
+          updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
+
+          // Add to gallery
+          setGeneratedImages([{
+            url: imageResponse.image_url,
+            prompt: imagePrompt,
+            createdAt: Date.now()
+          }, ...generatedImages])
         } catch (error) {
           console.error('Error generating image:', error)
           const errorMessage: Message = {
