@@ -236,7 +236,7 @@ export default function ChatbotPage() {
       </div>
 
       {/* Main Content */}
-      <div className="pt-20 pb-4 px-4">
+      <div className="pt-16 pb-4 px-4">
         {showSettings && (
           <Card className="p-4 mb-4 bg-gray-800 border-gray-700 max-w-screen-2xl mx-auto">
             <div className="space-y-4">
@@ -264,7 +264,7 @@ export default function ChatbotPage() {
           </Card>
         )}
 
-        <div className="grid grid-cols-4 gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-10rem)]">
+        <div className="grid grid-cols-4 gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
           {/* Thread List */}
           <div className="col-span-1 bg-gray-800 rounded-lg p-4 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
@@ -316,8 +316,8 @@ export default function ChatbotPage() {
                 <TabsTrigger value="gallery">Gallery</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="chat" className="flex-1 flex flex-col p-4">
-                <div className="flex-1 overflow-y-auto pr-2">
+              <TabsContent value="chat" className="flex-1 flex flex-col p-4 h-[calc(100vh-12rem)]">
+                <div className="flex-1 overflow-y-auto pr-2 mb-4">
                   {currentThreadId ? (
                     getCurrentThread()?.messages.map((message, index, messages) => {
                       const isLastMessage = index === messages.length - 1;
@@ -396,7 +396,7 @@ export default function ChatbotPage() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 pt-2 border-t border-gray-700">
                   <Input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
