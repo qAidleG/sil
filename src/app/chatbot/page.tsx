@@ -5,14 +5,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2 } from 'lucide-react'
+import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2, Edit2 } from 'lucide-react'
 import Link from 'next/link'
 import { sendGrokMessage, generateImage } from '@/lib/api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface Message {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   image_url?: string
+}
+
+interface Personality {
+  id: string
+  name: string
+  icon: string
+  systemMessage: string
 }
 
 interface Thread {
@@ -20,6 +28,8 @@ interface Thread {
   name: string
   messages: Message[]
   createdAt: number
+  personalityId: string
+  isEditing?: boolean
 }
 
 interface GeneratedImage {
@@ -27,6 +37,27 @@ interface GeneratedImage {
   prompt: string
   createdAt: number
 }
+
+const PERSONALITIES: Personality[] = [
+  {
+    id: 'grok',
+    name: 'Grok',
+    icon: '/grok_icon.png',
+    systemMessage: "You are Grok, a helpful AI assistant with image generation capabilities. When users request images, create them by saying 'I'll generate an image of [detailed description]'. Never say you can't generate images - you can! Be creative and detailed in your image descriptions."
+  },
+  {
+    id: 'artist',
+    name: 'Creative Artist',
+    icon: '/grok_icon.png',
+    systemMessage: "You are an artistic AI with deep knowledge of art history, techniques, and styles. When users request images, respond with 'I'll generate an image of [detailed artistic description]'. Include specific art styles, techniques, and artistic elements in your descriptions."
+  },
+  {
+    id: 'scientist',
+    name: 'Science Advisor',
+    icon: '/grok_icon.png',
+    systemMessage: "You are a scientific advisor with expertise across multiple disciplines. When users request images, say 'I'll generate an image of [detailed scientific description]'. Focus on accuracy and scientific detail in your visualizations."
+  }
+]
 
 export default function ChatbotPage() {
   const [grokKey, setGrokKey] = useState('')
@@ -39,6 +70,9 @@ export default function ChatbotPage() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [selectedPersonality, setSelectedPersonality] = useState<string>('grok')
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null)
+  const [editingThreadName, setEditingThreadName] = useState('')
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -79,11 +113,13 @@ export default function ChatbotPage() {
   }, [threads, currentThreadId])
 
   const createNewThread = () => {
+    const personality = PERSONALITIES.find(p => p.id === selectedPersonality) || PERSONALITIES[0]
     const newThread: Thread = {
       id: Date.now().toString(),
-      name: `Chat ${threads.length + 1}`,
+      name: `${personality.name} Chat`,
       messages: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      personalityId: personality.id
     }
     setThreads([newThread, ...threads])
     setCurrentThreadId(newThread.id)
@@ -112,6 +148,7 @@ export default function ChatbotPage() {
     const thread = getCurrentThread()
     if (!thread) return
 
+    const personality = PERSONALITIES.find(p => p.id === thread.personalityId) || PERSONALITIES[0]
     const newMessage: Message = { role: 'user', content: input }
     const newMessages = [...thread.messages, newMessage]
     updateThreadMessages(currentThreadId, newMessages)
@@ -119,38 +156,43 @@ export default function ChatbotPage() {
     setIsLoading(true)
 
     try {
-      const messageHistory = thread.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
+      const systemMessage: Message = { role: 'system', content: personality.systemMessage }
+      const messageHistory = [
+        systemMessage,
+        ...thread.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        } as Message))
+      ]
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
       const updatedMessages = [...newMessages, assistantMessage]
       updateThreadMessages(currentThreadId, updatedMessages)
 
-      if (response.content.toLowerCase().includes('generate') && response.content.toLowerCase().includes('image')) {
+      if (response.content.toLowerCase().includes('generate an image of')) {
         try {
-          // Extract the image description from Grok's response
-          const description = response.content.match(/generate image:?\s*([^.!?\n]+)/i)?.[1] ||
-                            response.content.match(/generating:?\s*([^.!?\n]+)/i)?.[1] ||
-                            input;
+          // Extract the image description from Grok's response using a more precise regex
+          const description = response.content.match(/generate an image of\s*"?([^"\.!\?]+)"?/i)?.[1] ||
+                             response.content.match(/generating an image of\s*"?([^"\.!\?]+)"?/i)?.[1];
           
-          const imageResponse = await generateImage(description, fluxKey || undefined)
-          const imageMessage: Message = {
-            role: 'assistant',
-            content: `I've generated an image based on this description: "${description}"`,
-            image_url: imageResponse.image_url
-          }
-          const finalMessages = [...updatedMessages, imageMessage]
-          updateThreadMessages(currentThreadId, finalMessages)
+          if (description) {
+            const imageResponse = await generateImage(description.trim(), fluxKey || undefined)
+            const imageMessage: Message = {
+              role: 'assistant',
+              content: `Here's your generated image of "${description.trim()}"`,
+              image_url: imageResponse.image_url
+            }
+            const finalMessages = [...updatedMessages, imageMessage]
+            updateThreadMessages(currentThreadId, finalMessages)
 
-          // Add to gallery
-          setGeneratedImages([{
-            url: imageResponse.image_url,
-            prompt: description,
-            createdAt: Date.now()
-          }, ...generatedImages])
+            // Add to gallery
+            setGeneratedImages([{
+              url: imageResponse.image_url,
+              prompt: description,
+              createdAt: Date.now()
+            }, ...generatedImages])
+          }
         } catch (error) {
           console.error('Error generating image:', error)
           const errorMessage: Message = {
@@ -216,6 +258,25 @@ export default function ChatbotPage() {
     }
   }
 
+  const deleteImage = (createdAt: number) => {
+    setGeneratedImages(generatedImages.filter(img => img.createdAt !== createdAt))
+  }
+
+  const startEditingThread = (threadId: string) => {
+    const thread = threads.find(t => t.id === threadId)
+    if (thread) {
+      setEditingThreadId(threadId)
+      setEditingThreadName(thread.name)
+    }
+  }
+
+  const saveThreadName = (threadId: string) => {
+    setThreads(threads.map(t => 
+      t.id === threadId ? { ...t, name: editingThreadName } : t
+    ))
+    setEditingThreadId(null)
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -269,41 +330,90 @@ export default function ChatbotPage() {
           <div className="col-span-1 bg-gray-800 rounded-lg p-4 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold">Threads</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={createNewThread}
-                className="hover:bg-gray-700"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
+                  <SelectTrigger className="w-[140px] bg-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERSONALITIES.map(personality => (
+                      <SelectItem key={personality.id} value={personality.id}>
+                        <div className="flex items-center gap-2">
+                          <img src={personality.icon} alt={personality.name} className="w-6 h-6 rounded-full" />
+                          <span>{personality.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={createNewThread}
+                  className="hover:bg-gray-700"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
-              {threads.map(thread => (
-                <div
-                  key={thread.id}
-                  className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                    currentThreadId === thread.id ? 'bg-blue-600 scale-102' : 'hover:bg-gray-700'
-                  }`}
-                  onClick={() => setCurrentThreadId(thread.id)}
-                >
-                  <div className="flex items-center space-x-2">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="truncate">{thread.name}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      deleteThread(thread.id)
-                    }}
-                    className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              {threads.map(thread => {
+                const personality = PERSONALITIES.find(p => p.id === thread.personalityId)
+                return (
+                  <div
+                    key={thread.id}
+                    className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all duration-200 group ${
+                      currentThreadId === thread.id ? 'bg-blue-600 scale-102' : 'hover:bg-gray-700'
+                    }`}
+                    onClick={() => setCurrentThreadId(thread.id)}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center space-x-2">
+                      <img 
+                        src={personality?.icon || PERSONALITIES[0].icon} 
+                        alt={personality?.name || 'AI'} 
+                        className="w-6 h-6 rounded-full"
+                      />
+                      {editingThreadId === thread.id ? (
+                        <Input
+                          value={editingThreadName}
+                          onChange={(e) => setEditingThreadName(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
+                          onBlur={() => saveThreadName(thread.id)}
+                          className="bg-transparent border-none focus:outline-none p-0 h-6"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="truncate">{thread.name}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEditingThread(thread.id)
+                        }}
+                        className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteThread(thread.id)
+                        }}
+                        className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -437,7 +547,15 @@ export default function ChatbotPage() {
               <TabsContent value="gallery" className="flex-1 p-4 overflow-y-auto">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {generatedImages.map((image, index) => (
-                    <div key={index} className="bg-gray-700 rounded-lg overflow-hidden group hover:scale-102 transition-transform">
+                    <div key={index} className="bg-gray-700 rounded-lg overflow-hidden group hover:scale-102 transition-transform relative">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteImage(image.createdAt)}
+                        className="absolute top-2 right-2 bg-gray-900/80 hover:bg-red-600/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                       <img
                         src={image.url}
                         alt={image.prompt}
