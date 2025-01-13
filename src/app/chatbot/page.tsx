@@ -317,12 +317,19 @@ export default function ChatbotPage() {
                   getCurrentThread()?.messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`mb-4 ${
-                        message.role === 'user' ? 'text-right' : 'text-left'
+                      className={`mb-4 flex ${
+                        message.role === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
+                      {message.role === 'assistant' && (
+                        <img
+                          src="/grok_icon.png"
+                          alt="Grok AI"
+                          className="w-8 h-8 rounded-full mr-2 self-end"
+                        />
+                      )}
                       <div
-                        className={`inline-block p-3 rounded-lg max-w-[80%] ${
+                        className={`p-3 rounded-lg max-w-[80%] ${
                           message.role === 'user'
                             ? 'bg-blue-600'
                             : 'bg-gray-700'
@@ -340,6 +347,11 @@ export default function ChatbotPage() {
                           </div>
                         )}
                       </div>
+                      {message.role === 'user' && (
+                        <div className="w-8 h-8 rounded-full bg-blue-500 ml-2 flex items-center justify-center self-end">
+                          <span className="text-sm">You</span>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
