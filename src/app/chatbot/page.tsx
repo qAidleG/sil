@@ -171,7 +171,7 @@ export default function ChatbotPage() {
       updateThreadMessages(currentThreadId, updatedMessages)
 
       // Check if the response indicates an image generation request
-      const imageMatch = response.content.toLowerCase().match(/^generate image:?\s*(.+?)(?:\.|\?|!|$)/i)
+      const imageMatch = response.content.match(/generate image:?\s*"?([^"\.!\?]+)"?/i)
       
       if (imageMatch) {
         const imagePrompt = imageMatch[1].trim()
