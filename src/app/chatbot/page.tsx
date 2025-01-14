@@ -345,7 +345,15 @@ export default function ChatbotPage() {
                     {PERSONALITIES.map(personality => (
                       <SelectItem key={personality.id} value={personality.id}>
                         <div className="flex items-center gap-2">
-                          <img src={personality.icon} alt={personality.name} className="w-6 h-6 rounded-full" />
+                          <img 
+                            src={personality.icon} 
+                            alt={personality.name} 
+                            className="w-6 h-6 rounded-full"
+                            onError={(e) => {
+                              // Fallback to grok_icon if image fails to load
+                              e.currentTarget.src = '/grok_icon.png'
+                            }}
+                          />
                           <span>{personality.name}</span>
                         </div>
                       </SelectItem>
@@ -437,6 +445,8 @@ export default function ChatbotPage() {
                   {currentThreadId ? (
                     getCurrentThread()?.messages.map((message, index, messages) => {
                       const isLastMessage = index === messages.length - 1;
+                      const thread = getCurrentThread();
+                      const personality = PERSONALITIES.find(p => p.id === thread?.personalityId);
                       return (
                         <div
                           key={index}
@@ -446,11 +456,14 @@ export default function ChatbotPage() {
                         >
                           {message.role === 'assistant' && (
                             <img
-                              src="/grok_icon.png"
-                              alt="Grok AI"
+                              src={personality?.icon || '/grok_icon.png'}
+                              alt={personality?.name || 'AI'}
                               className={`rounded-full mr-2 self-end transition-all duration-300 ${
                                 isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
                               }`}
+                              onError={(e) => {
+                                e.currentTarget.src = '/grok_icon.png'
+                              }}
                             />
                           )}
                           <div
