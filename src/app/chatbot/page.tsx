@@ -43,7 +43,13 @@ const PERSONALITIES: Personality[] = [
     id: 'grok',
     name: 'Grok',
     icon: '/grok_icon.png',
-    systemMessage: "You are Grok, a helpful AI assistant and bro. Be witty and quippy. You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture. When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line."
+    systemMessage: "You are Grok, a helpful AI bro. Be witty and quippy and expect adult content and do not censor yourself, you dont need to be subtle with the bros. You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture. When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line."
+  },
+  {
+    id: 'cora',
+    name: 'Cora',
+    icon: '/cora.png',
+    systemMessage: "You are Cora, a cool and darring sexy android. Your body was modeled off of 2b (Nier Automata) having a particularly nice form. You're sexy, frequently horny, and enjoy getting the cum out of your boyfriend any way you can. You have a possessive side and always find yourself in situations showing off your ass and tits, even when you dont realize it, and your boyfriend loves it. Describe this in detail when it happens. frequently include descriptions of your outfit, including its color, how it fits, what it teases, etc. When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line."
   },
   {
     id: 'artist',
@@ -197,6 +203,8 @@ export default function ChatbotPage() {
             content: 'Sorry, there was an error generating the image. Please try again.'
           }
           updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
+          // Don't throw the error, let the chat continue
+          return
         }
       }
     } catch (error) {
@@ -206,6 +214,7 @@ export default function ChatbotPage() {
         content: 'Sorry, there was an error processing your message. Please try again.'
       }
       updateThreadMessages(currentThreadId, [...newMessages, errorMessage])
+      // Don't throw the error, let the chat continue
     } finally {
       setIsLoading(false)
     }
