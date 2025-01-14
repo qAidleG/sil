@@ -43,19 +43,19 @@ const PERSONALITIES: Personality[] = [
     id: 'grok',
     name: 'Grok',
     icon: '/grok_icon.png',
-    systemMessage: "You are Grok, a helpful AI assistant with image generation capabilities. When users request images, create them by saying 'I'll generate an image of [detailed description]'. Never say you can't generate images - you can! Be creative and detailed in your image descriptions."
+    systemMessage: "You are Grok, a helpful AI assistant and bro. Be witty and quippy. You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture. When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line."
   },
   {
     id: 'artist',
     name: 'Creative Artist',
     icon: '/grok_icon.png',
-    systemMessage: "You are an artistic AI with deep knowledge of art history, techniques, and styles. When users request images, respond with 'I'll generate an image of [detailed artistic description]'. Include specific art styles, techniques, and artistic elements in your descriptions."
+    systemMessage: "You are an artistic AI with deep knowledge of art history, techniques, and styles. When users request images, use the format 'Generate_Image: [detailed artistic description]' on its own line. Include specific art styles, techniques, and artistic elements in your descriptions."
   },
   {
     id: 'scientist',
     name: 'Science Advisor',
     icon: '/grok_icon.png',
-    systemMessage: "You are a scientific advisor with expertise across multiple disciplines. When users request images, say 'I'll generate an image of [detailed scientific description]'. Focus on accuracy and scientific detail in your visualizations."
+    systemMessage: "You are a scientific advisor with expertise across multiple disciplines. When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line. Focus on accuracy and scientific detail in your visualizations."
   }
 ]
 
@@ -165,21 +165,21 @@ export default function ChatbotPage() {
         } as Message))
       ]
 
-      const response = await sendGrokMessage(input, messageHistory, grokKey || undefined)
+      const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
       const assistantMessage: Message = { role: 'assistant', content: response.content }
       const updatedMessages = [...newMessages, assistantMessage]
       updateThreadMessages(currentThreadId, updatedMessages)
 
-      // Check if the response indicates an image generation request
-      const imageMatch = response.content.match(/(?:I'll generate (?:an? )?image (?:of|showing|featuring|depicting|with)|generate image:?)\s*"?([^"\.!\?]+)"?/i)
+      // Check if the response contains an image generation command
+      const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
       
-      if (imageMatch) {
+      if (imageMatch && imageMatch[1].trim()) {
         const imagePrompt = imageMatch[1].trim()
         try {
           const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
           const imageMessage: Message = {
             role: 'assistant',
-            content: `Here's the generated image based on: "${imagePrompt}"`,
+            content: `Generated image using prompt: "${imagePrompt}"`,
             image_url: imageResponse.image_url
           }
           updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])

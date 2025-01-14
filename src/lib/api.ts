@@ -13,7 +13,7 @@ interface Message {
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
-export async function sendGrokMessage(message: string, messages: Message[] = [], apiKey?: string): Promise<GrokResponse> {
+export async function sendGrokMessage(message: string, messages: Message[] = [], apiKey?: string, systemMessage?: string): Promise<GrokResponse> {
   const response = await fetch(`${BASE_URL}/api/grok`, {
     method: 'POST',
     headers: {
@@ -23,6 +23,7 @@ export async function sendGrokMessage(message: string, messages: Message[] = [],
       message,
       messages,
       apiKey,
+      systemMessage
     }),
     credentials: 'same-origin',
   });
