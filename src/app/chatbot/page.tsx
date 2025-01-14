@@ -372,7 +372,7 @@ export default function ChatbotPage() {
             </div>
             <div className="space-y-2">
               {threads.map(thread => {
-                const personality = PERSONALITIES.find(p => p.id === thread.personalityId)
+                const threadPersonality = PERSONALITIES.find(p => p.id === thread.personalityId)
                 return (
                   <div
                     key={thread.id}
@@ -383,9 +383,12 @@ export default function ChatbotPage() {
                   >
                     <div className="flex items-center space-x-2">
                       <img 
-                        src={personality?.icon || PERSONALITIES[0].icon} 
-                        alt={personality?.name || 'AI'} 
+                        src={threadPersonality?.icon}
+                        alt={threadPersonality?.name || 'AI'} 
                         className="w-6 h-6 rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.src = '/grok_icon.png'
+                        }}
                       />
                       {editingThreadId === thread.id ? (
                         <Input
@@ -446,7 +449,7 @@ export default function ChatbotPage() {
                     getCurrentThread()?.messages.map((message, index, messages) => {
                       const isLastMessage = index === messages.length - 1;
                       const thread = getCurrentThread();
-                      const personality = PERSONALITIES.find(p => p.id === thread?.personalityId);
+                      const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
                       return (
                         <div
                           key={index}
@@ -456,8 +459,8 @@ export default function ChatbotPage() {
                         >
                           {message.role === 'assistant' && (
                             <img
-                              src={personality?.icon || '/grok_icon.png'}
-                              alt={personality?.name || 'AI'}
+                              src={currentPersonality?.icon}
+                              alt={currentPersonality?.name || 'AI'}
                               className={`rounded-full mr-2 self-end transition-all duration-300 ${
                                 isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
                               }`}
