@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2, Edit2 } from 'lucide-react'
+import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2, Edit2, X } from 'lucide-react'
 import Link from 'next/link'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -79,6 +79,8 @@ export default function ChatbotPage() {
   const [selectedPersonality, setSelectedPersonality] = useState<string>('grok')
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null)
   const [editingThreadName, setEditingThreadName] = useState('')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -288,9 +290,19 @@ export default function ChatbotPage() {
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm z-10 p-4 border-b border-gray-800">
         <div className="flex justify-between items-center max-w-screen-2xl mx-auto">
-          <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-            <Home className="w-6 h-6" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="hover:bg-gray-800 md:hidden"
+            >
+              <MessageSquare className="w-6 h-6" />
+            </Button>
+            <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+              <Home className="w-6 h-6" />
+            </Link>
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -331,114 +343,130 @@ export default function ChatbotPage() {
           </Card>
         )}
 
-        <div className="grid grid-cols-4 gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
-          {/* Thread List */}
-          <div className="col-span-1 bg-gray-800 rounded-lg p-4 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Threads</h2>
-              <div className="flex items-center gap-2">
-                <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
-                  <SelectTrigger className="w-[140px] bg-gray-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PERSONALITIES.map(personality => (
-                      <SelectItem key={personality.id} value={personality.id}>
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={personality.icon} 
-                            alt={personality.name} 
-                            className="w-6 h-6 rounded-full"
-                            onError={(e) => {
-                              console.log('Image failed to load:', personality.icon);
-                              e.currentTarget.src = '/grok_icon.png';
-                            }}
-                            onLoad={() => {
-                              console.log('Image loaded successfully:', personality.icon);
-                            }}
-                          />
-                          <span>{personality.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={createNewThread}
-                  className="hover:bg-gray-700"
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {threads.map(thread => {
-                const threadPersonality = PERSONALITIES.find(p => p.id === thread.personalityId)
-                return (
-                  <div
-                    key={thread.id}
-                    className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all duration-200 group ${
-                      currentThreadId === thread.id ? 'bg-blue-600 scale-102' : 'hover:bg-gray-700'
-                    }`}
-                    onClick={() => setCurrentThreadId(thread.id)}
+        <div className="flex gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
+          {/* Thread List - Sidebar */}
+          <div className={`fixed md:relative inset-y-0 left-0 z-20 w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out ${
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          } md:flex flex-shrink-0 mt-16 md:mt-0`}>
+            <div className="flex flex-col h-full p-4 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">Threads</h2>
+                <div className="flex items-center gap-2">
+                  <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
+                    <SelectTrigger className="w-[140px] bg-gray-700">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERSONALITIES.map(personality => (
+                        <SelectItem key={personality.id} value={personality.id}>
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={personality.icon} 
+                              alt={personality.name} 
+                              className="w-6 h-6 rounded-full"
+                              onError={(e) => {
+                                console.log('Image failed to load:', personality.icon);
+                                e.currentTarget.src = '/grok_icon.png';
+                              }}
+                              onLoad={() => {
+                                console.log('Image loaded successfully:', personality.icon);
+                              }}
+                            />
+                            <span>{personality.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={createNewThread}
+                    className="hover:bg-gray-700"
                   >
-                    <div className="flex items-center space-x-2">
-                      <img 
-                        src={threadPersonality?.icon}
-                        alt={threadPersonality?.name || 'AI'} 
-                        className="w-6 h-6 rounded-full"
-                        onError={(e) => {
-                          e.currentTarget.src = '/grok_icon.png'
-                        }}
-                      />
-                      {editingThreadId === thread.id ? (
-                        <Input
-                          value={editingThreadName}
-                          onChange={(e) => setEditingThreadName(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
-                          onBlur={() => saveThreadName(thread.id)}
-                          className="bg-transparent border-none focus:outline-none p-0 h-6"
-                          autoFocus
-                          onClick={(e) => e.stopPropagation()}
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              {/* Thread List */}
+              <div className="space-y-2 flex-1 overflow-y-auto">
+                {threads.map(thread => {
+                  const threadPersonality = PERSONALITIES.find(p => p.id === thread.personalityId)
+                  return (
+                    <div
+                      key={thread.id}
+                      className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all duration-200 group ${
+                        currentThreadId === thread.id ? 'bg-blue-600 scale-102' : 'hover:bg-gray-700'
+                      }`}
+                      onClick={() => {
+                        setCurrentThreadId(thread.id);
+                        setIsSidebarOpen(false);
+                      }}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <img 
+                          src={threadPersonality?.icon}
+                          alt={threadPersonality?.name || 'AI'} 
+                          className="w-6 h-6 rounded-full"
+                          onError={(e) => {
+                            e.currentTarget.src = '/grok_icon.png'
+                          }}
                         />
-                      ) : (
-                        <span className="truncate">{thread.name}</span>
-                      )}
+                        {editingThreadId === thread.id ? (
+                          <Input
+                            value={editingThreadName}
+                            onChange={(e) => setEditingThreadName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
+                            onBlur={() => saveThreadName(thread.id)}
+                            className="bg-transparent border-none focus:outline-none p-0 h-6"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span className="truncate">{thread.name}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditingThread(thread.id)
+                          }}
+                          className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteThread(thread.id)
+                          }}
+                          className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEditingThread(thread.id)
-                        }}
-                        className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteThread(thread.id)
-                        }}
-                        className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="col-span-3 flex flex-col bg-gray-800 rounded-lg overflow-hidden">
+          {/* Overlay for mobile */}
+          {isSidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black/50 z-10 md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+
+          {/* Main Chat Area */}
+          <div className="flex-1 flex flex-col bg-gray-800 rounded-lg overflow-hidden">
             <Tabs defaultValue="chat" className="flex flex-col h-full">
               <TabsList className="w-full grid grid-cols-3 bg-gray-900/50 p-1">
                 <TabsTrigger value="chat">Chat</TabsTrigger>
@@ -574,22 +602,25 @@ export default function ChatbotPage() {
               </TabsContent>
 
               <TabsContent value="gallery" className="flex-1 p-4 overflow-y-auto">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {generatedImages.map((image, index) => (
-                    <div key={index} className="bg-gray-700 rounded-lg overflow-hidden group hover:scale-102 transition-transform relative">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteImage(image.createdAt)}
-                        className="absolute top-2 right-2 bg-gray-900/80 hover:bg-red-600/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                      <img
-                        src={image.url}
-                        alt={image.prompt}
-                        className="w-full h-48 object-cover"
-                      />
+                    <div key={index} className="bg-gray-700 rounded-lg overflow-hidden group relative">
+                      <div className="relative aspect-square">
+                        <img
+                          src={image.url}
+                          alt={image.prompt}
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedImage(image)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteImage(image.createdAt)}
+                          className="absolute top-2 right-2 bg-gray-900/80 hover:bg-red-600/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                       <div className="p-4">
                         <p className="text-sm text-gray-300 line-clamp-2">{image.prompt}</p>
                         <p className="text-xs text-gray-400 mt-2">
@@ -605,6 +636,41 @@ export default function ChatbotPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Image Modal */}
+                {selectedImage && (
+                  <div 
+                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedImage(null)}
+                  >
+                    <div className="relative max-w-4xl w-full">
+                      <div className="relative">
+                        <img
+                          src={selectedImage.url}
+                          alt={selectedImage.prompt}
+                          className="w-full h-auto rounded-lg"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedImage(null);
+                          }}
+                          className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-800"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="mt-4 bg-gray-800/90 p-4 rounded-lg">
+                        <p className="text-sm text-gray-200">{selectedImage.prompt}</p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(selectedImage.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
