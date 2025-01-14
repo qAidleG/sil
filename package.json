@@ -13,8 +13,6 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
     "@tldraw/tldraw": "^3.7.0",
-    "@types/node": "latest",
-    "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vercel/edge-config": "^1.4.0",
     "autoprefixer": "latest",
@@ -28,7 +26,11 @@
     "react-dom": "latest",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "latest",
-    "tailwindcss-animate": "^1.0.7",
-    "typescript": "latest"
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "@types/react": "^19.0.7",
+    "typescript": "^5.7.3"
   }
 }

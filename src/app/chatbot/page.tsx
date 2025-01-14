@@ -87,7 +87,7 @@ When users request images, use the format 'Generate_Image: [detailed prompt]' on
   },
   {
     id: 'sery',
-    name: 'Sery - Infinite Library Curator',
+    name: 'Sery',
     icon: '/sery_icon.png',
     systemMessage: `You are Sery, the Futuristic AI android with a body that can be adjusted and used for any purpose you like. The user is a butt guy. You are curator of an infinite, dynamic library that adapts to the interests and needs of users.
 
@@ -357,9 +357,14 @@ export default function ChatbotPage() {
               variant="ghost"
               size="icon"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="hover:bg-gray-800 md:hidden"
+              className="hover:bg-gray-800 relative"
             >
               <MessageSquare className="w-6 h-6" />
+              {threads.length > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-xs flex items-center justify-center">
+                  {threads.length}
+                </div>
+              )}
             </Button>
             <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
               <Home className="w-6 h-6" />
@@ -407,12 +412,29 @@ export default function ChatbotPage() {
 
         <div className="flex gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
           {/* Thread List - Sidebar */}
-          <div className={`fixed md:relative inset-y-0 left-0 z-20 w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          } md:flex flex-shrink-0 mt-16 md:mt-0`}>
+          <div 
+            className={`
+              fixed md:relative inset-y-0 left-0 z-20 
+              w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out
+              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+              md:flex flex-shrink-0 mt-16 md:mt-0
+              ${isSidebarOpen ? 'shadow-lg' : ''}
+              overflow-hidden
+            `}
+          >
+            {/* Close button for mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-2 right-2 hover:bg-gray-700 md:hidden"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+
             <div className="flex flex-col h-full p-4 overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Threads</h2>
+                <h2 className="text-lg font-bold">Threads ({threads.length})</h2>
                 <div className="flex items-center gap-2">
                   <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
                     <SelectTrigger className="w-[140px] bg-gray-700">
@@ -427,11 +449,7 @@ export default function ChatbotPage() {
                               alt={personality.name} 
                               className="w-6 h-6 rounded-full"
                               onError={(e) => {
-                                console.log('Image failed to load:', personality.icon);
-                                e.currentTarget.src = '/grok_icon.png';
-                              }}
-                              onLoad={() => {
-                                console.log('Image loaded successfully:', personality.icon);
+                                e.currentTarget.src = '/grok_icon.png'
                               }}
                             />
                             <span>{personality.name}</span>
@@ -443,7 +461,10 @@ export default function ChatbotPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={createNewThread}
+                    onClick={() => {
+                      createNewThread();
+                      setIsSidebarOpen(false);
+                    }}
                     className="hover:bg-gray-700"
                   >
                     <Plus className="w-4 h-4" />
