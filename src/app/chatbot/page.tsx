@@ -350,8 +350,11 @@ export default function ChatbotPage() {
                             alt={personality.name} 
                             className="w-6 h-6 rounded-full"
                             onError={(e) => {
-                              // Fallback to grok_icon if image fails to load
-                              e.currentTarget.src = '/grok_icon.png'
+                              console.log('Image failed to load:', personality.icon);
+                              e.currentTarget.src = '/grok_icon.png';
+                            }}
+                            onLoad={() => {
+                              console.log('Image loaded successfully:', personality.icon);
                             }}
                           />
                           <span>{personality.name}</span>
@@ -465,7 +468,11 @@ export default function ChatbotPage() {
                                 isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
                               }`}
                               onError={(e) => {
-                                e.currentTarget.src = '/grok_icon.png'
+                                console.log('Chat message image failed to load:', currentPersonality?.icon);
+                                e.currentTarget.src = '/grok_icon.png';
+                              }}
+                              onLoad={() => {
+                                console.log('Chat message image loaded successfully:', currentPersonality?.icon);
                               }}
                             />
                           )}
