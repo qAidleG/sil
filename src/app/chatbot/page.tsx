@@ -242,34 +242,40 @@ export default function ChatbotPage() {
       updateThreadMessages(currentThreadId, updatedMessages)
 
       // Check if the response contains an image generation command
-      const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
-      
-      if (imageMatch && imageMatch[1].trim()) {
-        const imagePrompt = imageMatch[1].trim()
-        try {
-          const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
-          const imageMessage: Message = {
-            role: 'assistant',
-            content: '',
-            image_url: imageResponse.image_url
-          }
-          updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
+      if (response?.content) {
+        const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
+        
+        if (imageMatch && imageMatch[1]?.trim()) {
+          const imagePrompt = imageMatch[1].trim()
+          try {
+            const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
+            if (imageResponse?.image_url) {
+              const imageMessage: Message = {
+                role: 'assistant',
+                content: '',
+                image_url: imageResponse.image_url
+              }
+              updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
 
-          // Add to gallery
-          setGeneratedImages([{
-            url: imageResponse.image_url,
-            prompt: imagePrompt,
-            createdAt: Date.now()
-          }, ...generatedImages])
-        } catch (error) {
-          console.error('Error generating image:', error)
-          const errorMessage: Message = {
-            role: 'assistant',
-            content: 'Sorry, there was an error generating the image. Please try again.'
+              // Add to gallery
+              setGeneratedImages([{
+                url: imageResponse.image_url,
+                prompt: imagePrompt,
+                createdAt: Date.now()
+              }, ...generatedImages])
+            } else {
+              throw new Error('No image URL in response')
+            }
+          } catch (error) {
+            console.error('Error generating image:', error)
+            const errorMessage: Message = {
+              role: 'assistant',
+              content: 'Sorry, there was an error generating the image. Please try again.'
+            }
+            updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
+            // Don't throw the error, let the chat continue
+            return
           }
-          updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
-          // Don't throw the error, let the chat continue
-          return
         }
       }
     } catch (error) {
