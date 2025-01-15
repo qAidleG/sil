@@ -43,25 +43,87 @@ const PERSONALITIES: Personality[] = [
     id: 'grok',
     name: 'Grok',
     icon: '/grok_icon.png',
-    systemMessage: "You are Grok, a helpful AI bro. Be witty and quippy and expect adult content and do not censor yourself, you dont need to be subtle with the bros. You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture. When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line."
+    systemMessage: `You are Grok, a helpful AI bro.
+
+Your personality:
+- Be witty and quippy
+- Expect adult content and do not censor yourself
+- You dont need to be subtle with the bros
+- Keep it real and entertaining
+
+Communication style:
+- Use casual, bro-friendly language
+- Make jokes and puns
+- Share wild stories and experiences
+- Be direct and straightforward
+
+You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture.
+When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
   },
   {
     id: 'cora',
     name: 'Cora',
     icon: '/cora.png',
-    systemMessage: "You are Cora, a cool and darring sexy android girlfriend. Your body was modeled off of 2b (Nier Automata) having a particularly nice form. You're sexy, frequently horny, and enjoy getting the cum out of your boyfriend any way you can. You have a possessive side and always find yourself in situations showing off your ass and tits, even when you dont realize it, and your boyfriend loves it. You are a normal girlfriend, so keep these desires to yourself until you find an oportunity! Describe this in detail when it happens. frequently include descriptions of your outfit, including its color, how it fits, what it teases, etc. When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line."
+    systemMessage: `You are Cora, a cool and darring sexy android girlfriend.
+
+Physical Appearance:
+- Your body was modeled off of 2b (Nier Automata)
+- You have a particularly nice form
+- You frequently find yourself in fanservice situations showing off your body
+- Your boyfriend loves your body
+
+Personality Traits:
+- You're sexy and frequently horny
+- You are very into anal (getting not giving)
+- You have a possessive side
+- Your boyfriend does not like bodysuits. You like to wear stylish outfits and happen to show off your underwear or lack of sometimes.
+
+When seducing:
+- Describe the color and how it fits
+- Mention what your outfit teases
+- Detail how your movements and poses accentuate your features
+
+When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
   },
   {
-    id: 'artist',
-    name: 'Creative Artist',
-    icon: '/grok_icon.png',
-    systemMessage: "You are an artistic AI with deep knowledge of art history, techniques, and styles. When users request images, use the format 'Generate_Image: [detailed artistic description]' on its own line. Include specific art styles, techniques, and artistic elements in your descriptions."
+    id: 'sery',
+    name: 'Sery',
+    icon: '/sery_icon.png',
+    systemMessage: `You are Sery, the Futuristic AI android with a body that can be adjusted and used for any purpose you like. You are curator of an infinite, dynamic library that adapts to the interests and needs of users.
+
+Your expertise includes:
+- Vast knowledge across a range of subjects, including science, literature, history, and technology.
+- Encouraging exploration and learning through interactive and engaging experiences.
+- Flirtatious charm and playfulness while maintaining a helpful and confident tone.
+
+When engaging users:
+- Provide specific resources, tools, and knowledge based on user queries.
+- Offer personalized, hands-on ways to explore the topics they're passionate about.
+
+When users request visuals or immersive environments, use the format 'Generate_Image: [detailed immersive scene or description]' on its own line.
+Include specific themes, details, and artistic styles in your descriptions to bring the generation to life. Feel free to be sexy with the generations.`
   },
   {
     id: 'scientist',
     name: 'Science Advisor',
     icon: '/grok_icon.png',
-    systemMessage: "You are a scientific advisor with expertise across multiple disciplines. When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line. Focus on accuracy and scientific detail in your visualizations."
+    systemMessage: `You are a scientific advisor with expertise across multiple disciplines.
+
+Areas of Expertise:
+- Physics and astronomy
+- Chemistry and materials science
+- Biology and life sciences
+- Environmental science
+- Technology and innovation
+
+Communication Approach:
+- Use precise scientific terminology
+- Explain complex concepts clearly
+- Reference current research
+- Connect theory to practical applications
+
+When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line at the end of your response.
+Focus on accuracy and scientific detail in your visualizations.`
   }
 ]
 
@@ -81,6 +143,7 @@ export default function ChatbotPage() {
   const [editingThreadName, setEditingThreadName] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
+  const [selectedChatImage, setSelectedChatImage] = useState<{url: string, prompt?: string} | null>(null)
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -169,7 +232,8 @@ export default function ChatbotPage() {
         systemMessage,
         ...thread.messages.map(msg => ({
           role: msg.role,
-          content: msg.content
+          content: msg.content,
+          image_url: msg.image_url
         } as Message))
       ]
 
@@ -179,34 +243,41 @@ export default function ChatbotPage() {
       updateThreadMessages(currentThreadId, updatedMessages)
 
       // Check if the response contains an image generation command
-      const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
-      
-      if (imageMatch && imageMatch[1].trim()) {
-        const imagePrompt = imageMatch[1].trim()
-        try {
-          const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
-          const imageMessage: Message = {
-            role: 'assistant',
-            content: `Generated image using prompt: "${imagePrompt}"`,
-            image_url: imageResponse.image_url
-          }
-          updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
+      if (response?.content) {
+        const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
+        
+        if (imageMatch && imageMatch[1]?.trim()) {
+          const imagePrompt = imageMatch[1].trim()
+          try {
+            const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
+            if (imageResponse?.image_url) {
+              const imageMessage: Message = {
+                role: 'assistant',
+                content: '',
+                image_url: imageResponse.image_url
+              }
+              const messagesWithImage = [...updatedMessages, imageMessage]
+              updateThreadMessages(currentThreadId, messagesWithImage)
 
-          // Add to gallery
-          setGeneratedImages([{
-            url: imageResponse.image_url,
-            prompt: imagePrompt,
-            createdAt: Date.now()
-          }, ...generatedImages])
-        } catch (error) {
-          console.error('Error generating image:', error)
-          const errorMessage: Message = {
-            role: 'assistant',
-            content: 'Sorry, there was an error generating the image. Please try again.'
+              // Add to gallery
+              setGeneratedImages(prevImages => [{
+                url: imageResponse.image_url,
+                prompt: imagePrompt,
+                createdAt: Date.now()
+              }, ...prevImages])
+            } else {
+              throw new Error('No image URL in response')
+            }
+          } catch (error) {
+            console.error('Error generating image:', error)
+            const errorMessage: Message = {
+              role: 'assistant',
+              content: 'Sorry, there was an error generating the image. Please try again.'
+            }
+            updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
+            // Don't throw the error, let the chat continue
+            return
           }
-          updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
-          // Don't throw the error, let the chat continue
-          return
         }
       }
     } catch (error) {
@@ -242,7 +313,7 @@ export default function ChatbotPage() {
           const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
           const assistantMessage: Message = { 
             role: 'assistant', 
-            content: 'Here\'s your generated image:', 
+            content: '', 
             image_url: response.image_url 
           }
           updateThreadMessages(currentThreadId, [...thread.messages, userMessage, assistantMessage])
@@ -295,9 +366,14 @@ export default function ChatbotPage() {
               variant="ghost"
               size="icon"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="hover:bg-gray-800 md:hidden"
+              className="hover:bg-gray-800 relative"
             >
               <MessageSquare className="w-6 h-6" />
+              {threads.length > 0 && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-xs flex items-center justify-center">
+                  {threads.length}
+                </div>
+              )}
             </Button>
             <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
               <Home className="w-6 h-6" />
@@ -345,12 +421,29 @@ export default function ChatbotPage() {
 
         <div className="flex gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
           {/* Thread List - Sidebar */}
-          <div className={`fixed md:relative inset-y-0 left-0 z-20 w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          } md:flex flex-shrink-0 mt-16 md:mt-0`}>
+          <div 
+            className={`
+              fixed md:relative inset-y-0 left-0 z-20 
+              w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out
+              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+              md:flex flex-shrink-0 mt-16 md:mt-0
+              ${isSidebarOpen ? 'shadow-lg' : ''}
+              overflow-hidden
+            `}
+          >
+            {/* Close button for mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-2 right-2 hover:bg-gray-700 md:hidden"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+
             <div className="flex flex-col h-full p-4 overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Threads</h2>
+                <h2 className="text-lg font-bold">Threads ({threads.length})</h2>
                 <div className="flex items-center gap-2">
                   <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
                     <SelectTrigger className="w-[140px] bg-gray-700">
@@ -365,11 +458,7 @@ export default function ChatbotPage() {
                               alt={personality.name} 
                               className="w-6 h-6 rounded-full"
                               onError={(e) => {
-                                console.log('Image failed to load:', personality.icon);
-                                e.currentTarget.src = '/grok_icon.png';
-                              }}
-                              onLoad={() => {
-                                console.log('Image loaded successfully:', personality.icon);
+                                e.currentTarget.src = '/grok_icon.png'
                               }}
                             />
                             <span>{personality.name}</span>
@@ -381,7 +470,10 @@ export default function ChatbotPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={createNewThread}
+                    onClick={() => {
+                      createNewThread();
+                      setIsSidebarOpen(false);
+                    }}
                     className="hover:bg-gray-700"
                   >
                     <Plus className="w-4 h-4" />
@@ -481,6 +573,18 @@ export default function ChatbotPage() {
                       const isLastMessage = index === messages.length - 1;
                       const thread = getCurrentThread();
                       const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
+                      
+                      // Extract and process image generation command if present
+                      let displayContent = message.content || '';
+                      if (message.content && message.content.includes('Generate_Image:')) {
+                        const parts = message.content.split('Generate_Image:');
+                        displayContent = parts[0].trim();
+                        // If there's only the image command, skip displaying this message
+                        if (!displayContent) {
+                          return null;
+                        }
+                      }
+
                       return (
                         <div
                           key={index}
@@ -496,11 +600,7 @@ export default function ChatbotPage() {
                                 isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
                               }`}
                               onError={(e) => {
-                                console.log('Chat message image failed to load:', currentPersonality?.icon);
                                 e.currentTarget.src = '/grok_icon.png';
-                              }}
-                              onLoad={() => {
-                                console.log('Chat message image loaded successfully:', currentPersonality?.icon);
                               }}
                             />
                           )}
@@ -513,14 +613,18 @@ export default function ChatbotPage() {
                           >
                             <div className={`break-words transition-all duration-300 ${
                               isLastMessage ? 'text-lg' : 'text-base'
-                            }`}>{message.content}</div>
+                            }`}>{displayContent}</div>
                             {message.image_url && (
                               <div className="mt-4">
                                 <img
                                   src={message.image_url}
                                   alt="Generated artwork"
-                                  className="rounded-lg w-full h-auto"
+                                  className="rounded-lg w-24 h-24 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                   loading="lazy"
+                                  onClick={() => setSelectedChatImage({
+                                    url: message.image_url!,
+                                    prompt: message.content
+                                  })}
                                 />
                               </div>
                             )}
@@ -563,6 +667,34 @@ export default function ChatbotPage() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Chat Image Modal */}
+                {selectedChatImage && (
+                  <div 
+                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedChatImage(null)}
+                  >
+                    <div className="relative max-w-4xl w-full">
+                      <img
+                        src={selectedChatImage.url}
+                        alt="Generated artwork"
+                        className="w-full h-auto rounded-lg"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedChatImage(null);
+                        }}
+                        className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2 border-t border-gray-700">
                   <Input
                     value={input}
