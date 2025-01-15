@@ -232,7 +232,8 @@ export default function ChatbotPage() {
         systemMessage,
         ...thread.messages.map(msg => ({
           role: msg.role,
-          content: msg.content
+          content: msg.content,
+          image_url: msg.image_url
         } as Message))
       ]
 
@@ -264,10 +265,6 @@ export default function ChatbotPage() {
                 prompt: imagePrompt,
                 createdAt: Date.now()
               }, ...prevImages])
-
-              // Update message history for next response
-              messageHistory.push(assistantMessage)
-              messageHistory.push(imageMessage)
             } else {
               throw new Error('No image URL in response')
             }
