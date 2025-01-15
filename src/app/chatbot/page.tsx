@@ -255,14 +255,19 @@ export default function ChatbotPage() {
                 content: '',
                 image_url: imageResponse.image_url
               }
-              updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
+              const messagesWithImage = [...updatedMessages, imageMessage]
+              updateThreadMessages(currentThreadId, messagesWithImage)
 
               // Add to gallery
-              setGeneratedImages([{
+              setGeneratedImages(prevImages => [{
                 url: imageResponse.image_url,
                 prompt: imagePrompt,
                 createdAt: Date.now()
-              }, ...generatedImages])
+              }, ...prevImages])
+
+              // Update message history for next response
+              messageHistory.push(assistantMessage)
+              messageHistory.push(imageMessage)
             } else {
               throw new Error('No image URL in response')
             }
