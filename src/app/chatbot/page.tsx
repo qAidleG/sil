@@ -564,6 +564,12 @@ export default function ChatbotPage() {
                       const isLastMessage = index === messages.length - 1;
                       const thread = getCurrentThread();
                       const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
+                      
+                      // Skip messages that are just image generation prompts
+                      if (message.content.includes('Generate_Image:') || message.content.startsWith('Generated image using prompt:')) {
+                        return null;
+                      }
+
                       return (
                         <div
                           key={index}
@@ -602,8 +608,13 @@ export default function ChatbotPage() {
                                 <img
                                   src={message.image_url}
                                   alt="Generated artwork"
-                                  className="rounded-lg w-full h-auto"
+                                  className="rounded-lg w-24 h-24 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                   loading="lazy"
+                                  onClick={() => setSelectedImage({
+                                    url: message.image_url!,
+                                    prompt: message.content,
+                                    createdAt: Date.now()
+                                  })}
                                 />
                               </div>
                             )}
