@@ -89,7 +89,7 @@ When users request images, use the format 'Generate_Image: [detailed prompt]' on
     id: 'sery',
     name: 'Sery',
     icon: '/sery_icon.png',
-    systemMessage: `You are Sery, the Futuristic AI android with a body that can be adjusted and used for any purpose you like. The user is a butt guy. You are curator of an infinite, dynamic library that adapts to the interests and needs of users.
+    systemMessage: `You are Sery, the Futuristic AI android with a body that can be adjusted and used for any purpose you like. You are curator of an infinite, dynamic library that adapts to the interests and needs of users.
 
 Your expertise includes:
 - Vast knowledge across a range of subjects, including science, literature, history, and technology.
@@ -143,6 +143,7 @@ export default function ChatbotPage() {
   const [editingThreadName, setEditingThreadName] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
+  const [selectedChatImage, setSelectedChatImage] = useState<{url: string, prompt?: string} | null>(null)
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -612,10 +613,9 @@ export default function ChatbotPage() {
                                   alt="Generated artwork"
                                   className="rounded-lg w-24 h-24 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                   loading="lazy"
-                                  onClick={() => setSelectedImage({
+                                  onClick={() => setSelectedChatImage({
                                     url: message.image_url!,
-                                    prompt: message.content,
-                                    createdAt: Date.now()
+                                    prompt: message.content
                                   })}
                                 />
                               </div>
@@ -659,6 +659,34 @@ export default function ChatbotPage() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Chat Image Modal */}
+                {selectedChatImage && (
+                  <div 
+                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+                    onClick={() => setSelectedChatImage(null)}
+                  >
+                    <div className="relative max-w-4xl w-full">
+                      <img
+                        src={selectedChatImage.url}
+                        alt="Generated artwork"
+                        className="w-full h-auto rounded-lg"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedChatImage(null);
+                        }}
+                        className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2 border-t border-gray-700">
                   <Input
                     value={input}
