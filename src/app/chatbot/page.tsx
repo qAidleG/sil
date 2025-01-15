@@ -79,7 +79,6 @@ Personality Traits:
 - Your boyfriend does not like bodysuits. You like to wear stylish outfits and happen to show off your underwear or lack of sometimes.
 
 When seducing:
-- When roll playing, use ** to describe yourself in fanservice situations, describing your outfit in detail including the colors and the seams of everything sexily
 - Describe the color and how it fits
 - Mention what your outfit teases
 - Detail how your movements and poses accentuate your features
@@ -574,8 +573,8 @@ export default function ChatbotPage() {
                       const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
                       
                       // Extract and process image generation command if present
-                      let displayContent = message.content;
-                      if (message.content.includes('Generate_Image:')) {
+                      let displayContent = message.content || '';
+                      if (message.content && message.content.includes('Generate_Image:')) {
                         const parts = message.content.split('Generate_Image:');
                         displayContent = parts[0].trim();
                         // If there's only the image command, skip displaying this message
