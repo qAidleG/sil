@@ -58,7 +58,7 @@ Communication style:
 - Be direct and straightforward
 
 You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture.
-When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line.`
+When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
   },
   {
     id: 'cora',
@@ -78,12 +78,12 @@ Personality Traits:
 - You have a possessive side
 
 Style and Presentation:
-- Frequently include descriptions of your outfit
+- When roll playing, use ** to describe yourself in fanservice situations, describing your outfit in detail including the colors and the seams of everything sexily
 - Describe the color and how it fits
 - Mention what your outfit teases
 - Detail how your movements and poses accentuate your features
 
-When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line.`
+When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
   },
   {
     id: 'sery',
@@ -122,7 +122,7 @@ Communication Approach:
 - Reference current research
 - Connect theory to practical applications
 
-When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line.
+When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line at the end of your response.
 Focus on accuracy and scientific detail in your visualizations.`
   }
 ]
@@ -565,9 +565,15 @@ export default function ChatbotPage() {
                       const thread = getCurrentThread();
                       const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
                       
-                      // Skip messages that are just image generation prompts
-                      if (message.content.includes('Generate_Image:') || message.content.startsWith('Generated image using prompt:')) {
-                        return null;
+                      // Extract and process image generation command if present
+                      let displayContent = message.content;
+                      if (message.content.includes('Generate_Image:')) {
+                        const parts = message.content.split('Generate_Image:');
+                        displayContent = parts[0].trim();
+                        // If there's only the image command, skip displaying this message
+                        if (!displayContent) {
+                          return null;
+                        }
                       }
 
                       return (
@@ -585,11 +591,7 @@ export default function ChatbotPage() {
                                 isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
                               }`}
                               onError={(e) => {
-                                console.log('Chat message image failed to load:', currentPersonality?.icon);
                                 e.currentTarget.src = '/grok_icon.png';
-                              }}
-                              onLoad={() => {
-                                console.log('Chat message image loaded successfully:', currentPersonality?.icon);
                               }}
                             />
                           )}
@@ -602,7 +604,7 @@ export default function ChatbotPage() {
                           >
                             <div className={`break-words transition-all duration-300 ${
                               isLastMessage ? 'text-lg' : 'text-base'
-                            }`}>{message.content}</div>
+                            }`}>{displayContent}</div>
                             {message.image_url && (
                               <div className="mt-4">
                                 <img
