@@ -49,19 +49,19 @@ export async function POST(request: Request) {
       const errorText = await response.text()
       console.error('Grok API Error:', errorText)
       return NextResponse.json(
-        { error: 'Error communicating with Grok' },
+        { content: 'Sorry, there was an error communicating with the AI. Please try again.' },
         { status: 200 }
       )
     }
 
     const data = await response.json()
     return NextResponse.json({
-      content: data.choices?.[0]?.message?.content || 'No response from Grok'
+      content: data.choices?.[0]?.message?.content || 'Sorry, I received an empty response. Please try again.'
     })
   } catch (error) {
     console.error('Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { content: 'Sorry, there was an unexpected error. Please try again.' },
       { status: 200 }
     )
   }
