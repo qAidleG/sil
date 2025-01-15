@@ -249,7 +249,7 @@ export default function ChatbotPage() {
           const imageResponse = await generateImage(imagePrompt, fluxKey || undefined)
           const imageMessage: Message = {
             role: 'assistant',
-            content: `Generated image using prompt: "${imagePrompt}"`,
+            content: '',
             image_url: imageResponse.image_url
           }
           updateThreadMessages(currentThreadId, [...updatedMessages, imageMessage])
@@ -304,7 +304,7 @@ export default function ChatbotPage() {
           const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
           const assistantMessage: Message = { 
             role: 'assistant', 
-            content: 'Here\'s your generated image:', 
+            content: '', 
             image_url: response.image_url 
           }
           updateThreadMessages(currentThreadId, [...thread.messages, userMessage, assistantMessage])
