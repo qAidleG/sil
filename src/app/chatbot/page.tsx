@@ -234,20 +234,25 @@ export default function ChatbotPage() {
         systemMessage,
         ...thread.messages.map(msg => ({
           role: msg.role,
-          content: msg.content,
-          image_url: msg.image_url
+          content: msg.content
         } as Message))
       ]
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
-      const assistantMessage: Message = { role: 'assistant', content: response.content }
-      const updatedMessages = [...newMessages, assistantMessage]
-      updateThreadMessages(currentThreadId, updatedMessages)
-
+      
       // Check if the response contains an image generation command
       if (response?.content) {
         const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
+        const messageContent = response.content.replace(/Generate_Image:\s*(.+?)(?:\n|$)/, '').trim();
         
+        // Add the assistant's text response first
+        if (messageContent) {
+          const assistantMessage: Message = { role: 'assistant', content: messageContent }
+          const updatedMessages = [...newMessages, assistantMessage]
+          updateThreadMessages(currentThreadId, updatedMessages)
+        }
+        
+        // Handle image generation if present
         if (imageMatch && imageMatch[1]?.trim()) {
           const imagePrompt = imageMatch[1].trim()
           try {
@@ -255,11 +260,11 @@ export default function ChatbotPage() {
             if (imageResponse?.image_url) {
               const imageMessage: Message = {
                 role: 'assistant',
-                content: '',
+                content: `Generated image for: ${imagePrompt}`,
                 image_url: imageResponse.image_url
               }
-              const messagesWithImage = [...updatedMessages, imageMessage]
-              updateThreadMessages(currentThreadId, messagesWithImage)
+              const currentMessages = getCurrentThread()?.messages || []
+              updateThreadMessages(currentThreadId, [...currentMessages, imageMessage])
 
               // Add to gallery
               setGeneratedImages(prevImages => [{
@@ -267,8 +272,6 @@ export default function ChatbotPage() {
                 prompt: imagePrompt,
                 createdAt: Date.now()
               }, ...prevImages])
-            } else {
-              throw new Error('No image URL in response')
             }
           } catch (error) {
             console.error('Error generating image:', error)
@@ -276,10 +279,13 @@ export default function ChatbotPage() {
               role: 'assistant',
               content: 'Sorry, there was an error generating the image. Please try again.'
             }
-            updateThreadMessages(currentThreadId, [...updatedMessages, errorMessage])
-            // Don't throw the error, let the chat continue
-            return
+            const currentMessages = getCurrentThread()?.messages || []
+            updateThreadMessages(currentThreadId, [...currentMessages, errorMessage])
           }
+        } else if (!messageContent) {
+          // If no image generation and no message content, add the original response
+          const assistantMessage: Message = { role: 'assistant', content: response.content }
+          updateThreadMessages(currentThreadId, [...newMessages, assistantMessage])
         }
       }
     } catch (error) {
@@ -289,7 +295,6 @@ export default function ChatbotPage() {
         content: 'Sorry, there was an error processing your message. Please try again.'
       }
       updateThreadMessages(currentThreadId, [...newMessages, errorMessage])
-      // Don't throw the error, let the chat continue
     } finally {
       setIsLoading(false)
     }
