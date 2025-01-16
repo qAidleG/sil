@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Settings, Home, Plus, Image as ImageIcon, MessageSquare, Trash2, Edit2, X } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StarField } from '../components/StarField'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -357,457 +359,277 @@ export default function ChatbotPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="fixed top-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm z-10 p-4 border-b border-gray-800">
-        <div className="flex justify-between items-center max-w-screen-2xl mx-auto">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="hover:bg-gray-800 relative"
-            >
-              <MessageSquare className="w-6 h-6" />
-              {threads.length > 0 && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-xs flex items-center justify-center">
-                  {threads.length}
-                </div>
-              )}
-            </Button>
-            <Link href="/" className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-              <Home className="w-6 h-6" />
-            </Link>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(!showSettings)}
-            className="hover:bg-gray-800"
-          >
-            <Settings className="w-6 h-6" />
-          </Button>
-        </div>
-      </div>
-
+    <main className="min-h-screen bg-gray-900/90 text-white overflow-hidden">
+      <StarField />
+      
       {/* Main Content */}
-      <div className="pt-16 pb-4 px-4">
-        {showSettings && (
-          <Card className="p-4 mb-4 bg-gray-800 border-gray-700 max-w-screen-2xl mx-auto">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Grok API Key (Optional)</label>
-                <Input
-                  type="password"
-                  value={grokKey}
-                  onChange={(e) => setGrokKey(e.target.value)}
-                  placeholder="Enter to override environment variable"
-                  className="bg-gray-700 border-gray-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Flux API Key (Optional)</label>
-                <Input
-                  type="password"
-                  value={fluxKey}
-                  onChange={(e) => setFluxKey(e.target.value)}
-                  placeholder="Enter to override environment variable"
-                  className="bg-gray-700 border-gray-600"
-                />
-              </div>
+      <div className="relative flex h-screen z-10">
+        {/* Sidebar */}
+        <div className={`fixed md:relative inset-y-0 left-0 w-72 bg-gray-800/50 backdrop-blur-sm border-r border-gray-700 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          <div className="flex flex-col h-full p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
+                <Home size={20} />
+                <span>Home</span>
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSettings(!showSettings)}
+                className="text-gray-400 hover:text-white"
+              >
+                <Settings size={20} />
+              </Button>
             </div>
-          </Card>
-        )}
 
-        <div className="flex gap-4 max-w-screen-2xl mx-auto h-[calc(100vh-5rem)]">
-          {/* Thread List - Sidebar */}
-          <div 
-            className={`
-              fixed md:relative inset-y-0 left-0 z-20 
-              w-72 bg-gray-800 transform transition-transform duration-200 ease-in-out
-              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-              md:flex flex-shrink-0 mt-16 md:mt-0
-              ${isSidebarOpen ? 'shadow-lg' : ''}
-              overflow-hidden
-            `}
-          >
-            {/* Close button for mobile */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarOpen(false)}
-              className="absolute top-2 right-2 hover:bg-gray-700 md:hidden"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-
-            <div className="flex flex-col h-full p-4 overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Threads ({threads.length})</h2>
-                <div className="flex items-center gap-2">
-                  <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
-                    <SelectTrigger className="w-[140px] bg-gray-700">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PERSONALITIES.map(personality => (
-                        <SelectItem key={personality.id} value={personality.id}>
-                          <div className="flex items-center gap-2">
-                            <img 
-                              src={personality.icon} 
-                              alt={personality.name} 
-                              className="w-6 h-6 rounded-full"
-                              onError={(e) => {
-                                e.currentTarget.src = '/grok_icon.png'
-                              }}
-                            />
-                            <span>{personality.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      createNewThread();
-                      setIsSidebarOpen(false);
-                    }}
-                    className="hover:bg-gray-700"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+            {/* Settings Panel */}
+            {showSettings && (
+              <Card className="p-4 mb-4 bg-gray-800/50 border-gray-700 backdrop-blur-sm animate-float">
+                <h3 className="text-lg font-semibold mb-4 text-blue-400">API Settings</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1">Grok API Key</label>
+                    <Input
+                      type="password"
+                      value={grokKey}
+                      onChange={(e) => setGrokKey(e.target.value)}
+                      className="bg-gray-900/50 border-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Flux API Key</label>
+                    <Input
+                      type="password"
+                      value={fluxKey}
+                      onChange={(e) => setFluxKey(e.target.value)}
+                      className="bg-gray-900/50 border-gray-700"
+                    />
+                  </div>
                 </div>
-              </div>
-              {/* Thread List */}
-              <div className="space-y-2 flex-1 overflow-y-auto">
-                {threads.map(thread => {
-                  const threadPersonality = PERSONALITIES.find(p => p.id === thread.personalityId)
-                  return (
-                    <div
-                      key={thread.id}
-                      className={`flex justify-between items-center p-2 rounded-lg cursor-pointer transition-all duration-200 group ${
-                        currentThreadId === thread.id ? 'bg-blue-600 scale-102' : 'hover:bg-gray-700'
-                      }`}
-                      onClick={() => {
-                        setCurrentThreadId(thread.id);
-                        setIsSidebarOpen(false);
+              </Card>
+            )}
+
+            {/* New Chat Button */}
+            <div className="flex items-center space-x-2 mb-4">
+              <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
+                <SelectTrigger className="bg-gray-900/50 border-gray-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERSONALITIES.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center space-x-2">
+                        <Image src={p.icon} alt={p.name} width={24} height={24} className="rounded-full" />
+                        <span>{p.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={createNewThread}
+                className="bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                <Plus size={20} />
+              </Button>
+            </div>
+
+            {/* Thread List */}
+            <div className="flex-1 space-y-2 overflow-y-auto">
+              {threads.map(thread => (
+                <div
+                  key={thread.id}
+                  className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                    currentThreadId === thread.id
+                      ? 'bg-blue-600/20 border border-blue-500'
+                      : 'hover:bg-gray-700/50 border border-transparent'
+                  }`}
+                  onClick={() => setCurrentThreadId(thread.id)}
+                >
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <Image
+                      src={PERSONALITIES.find(p => p.id === thread.personalityId)?.icon || '/grok_icon.png'}
+                      alt="AI"
+                      width={24}
+                      height={24}
+                      className="rounded-full"
+                    />
+                    {editingThreadId === thread.id ? (
+                      <Input
+                        value={editingThreadName}
+                        onChange={(e) => setEditingThreadName(e.target.value)}
+                        onBlur={() => saveThreadName(thread.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
+                        className="bg-gray-900/50 border-gray-700"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="truncate">{thread.name}</span>
+                    )}
+                  </div>
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditingThread(thread.id);
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <Edit2 size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteThread(thread.id);
+                      }}
+                      className="text-gray-400 hover:text-red-400"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col h-screen">
+          <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+            <div className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm p-2">
+              <TabsList className="bg-gray-900/50">
+                <TabsTrigger value="chat" className="data-[state=active]:bg-blue-600">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger value="images" className="data-[state=active]:bg-blue-600">
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Images
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="chat" className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
+              {getCurrentThread()?.messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] p-4 rounded-xl backdrop-blur-sm animate-float ${
+                      message.role === 'user'
+                        ? 'bg-blue-600/20 border border-blue-500'
+                        : 'bg-gray-800/50 border border-gray-700'
+                    }`}
+                  >
+                    {message.image_url && (
+                      <div className="mb-2 cursor-pointer" onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}>
+                        <Image
+                          src={message.image_url}
+                          alt="Generated"
+                          width={300}
+                          height={300}
+                          className="rounded-lg"
+                        />
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </TabsContent>
+
+            <TabsContent value="images" className="flex-1 p-4 overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {generatedImages.map((img) => (
+                  <div
+                    key={img.createdAt}
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-gray-700 hover:border-blue-500 transition-all duration-300 cursor-pointer animate-float"
+                    onClick={() => setSelectedImage(img)}
+                  >
+                    <Image
+                      src={img.url}
+                      alt={img.prompt}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <p className="text-sm text-white line-clamp-2">{img.prompt}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteImage(img.createdAt);
                       }}
                     >
-                      <div className="flex items-center space-x-2">
-                        <img 
-                          src={threadPersonality?.icon}
-                          alt={threadPersonality?.name || 'AI'} 
-                          className="w-6 h-6 rounded-full"
-                          onError={(e) => {
-                            e.currentTarget.src = '/grok_icon.png'
-                          }}
-                        />
-                        {editingThreadId === thread.id ? (
-                          <Input
-                            value={editingThreadName}
-                            onChange={(e) => setEditingThreadName(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
-                            onBlur={() => saveThreadName(thread.id)}
-                            className="bg-transparent border-none focus:outline-none p-0 h-6"
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <span className="truncate">{thread.name}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            startEditingThread(thread.id)
-                          }}
-                          className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteThread(thread.id)
-                          }}
-                          className="hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            {/* Input Area */}
+            <div className="border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm p-4">
+              <div className="flex space-x-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  placeholder="Type a message..."
+                  className="bg-gray-900/50 border-gray-700"
+                  disabled={isLoading}
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={isLoading}
+                  className="bg-blue-600 hover:bg-blue-500"
+                >
+                  Send
+                </Button>
               </div>
             </div>
-          </div>
-
-          {/* Overlay for mobile */}
-          {isSidebarOpen && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-10 md:hidden"
-              onClick={() => setIsSidebarOpen(false)}
-            />
-          )}
-
-          {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col bg-gray-800 rounded-lg overflow-hidden">
-            <Tabs defaultValue="chat" className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-3 bg-gray-900/50 p-1">
-                <TabsTrigger value="chat">Chat</TabsTrigger>
-                <TabsTrigger value="image">Image Generation</TabsTrigger>
-                <TabsTrigger value="gallery">Gallery</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="chat" className="flex-1 flex flex-col p-4 h-[calc(100vh-12rem)]">
-                <div className="flex-1 overflow-y-auto pr-2 mb-4">
-                  {currentThreadId ? (
-                    getCurrentThread()?.messages.map((message, index, messages) => {
-                      const isLastMessage = index === messages.length - 1;
-                      const thread = getCurrentThread();
-                      const currentPersonality = PERSONALITIES.find(p => p.id === thread?.personalityId);
-                      
-                      // Extract and process image generation command if present
-                      let displayContent = message.content || '';
-                      if (message.content && message.content.includes('Generate_Image:')) {
-                        const parts = message.content.split('Generate_Image:');
-                        displayContent = parts[0].trim();
-                        // If there's only the image command, skip displaying this message
-                        if (!displayContent) {
-                          return null;
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={index}
-                          className={`mb-4 flex ${
-                            message.role === 'user' ? 'justify-end' : 'justify-start'
-                          } ${isLastMessage ? 'animate-in slide-in-from-bottom-2' : ''}`}
-                        >
-                          {message.role === 'assistant' && (
-                            <img
-                              src={currentPersonality?.icon}
-                              alt={currentPersonality?.name || 'AI'}
-                              className={`rounded-full mr-2 self-end transition-all duration-300 ${
-                                isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
-                              }`}
-                              onError={(e) => {
-                                e.currentTarget.src = '/grok_icon.png';
-                              }}
-                            />
-                          )}
-                          <div
-                            className={`p-3 rounded-lg max-w-[80%] transition-all duration-300 ${
-                              message.role === 'user'
-                                ? 'bg-blue-600'
-                                : 'bg-gray-700'
-                            } ${isLastMessage ? 'shadow-lg' : ''}`}
-                          >
-                            <div className={`break-words transition-all duration-300 ${
-                              isLastMessage ? 'text-lg' : 'text-base'
-                            }`}>{displayContent}</div>
-                            {message.image_url && (
-                              <div className="mt-4">
-                                <img
-                                  src={message.image_url}
-                                  alt="Generated artwork"
-                                  className="rounded-lg w-24 h-24 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  loading="lazy"
-                                  onClick={() => setSelectedChatImage({
-                                    url: message.image_url!,
-                                    prompt: message.content
-                                  })}
-                                />
-                              </div>
-                            )}
-                          </div>
-                          {message.role === 'user' && (
-                            <div className={`rounded-full ml-2 flex items-center justify-center self-end bg-blue-500 transition-all duration-300 ${
-                              isLastMessage ? 'w-10 h-10 animate-bounce-subtle' : 'w-8 h-8'
-                            }`}>
-                              <span className={`transition-all duration-300 ${
-                                isLastMessage ? 'text-base' : 'text-sm'
-                              }`}>You</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                      <MessageSquare className="w-12 h-12 mb-4" />
-                      <p>Create a new thread to start chatting</p>
-                      <Button
-                        variant="ghost"
-                        onClick={createNewThread}
-                        className="mt-4"
-                      >
-                        New Thread
-                      </Button>
-                    </div>
-                  )}
-                  {isLoading && (
-                    <div className="flex justify-start animate-in fade-in">
-                      <div className="bg-gray-700 rounded-lg p-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Chat Image Modal */}
-                {selectedChatImage && (
-                  <div 
-                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-                    onClick={() => setSelectedChatImage(null)}
-                  >
-                    <div className="relative max-w-4xl w-full">
-                      <img
-                        src={selectedChatImage.url}
-                        alt="Generated artwork"
-                        className="w-full h-auto rounded-lg"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedChatImage(null);
-                        }}
-                        className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-800"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2 border-t border-gray-700">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSendMessage()}
-                    placeholder={currentThreadId ? "Type your message..." : "Create a thread to start chatting"}
-                    className="bg-gray-700 border-gray-600"
-                    disabled={isLoading || !currentThreadId}
-                  />
-                  <Button 
-                    onClick={handleSendMessage} 
-                    disabled={isLoading || !currentThreadId}
-                    className="min-w-[80px]"
-                  >
-                    {isLoading ? 'Sending...' : 'Send'}
-                  </Button>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="image" className="flex-1 p-4">
-                <div className="flex gap-2">
-                  <Input
-                    value={imagePrompt}
-                    onChange={(e) => setImagePrompt(e.target.value)}
-                    placeholder="Describe the image you want to generate..."
-                    className="bg-gray-700 border-gray-600"
-                    disabled={isLoading}
-                  />
-                  <Button 
-                    onClick={handleGenerateImage} 
-                    disabled={isLoading}
-                    className="min-w-[100px]"
-                  >
-                    {isLoading ? 'Generating...' : 'Generate'}
-                  </Button>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="gallery" className="flex-1 p-4 overflow-y-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {generatedImages.map((image, index) => (
-                    <div key={index} className="bg-gray-700 rounded-lg overflow-hidden group relative">
-                      <div className="relative aspect-square">
-                        <img
-                          src={image.url}
-                          alt={image.prompt}
-                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setSelectedImage(image)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteImage(image.createdAt)}
-                          className="absolute top-2 right-2 bg-gray-900/80 hover:bg-red-600/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="p-4">
-                        <p className="text-sm text-gray-300 line-clamp-2">{image.prompt}</p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {new Date(image.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {generatedImages.length === 0 && (
-                    <div className="col-span-full flex flex-col items-center justify-center h-48 text-gray-400">
-                      <ImageIcon className="w-12 h-12 mb-4" />
-                      <p>No images generated yet</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Image Modal */}
-                {selectedImage && (
-                  <div 
-                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-                    onClick={() => setSelectedImage(null)}
-                  >
-                    <div className="relative max-w-4xl w-full">
-                      <div className="relative">
-                        <img
-                          src={selectedImage.url}
-                          alt={selectedImage.prompt}
-                          className="w-full h-auto rounded-lg"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedImage(null);
-                          }}
-                          className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-800"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="mt-4 bg-gray-800/90 p-4 rounded-lg">
-                        <p className="text-sm text-gray-200">{selectedImage.prompt}</p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {new Date(selectedImage.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
+          </Tabs>
         </div>
       </div>
-    </div>
+
+      {/* Image Preview Modal */}
+      {(selectedImage || selectedChatImage) && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full bg-gray-800/90 rounded-xl p-4 animate-float">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2"
+              onClick={() => {
+                setSelectedImage(null);
+                setSelectedChatImage(null);
+              }}
+            >
+              <X className="w-6 h-6" />
+            </Button>
+            <Image
+              src={selectedImage?.url || selectedChatImage?.url || ''}
+              alt={selectedImage?.prompt || selectedChatImage?.prompt || ''}
+              width={800}
+              height={800}
+              className="rounded-lg"
+            />
+            <p className="mt-4 text-gray-300">{selectedImage?.prompt || selectedChatImage?.prompt}</p>
+          </div>
+        </div>
+      )}
+    </main>
   )
 } 
