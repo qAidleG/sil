@@ -230,15 +230,24 @@ export default function ChatbotPage() {
 
     try {
       const systemMessage: Message = { role: 'system', content: personality.systemMessage }
-      // Filter out image URLs and empty messages from history
+      
+      // Clean and limit message history
+      const cleanedMessages = thread.messages
+        .filter(msg => msg.content.trim() !== '')  // Remove empty messages
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+            .replace(/Generated image for:.*$/, '') // Remove image generation messages
+            .replace(/Generate_Image:.*$/, '')      // Remove image prompts
+            .trim()
+        }))
+        .filter(msg => msg.content !== '')         // Remove any messages that became empty after cleaning
+        .slice(-10);                               // Keep only last 10 messages
+
       const messageHistory = [
         systemMessage,
-        ...thread.messages
-          .filter(msg => msg.content.trim() !== '')  // Remove empty messages
-          .map(msg => ({
-            role: msg.role,
-            content: msg.content.replace(/Generated image for:.*$/, '').trim()  // Remove image generation messages
-          } as Message))
+        ...cleanedMessages,
+        newMessage  // Add the current message
       ]
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
