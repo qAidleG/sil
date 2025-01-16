@@ -528,13 +528,14 @@ export default function ChatbotPage() {
                     }`}
                   >
                     {message.image_url && (
-                      <div className="mb-2 cursor-pointer" onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}>
-                        <Image
+                      <div 
+                        className="mb-2 cursor-pointer relative aspect-square w-[300px]" 
+                        onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}
+                      >
+                        <img
                           src={message.image_url}
                           alt="Generated"
-                          width={300}
-                          height={300}
-                          className="rounded-lg"
+                          className="rounded-lg w-full h-full object-cover"
                         />
                       </div>
                     )}
@@ -619,12 +620,10 @@ export default function ChatbotPage() {
             >
               <X className="w-6 h-6" />
             </Button>
-            <Image
+            <img
               src={selectedImage?.url || selectedChatImage?.url || ''}
               alt={selectedImage?.prompt || selectedChatImage?.prompt || ''}
-              width={800}
-              height={800}
-              className="rounded-lg"
+              className="w-full h-auto rounded-lg"
             />
             <p className="mt-4 text-gray-300">{selectedImage?.prompt || selectedChatImage?.prompt}</p>
           </div>
