@@ -230,12 +230,15 @@ export default function ChatbotPage() {
 
     try {
       const systemMessage: Message = { role: 'system', content: personality.systemMessage }
+      // Filter out image URLs and empty messages from history
       const messageHistory = [
         systemMessage,
-        ...thread.messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        } as Message))
+        ...thread.messages
+          .filter(msg => msg.content.trim() !== '')  // Remove empty messages
+          .map(msg => ({
+            role: msg.role,
+            content: msg.content.replace(/Generated image for:.*$/, '').trim()  // Remove image generation messages
+          } as Message))
       ]
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
@@ -245,7 +248,7 @@ export default function ChatbotPage() {
         const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
         const messageContent = response.content.replace(/Generate_Image:\s*(.+?)(?:\n|$)/, '').trim();
         
-        // Add the assistant's text response first
+        // Add the assistant's text response first if it exists
         if (messageContent) {
           const assistantMessage: Message = { role: 'assistant', content: messageContent }
           const updatedMessages = [...newMessages, assistantMessage]
