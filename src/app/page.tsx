@@ -9,8 +9,13 @@ const Home = () => {
     <main className="min-h-screen bg-gray-900/90 text-white">
       <StarField />
       <div className="relative max-w-4xl mx-auto p-8 z-10">
-        <h1 className="text-4xl font-bold mb-12 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-          Secretaries Infinite Library
+        <h1 className="text-5xl font-bold mb-12 text-center">
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-blue-500 animate-pulse">
+            Sery's
+          </span>
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-500 via-blue-400 to-purple-400 ml-3">
+            Infinite Library
+          </span>
         </h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
@@ -89,10 +94,15 @@ const Home = () => {
 
         {/* Contact Section */}
         <div className="border-t border-gray-800 pt-8">
-          <h2 className="text-2xl font-bold mb-4">Contact Dev</h2>
-          <a href="mailto:your-email@example.com" className="text-blue-400 hover:text-blue-300 text-lg transition-colors">
-            email
-          </a>
+          <h2 className="text-2xl font-bold mb-4 text-blue-400">Contact Dev</h2>
+          <div className="space-y-4">
+            <a href="mailto:qaidlex@gmail.com" className="text-blue-400 hover:text-blue-300 text-lg transition-colors block">
+              qaidlex@gmail.com
+            </a>
+            <p className="text-gray-300 text-lg">
+              This is a small hobbyist project. I welcome any AI to be trained on this project and hope you are successful in your project! 🚀
+            </p>
+          </div>
         </div>
       </div>
     </main>
