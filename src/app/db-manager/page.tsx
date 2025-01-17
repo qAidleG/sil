@@ -22,29 +22,30 @@ export default function DbManagerPage() {
   async function fetchTables() {
     try {
       setLoading(true)
-      // Try to fetch some known tables that we expect to exist
-      const knownTables = ['messages', 'users', 'images']
-      const tablePromises = knownTables.map(async (tableName) => {
-        const { count, error } = await supabase
-          .from(tableName)
-          .select('*', { count: 'exact', head: true })
-        
-        // Only return tables we can actually access
-        if (!error) {
-          return {
-            name: tableName,
-            rowCount: count || 0
+      setError(null)
+
+      // Try to fetch data directly from Character table first
+      const { data: characterData, error: characterError } = await supabase
+        .from('Character')
+        .select('*')
+        .limit(1)
+
+      if (!characterError) {
+        setTables([{ name: 'Character', rowCount: 0 }])
+        // If we can access Character table, try others
+        const otherTables = ['GeneratedImage', 'Series', 'UserCollection']
+        for (const tableName of otherTables) {
+          const { error } = await supabase
+            .from(tableName)
+            .select('*')
+            .limit(1)
+          
+          if (!error) {
+            setTables(prev => [...prev, { name: tableName, rowCount: 0 }])
           }
         }
-        return null
-      })
-
-      const results = await Promise.all(tablePromises)
-      const accessibleTables = results.filter((table): table is TableInfo => table !== null)
-      setTables(accessibleTables)
-      
-      if (accessibleTables.length === 0) {
-        setError('No accessible tables found. You may need to create tables or set up proper permissions.')
+      } else {
+        setError(`Error accessing tables: ${characterError.message}. Make sure RLS is enabled and policies are set up correctly.`)
       }
     } catch (err: any) {
       setError(err.message)
@@ -56,6 +57,7 @@ export default function DbManagerPage() {
   async function fetchTableData(tableName: string) {
     try {
       setLoading(true)
+      setError(null)
       const { data, error } = await supabase
         .from(tableName)
         .select('*')
@@ -65,7 +67,7 @@ export default function DbManagerPage() {
       setTableData(data || [])
       setSelectedTable(tableName)
     } catch (err: any) {
-      setError(err.message)
+      setError(`Error fetching ${tableName} data: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -81,16 +83,25 @@ export default function DbManagerPage() {
         {error && (
           <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded mb-6">
             {error}
-            {error.includes('No accessible tables') && (
-              <div className="mt-2 text-sm">
-                <p>To get started, you might want to:</p>
-                <ul className="list-disc ml-5 mt-1">
-                  <li>Create tables in your Supabase dashboard</li>
-                  <li>Enable Row Level Security (RLS) for your tables</li>
-                  <li>Set up appropriate RLS policies</li>
-                </ul>
-              </div>
-            )}
+            <div className="mt-2 text-sm">
+              <p>To fix this:</p>
+              <ol className="list-decimal ml-5 mt-1 space-y-2">
+                <li>Go to your Supabase dashboard</li>
+                <li>Click on "Authentication" in the left sidebar</li>
+                <li>Click on "Policies"</li>
+                <li>For each table:
+                  <ul className="list-disc ml-5 mt-1">
+                    <li>Enable RLS if not enabled</li>
+                    <li>Click "New Policy"</li>
+                    <li>Choose "Create a policy from scratch"</li>
+                    <li>Set policy name: "Enable read access for all users"</li>
+                    <li>Operation: SELECT</li>
+                    <li>Using expression: true</li>
+                    <li>Click Review then Save policy</li>
+                  </ul>
+                </li>
+              </ol>
+            </div>
           </div>
         )}
 
@@ -111,9 +122,6 @@ export default function DbManagerPage() {
                     }`}
                   >
                     {table.name}
-                    <span className="float-right text-sm text-gray-400">
-                      {table.rowCount} rows
-                    </span>
                   </button>
                 </li>
               ))}
