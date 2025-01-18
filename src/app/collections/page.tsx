@@ -261,6 +261,7 @@ export default function CollectionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           characterId: character.id,
+          collectionId: 1, // Use a constant collection ID
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
@@ -320,10 +321,19 @@ export default function CollectionsPage() {
 
       const fullPrompt = `${basePrompt}${posePrompt} ${moodPrompt} ${backgroundPrompt} ${styleDetails} Ensure high quality, professional trading card game art style, centered composition, high detail on character. Use dramatic lighting and rich colors.`
 
+      // Generate a seed for consistent results
+      const seed = Math.floor(Math.random() * 1000000)
+      console.log('Using seed:', seed)
+
       const response = await fetch('/api/flux', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: fullPrompt })
+        body: JSON.stringify({ 
+          prompt: fullPrompt,
+          seed: seed,
+          num_inference_steps: 30,
+          guidance_scale: 7.5
+        })
       })
 
       if (!response.ok) throw new Error('Failed to generate image')
@@ -334,10 +344,11 @@ export default function CollectionsPage() {
         .from('GeneratedImage')
         .insert([{
           characterId: selectedCharacter.id,
+          collectionId: 1,
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
-          seed: Math.floor(Math.random() * 1000000)
+          seed: seed  // Store the same seed we used for generation
         }])
 
       if (uploadError) {

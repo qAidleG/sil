@@ -17,18 +17,23 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      db: {
-        schema: 'public'
-      }
-    })
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { characterId, url, prompt, style, seed } = await request.json()
+    const { characterId, url, prompt, style, seed, collectionId } = await request.json()
+
+    // Validate required fields
+    if (!characterId || !collectionId) {
+      return NextResponse.json(
+        { error: 'characterId and collectionId are required' },
+        { status: 400 }
+      )
+    }
 
     const { error } = await supabaseAdmin
       .from('GeneratedImage')
       .insert([{
         characterId,
+        collectionId,
         url,
         prompt,
         style,
