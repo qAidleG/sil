@@ -228,34 +228,35 @@ export default function ChatbotPage() {
       
       // Clean and limit message history
       const cleanedMessages = thread.messages
-        .filter(msg => msg.content.trim() !== '')  // Remove empty messages
+        .filter(msg => msg.content.trim() !== '')
         .map(msg => ({
           role: msg.role,
           content: msg.content
-            .replace(/Generated image for:.*$/, '') // Remove image generation messages
-            .replace(/Generate_Image:.*$/, '')      // Remove image prompts
+            .replace(/Generated image for:.*$/, '')
+            .replace(/Generate_Image:.*$/, '')
             .trim()
         }))
-        .filter(msg => msg.content !== '')         // Remove any messages that became empty after cleaning
-        .slice(-10);                               // Keep only last 10 messages
+        .filter(msg => msg.content !== '')
+        .slice(-10)
 
       const messageHistory = [
         systemMessage,
         ...cleanedMessages,
-        newMessage  // Add the current message
+        newMessage
       ]
 
       const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
       
-      // Check if the response contains an image generation command
       if (response?.content) {
-        const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/);
-        const messageContent = response.content.replace(/Generate_Image:\s*(.+?)(?:\n|$)/, '').trim();
+        const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/)
+        const messageContent = response.content.replace(/Generate_Image:\s*(.+?)(?:\n|$)/, '').trim()
         
+        let updatedMessages = [...newMessages]
+
         // Add the assistant's text response first if it exists
         if (messageContent) {
           const assistantMessage: Message = { role: 'assistant', content: messageContent }
-          const updatedMessages = [...newMessages, assistantMessage]
+          updatedMessages = [...updatedMessages, assistantMessage]
           updateThreadMessages(currentThreadId, updatedMessages)
         }
         
@@ -270,8 +271,8 @@ export default function ChatbotPage() {
                 content: `Generated image for: ${imagePrompt}`,
                 image_url: imageResponse.image_url
               }
-              const currentMessages = getCurrentThread()?.messages || []
-              updateThreadMessages(currentThreadId, [...currentMessages, imageMessage])
+              updatedMessages = [...updatedMessages, imageMessage]
+              updateThreadMessages(currentThreadId, updatedMessages)
 
               // Add to gallery
               setGeneratedImages(prevImages => [{
@@ -286,13 +287,9 @@ export default function ChatbotPage() {
               role: 'assistant',
               content: 'Sorry, there was an error generating the image. Please try again.'
             }
-            const currentMessages = getCurrentThread()?.messages || []
-            updateThreadMessages(currentThreadId, [...currentMessages, errorMessage])
+            updatedMessages = [...updatedMessages, errorMessage]
+            updateThreadMessages(currentThreadId, updatedMessages)
           }
-        } else if (!messageContent) {
-          // If no image generation and no message content, add the original response
-          const assistantMessage: Message = { role: 'assistant', content: response.content }
-          updateThreadMessages(currentThreadId, [...newMessages, assistantMessage])
         }
       }
     } catch (error) {
