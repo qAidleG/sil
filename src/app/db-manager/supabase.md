@@ -1,49 +1,60 @@
-# Database Manager - Supabase Setup
+# Database Manager - Supabase Documentation
 
-## Current Configuration
+## Table Schemas
 
-### Tables
-1. `Character`
-   - Primary table for character information
-   - Contains: name, bio, dialogue, etc.
-   - Has relationship with Series table
+### Character Table
 
-2. `Series`
-   - Stores series/show information
-   - Contains: name, description
-   - One-to-many relationship with Character
+| Name      | Type                    | Description |
+|-----------|-------------------------|-------------|
+| id        | integer                 | Primary key |
+| name      | text                    | Character name |
+| seriesId  | integer                 | Foreign key to Series table |
+| bio       | text                    | Character biography |
+| rarity    | integer                 | Character rarity level (1-5) |
+| dialogs   | text[]                  | Array of character dialogues |
+| createdAt | timestamp without time zone | Creation timestamp |
+| updatedAt | timestamp without time zone | Last update timestamp |
 
-3. `GeneratedImage`
-   - Stores AI-generated images
-   - Contains: prompt, url, creation timestamp
+### Series Table
 
-4. `UserCollection`
-   - Manages user's saved characters
-   - Links users to characters
+| Name      | Type                    | Description |
+|-----------|-------------------------|-------------|
+| id        | integer                 | Primary key |
+| name      | text                    | Series name |
+| universe  | text                    | Universe/world name |
+| createdAt | timestamp without time zone | Creation timestamp |
+| updatedAt | timestamp without time zone | Last update timestamp |
 
-### RLS (Row Level Security) Policies
+### GeneratedImage Table
 
-All tables have the following policy:
-```sql
-alter policy "Enable read access for all users"
-on "public".[TABLE_NAME]
-to public
-using (true);
-```
+| Name         | Type                    | Description |
+|--------------|-------------------------|-------------|
+| id           | integer                 | Primary key |
+| characterId  | integer                 | Foreign key to Character table |
+| collectionId | integer                 | Foreign key to Collection table |
+| seed         | integer                 | Image generation seed |
+| prompt       | text                    | Generation prompt |
+| style        | text                    | Image style |
+| url          | text                    | Image URL |
+| createdAt    | timestamp without time zone | Creation timestamp |
+| updatedAt    | timestamp without time zone | Last update timestamp |
 
-This allows public read access to all tables while maintaining security.
+## Common Operations
 
-## Database Operations
+### Character Operations
 
-### Querying Data
 ```typescript
-// Basic select
+// Read all characters
 const { data, error } = await supabase
   .from('Character')
   .select('*')
-  .limit(50)
 
-// With relationships
+// Read with specific columns
+const { data, error } = await supabase
+  .from('Character')
+  .select('name, bio, rarity')
+
+// Read with relationships
 const { data, error } = await supabase
   .from('Character')
   .select(`
@@ -53,103 +64,211 @@ const { data, error } = await supabase
       description
     )
   `)
-```
 
-### Pagination
-The database manager uses offset pagination:
-```typescript
+// With pagination
 const { data, error } = await supabase
   .from('Character')
   .select('*')
-  .range(0, 49)  // First 50 records
-```
-
-### Sorting
-```typescript
-const { data, error } = await supabase
-  .from('Character')
-  .select('*')
-  .order('name', { ascending: true })
+  .range(0, 9)
 ```
 
 ### Filtering
+
 ```typescript
+// Basic filters
+const { data, error } = await supabase
+  .from('Character')
+  .select("*")
+  .eq('rarity', 5)           // Equal to
+  .gt('rarity', 3)          // Greater than
+  .lt('rarity', 3)          // Less than
+  .gte('rarity', 4)         // Greater than or equal to
+  .lte('rarity', 2)         // Less than or equal to
+  .like('name', '%Sery%')   // Case sensitive search
+  .ilike('name', '%sery%')  // Case insensitive search
+  .is('seriesId', null)     // Is null check
+  .in('rarity', [4, 5])     // In array
+  .neq('rarity', 1)         // Not equal to
+
+// Array operations
 const { data, error } = await supabase
   .from('Character')
   .select('*')
-  .ilike('name', '%search_term%')
+  .contains('dialogs', ['specific dialog'])
 ```
 
-## Table Relationships
+### Insert Operations
 
-```mermaid
-erDiagram
-    Series ||--o{ Character : contains
-    Character ||--o{ UserCollection : "saved in"
-    Character {
-        bigint id PK
-        string name
-        bigint series_id FK
-        text bio
-        text[] dialogue
-        timestamp created_at
-        timestamp updated_at
-    }
-    Series {
-        bigint id PK
-        string name
-        text description
-        timestamp created_at
-        timestamp updated_at
-    }
-    GeneratedImage {
-        bigint id PK
-        text prompt
-        text url
-        timestamp created_at
-    }
-    UserCollection {
-        bigint id PK
-        string user_id
-        bigint character_id FK
-        timestamp created_at
-    }
+```typescript
+// Insert single character
+const { data, error } = await supabase
+  .from('Character')
+  .insert([{
+    name: 'New Character',
+    bio: 'Character description',
+    rarity: 4,
+    dialogs: ['Hello!', 'Goodbye!'],
+    seriesId: 1
+  }])
+  .select()
+
+// Bulk insert
+const { data, error } = await supabase
+  .from('Character')
+  .insert([
+    { name: 'Character 1', rarity: 3 },
+    { name: 'Character 2', rarity: 4 }
+  ])
+  .select()
 ```
 
-## Error Codes
+### Update Operations
 
-Common Supabase error codes and their meanings:
-- `PGRST116`: Policy violation
-- `23503`: Foreign key violation
-- `23505`: Unique constraint violation
-- `42P01`: Undefined table
-- `42703`: Undefined column
-
-## Environment Setup
-
-Required environment variables:
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+```typescript
+// Update character
+const { data, error } = await supabase
+  .from('Character')
+  .update({ 
+    bio: 'Updated biography',
+    rarity: 5
+  })
+  .eq('id', 1)
+  .select()
 ```
 
-## Debugging Tips
+### Delete Operations
 
-1. Check RLS Policies:
-   ```sql
-   SELECT *
-   FROM pg_policies
-   WHERE schemaname = 'public';
-   ```
+```typescript
+// Delete character
+const { error } = await supabase
+  .from('Character')
+  .delete()
+  .eq('id', 1)
+```
 
-2. View Table Permissions:
-   ```sql
-   SELECT table_name, grantee, privilege_type
-   FROM information_schema.role_table_grants
-   WHERE table_schema = 'public';
-   ```
+### Real-time Subscriptions
 
-3. Common Issues:
-   - RLS not enabled: Enable with `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;`
-   - Missing policies: Add using the policy template above
-   - Relationship errors: Check foreign key constraints 
+```typescript
+// Subscribe to all character changes
+const channel = supabase.channel('custom-all-channel')
+  .on(
+    'postgres_changes',
+    { event: '*', schema: 'public', table: 'Character' },
+    (payload) => {
+      console.log('Change received!', payload)
+    }
+  )
+  .subscribe()
+
+// Subscribe to specific events
+const channel = supabase.channel('custom-insert-channel')
+  .on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'Character' },
+    (payload) => {
+      console.log('New character added:', payload)
+    }
+  )
+  .subscribe()
+
+// Subscribe to specific character updates
+const channel = supabase.channel('custom-filter-channel')
+  .on(
+    'postgres_changes',
+    { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'Character',
+      filter: 'id=eq.1'
+    },
+    (payload) => {
+      console.log('Character updated:', payload)
+    }
+  )
+  .subscribe()
+```
+
+### Series Operations
+
+```typescript
+// Read all series
+const { data, error } = await supabase
+  .from('Series')
+  .select('*')
+
+// Read with relationships
+const { data, error } = await supabase
+  .from('Series')
+  .select(`
+    *,
+    Character (
+      id,
+      name,
+      rarity
+    )
+  `)
+
+// Create new series
+const { data, error } = await supabase
+  .from('Series')
+  .insert([{
+    name: 'New Series',
+    universe: 'Fantasy World'
+  }])
+  .select()
+
+// Bulk insert series
+const { data, error } = await supabase
+  .from('Series')
+  .insert([
+    { name: 'Series 1', universe: 'Sci-Fi Universe' },
+    { name: 'Series 2', universe: 'Medieval Realm' }
+  ])
+  .select()
+
+// Update series
+const { data, error } = await supabase
+  .from('Series')
+  .update({ 
+    universe: 'Updated Universe'
+  })
+  .eq('id', 1)
+  .select()
+
+// Delete series
+const { error } = await supabase
+  .from('Series')
+  .delete()
+  .eq('id', 1)
+
+// Get series by universe
+const { data, error } = await supabase
+  .from('Series')
+  .select('*, Character(*)')
+  .eq('universe', 'Fantasy World')
+
+// Search series by name
+const { data, error } = await supabase
+  .from('Series')
+  .select('*')
+  .ilike('name', '%search term%')
+
+// Real-time subscription to series changes
+const channel = supabase.channel('custom-series-channel')
+  .on(
+    'postgres_changes',
+    { 
+      event: '*', 
+      schema: 'public', 
+      table: 'Series'
+    },
+    (payload) => {
+      console.log('Series changed:', payload)
+    }
+  )
+  .subscribe()
+```
+
+### GeneratedImage Operations
+
+```

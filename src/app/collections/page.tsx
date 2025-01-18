@@ -53,10 +53,15 @@ export default function CollectionsPage() {
         .from('Character')
         .insert([
           {
-            name: 'Test Character',
-            bio: 'This is a test character to verify database connectivity.',
-            dialogue: ['Hello, world!'],
-            seriesId: null
+            name: 'Sery',
+            bio: 'A mysterious character from the infinite library, known for their wisdom and charm.',
+            seriesId: null,
+            rarity: 5,
+            dialogs: [
+              'Welcome to the Infinite Library!',
+              'Knowledge is power, but wisdom is eternal.',
+              'Let me guide you through the realms of possibility.'
+            ]
           }
         ])
         .select()
@@ -123,13 +128,29 @@ interface CharacterCardProps {
 }
 
 function CharacterCard({ character }: CharacterCardProps) {
+  // Get rarity color based on rarity level
+  const getRarityColor = (rarity: number) => {
+    switch (rarity) {
+      case 5: return 'text-yellow-400'
+      case 4: return 'text-purple-400'
+      case 3: return 'text-blue-400'
+      case 2: return 'text-green-400'
+      default: return 'text-gray-400'
+    }
+  }
+
   return (
     <div className="group relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl overflow-hidden border border-gray-700 hover:border-blue-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm shadow-lg hover:shadow-blue-500/20">
       <div className="p-6">
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
-            {character.name}
-          </h2>
+          <div className="flex justify-between items-start">
+            <h2 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+              {character.name}
+            </h2>
+            <span className={`${getRarityColor(character.rarity)} text-sm font-semibold`}>
+              ★{character.rarity}
+            </span>
+          </div>
           {character.Series && (
             <p className="text-sm text-gray-400">
               Series: {character.Series.name}
@@ -143,7 +164,7 @@ function CharacterCard({ character }: CharacterCardProps) {
         <div className="mt-4 pt-4 border-t border-gray-700">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">
-              {character.dialogue?.length || 0} dialogues
+              {character.dialogs?.length || 0} dialogs
             </span>
             <button className="text-blue-400 hover:text-blue-300 transition-colors">
               View Details →
