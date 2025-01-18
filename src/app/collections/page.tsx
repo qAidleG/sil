@@ -26,14 +26,19 @@ export default function CollectionsPage() {
           *,
           Series (
             name,
-            description
+            universe
           )
         `)
         .order('name')
       
       if (error) {
         console.error('Supabase error:', error)
-        throw error
+        if (error.code === '401' || error.code === '42501') {
+          setError('Authentication error. Please check your API credentials.')
+        } else {
+          setError('Failed to load characters. Please try again later.')
+        }
+        return
       }
 
       console.log('Fetched characters:', data)
@@ -66,7 +71,17 @@ export default function CollectionsPage() {
         ])
         .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error creating character:', error)
+        if (error.code === '42501') {
+          setError('Permission denied. Please check your database permissions.')
+        } else if (error.code === '401') {
+          setError('Authentication error. Please check your API credentials.')
+        } else {
+          setError('Failed to create character. Please try again later.')
+        }
+        return
+      }
       
       console.log('Created test character:', data)
       fetchCharacters() // Refresh the list
@@ -94,7 +109,16 @@ export default function CollectionsPage() {
 
         {error && (
           <div className="mb-8 p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200">
-            {error}
+            <p>{error}</p>
+            {(error.includes('Authentication') || error.includes('Permission')) && (
+              <p className="mt-2 text-sm">
+                Make sure your environment variables are properly set in Vercel:
+                <br />
+                - NEXT_PUBLIC_SUPABASE_URL
+                <br />
+                - NEXT_PUBLIC_SUPABASE_ANON_KEY
+              </p>
+            )}
           </div>
         )}
         
