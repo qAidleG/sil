@@ -1,12 +1,15 @@
 export interface Character {
   id: number
   name: string
-  seriesId: number | null
+  seriesId: number
   bio: string | null
   dialogue: string[]
   createdAt: string
   updatedAt: string
-  Series?: Series
+  Series?: {
+    name: string
+    description: string | null
+  } | null
 }
 
 export interface Series {
