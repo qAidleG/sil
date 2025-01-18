@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Character } from '@/types/database'
+import { StarField } from '../components/StarField'
 
 export default function CollectionsPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCharacters()
@@ -14,6 +16,10 @@ export default function CollectionsPage() {
 
   const fetchCharacters = async () => {
     try {
+      setLoading(true)
+      setError(null)
+      
+      console.log('Fetching characters...')
       const { data, error } = await supabase
         .from('Character')
         .select(`
@@ -25,35 +31,83 @@ export default function CollectionsPage() {
         `)
         .order('name')
       
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      console.log('Fetched characters:', data)
       setCharacters(data || [])
     } catch (error) {
       console.error('Error fetching characters:', error)
+      setError('Failed to load characters. Please try again later.')
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    )
+  const createTestCharacter = async () => {
+    try {
+      setError(null)
+      const { data, error } = await supabase
+        .from('Character')
+        .insert([
+          {
+            name: 'Test Character',
+            bio: 'This is a test character to verify database connectivity.',
+            dialogue: ['Hello, world!'],
+            seriesId: null
+          }
+        ])
+        .select()
+
+      if (error) throw error
+      
+      console.log('Created test character:', data)
+      fetchCharacters() // Refresh the list
+    } catch (error) {
+      console.error('Error creating test character:', error)
+      setError('Failed to create test character. Please check console for details.')
+    }
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-          Character Collection
-        </h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {characters.map((character) => (
-            <CharacterCard key={character.id} character={character} />
-          ))}
+    <main className="min-h-screen bg-gray-900 text-white">
+      <StarField />
+      <div className="relative z-10 max-w-7xl mx-auto p-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            Character Collection
+          </h1>
+          <button
+            onClick={createTestCharacter}
+            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+          >
+            Create Test Character
+          </button>
         </div>
+
+        {error && (
+          <div className="mb-8 p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200">
+            {error}
+          </div>
+        )}
+        
+        {loading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : characters.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">No characters found in the collection.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {characters.map((character) => (
+              <CharacterCard key={character.id} character={character} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   )
