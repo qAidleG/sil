@@ -382,135 +382,139 @@ export default function ChatbotPage() {
       {/* Main Content */}
       <div className="relative flex h-screen z-10">
         {/* Sidebar */}
-        <div className={`fixed md:relative inset-y-0 left-0 w-72 bg-gray-800/50 backdrop-blur-sm border-r border-gray-700 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          <div className="flex flex-col h-full p-4">
+        <div className={`fixed md:relative inset-y-0 left-0 w-72 bg-gray-800/50 backdrop-blur-sm border-r border-gray-700 transform transition-transform duration-300 flex flex-col h-screen ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          <div className="flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
-                <Home size={20} />
-                <span>Home</span>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(!showSettings)}
-                className="text-gray-400 hover:text-white"
-              >
-                <Settings size={20} />
-              </Button>
-            </div>
+            <div className="flex-shrink-0 p-4">
+              <div className="flex items-center justify-between mb-6">
+                <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
+                  <Home size={20} />
+                  <span>Home</span>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <Settings size={20} />
+                </Button>
+              </div>
 
-            {/* Settings Panel */}
-            {showSettings && (
-              <Card className="p-4 mb-4 bg-gray-800/50 border-gray-700 backdrop-blur-sm animate-float">
-                <h3 className="text-lg font-semibold mb-4 text-blue-400">API Settings</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm mb-1">Grok API Key</label>
-                    <Input
-                      type="password"
-                      value={grokKey}
-                      onChange={(e) => setGrokKey(e.target.value)}
-                      className="bg-gray-900/50 border-gray-700"
-                    />
+              {/* Settings Panel */}
+              {showSettings && (
+                <Card className="p-4 mb-4 bg-gray-800/50 border-gray-700 backdrop-blur-sm animate-float">
+                  <h3 className="text-lg font-semibold mb-4 text-blue-400">API Settings</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm mb-1">Grok API Key</label>
+                      <Input
+                        type="password"
+                        value={grokKey}
+                        onChange={(e) => setGrokKey(e.target.value)}
+                        className="bg-gray-900/50 border-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Flux API Key</label>
+                      <Input
+                        type="password"
+                        value={fluxKey}
+                        onChange={(e) => setFluxKey(e.target.value)}
+                        className="bg-gray-900/50 border-gray-700"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm mb-1">Flux API Key</label>
-                    <Input
-                      type="password"
-                      value={fluxKey}
-                      onChange={(e) => setFluxKey(e.target.value)}
-                      className="bg-gray-900/50 border-gray-700"
-                    />
-                  </div>
-                </div>
-              </Card>
-            )}
+                </Card>
+              )}
 
-            {/* New Chat Button */}
-            <div className="flex items-center space-x-2 mb-4">
-              <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
-                <SelectTrigger className="bg-gray-900/50 border-gray-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERSONALITIES.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <div className="flex items-center space-x-2">
-                        <Image src={p.icon} alt={p.name} width={24} height={24} className="rounded-full" />
-                        <span>{p.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={createNewThread}
-                className="bg-blue-600 hover:bg-blue-500 text-white"
-              >
-                <Plus size={20} />
-              </Button>
+              {/* New Chat Button */}
+              <div className="flex items-center space-x-2 mb-4">
+                <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
+                  <SelectTrigger className="bg-gray-900/50 border-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERSONALITIES.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <div className="flex items-center space-x-2">
+                          <Image src={p.icon} alt={p.name} width={24} height={24} className="rounded-full" />
+                          <span>{p.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={createNewThread}
+                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                >
+                  <Plus size={20} />
+                </Button>
+              </div>
             </div>
 
             {/* Thread List */}
-            <div className="flex-1 space-y-2 overflow-y-auto">
-              {threads.map(thread => (
-                <div
-                  key={thread.id}
-                  className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                    currentThreadId === thread.id
-                      ? 'bg-blue-600/20 border border-blue-500'
-                      : 'hover:bg-gray-700/50 border border-transparent'
-                  }`}
-                  onClick={() => setCurrentThreadId(thread.id)}
-                >
-                  <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    <Image
-                      src={PERSONALITIES.find(p => p.id === thread.personalityId)?.icon || '/grok_icon.png'}
-                      alt="AI"
-                      width={24}
-                      height={24}
-                      className="rounded-full"
-                    />
-                    {editingThreadId === thread.id ? (
-                      <Input
-                        value={editingThreadName}
-                        onChange={(e) => setEditingThreadName(e.target.value)}
-                        onBlur={() => saveThreadName(thread.id)}
-                        onKeyDown={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
-                        className="bg-gray-900/50 border-gray-700"
-                        autoFocus
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              <div className="space-y-2">
+                {threads.map(thread => (
+                  <div
+                    key={thread.id}
+                    className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                      currentThreadId === thread.id
+                        ? 'bg-blue-600/20 border border-blue-500'
+                        : 'hover:bg-gray-700/50 border border-transparent'
+                    }`}
+                    onClick={() => setCurrentThreadId(thread.id)}
+                  >
+                    <div className="flex items-center space-x-2 flex-1 min-w-0">
+                      <Image
+                        src={PERSONALITIES.find(p => p.id === thread.personalityId)?.icon || '/grok_icon.png'}
+                        alt="AI"
+                        width={24}
+                        height={24}
+                        className="rounded-full"
                       />
-                    ) : (
-                      <span className="truncate">{thread.name}</span>
-                    )}
+                      {editingThreadId === thread.id ? (
+                        <Input
+                          value={editingThreadName}
+                          onChange={(e) => setEditingThreadName(e.target.value)}
+                          onBlur={() => saveThreadName(thread.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && saveThreadName(thread.id)}
+                          className="bg-gray-900/50 border-gray-700"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="truncate">{thread.name}</span>
+                      )}
+                    </div>
+                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditingThread(thread.id);
+                        }}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <Edit2 size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteThread(thread.id);
+                        }}
+                        className="text-gray-400 hover:text-red-400"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditingThread(thread.id);
-                      }}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <Edit2 size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteThread(thread.id);
-                      }}
-                      className="text-gray-400 hover:text-red-400"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
