@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
@@ -255,8 +255,12 @@ export default function CollectionsPage() {
       const data = await response.json()
       console.log('API Response Success:', data)
       
-      // Store image in Supabase with explicit headers
-      const { error: uploadError } = await supabase
+      // Store image in Supabase using admin client
+      if (!supabaseAdmin) {
+        throw new Error('Admin client not configured')
+      }
+
+      const { error: uploadError } = await supabaseAdmin
         .from('GeneratedImage')
         .insert([{
           characterId: character.id,
