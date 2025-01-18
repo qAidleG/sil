@@ -265,7 +265,6 @@ export default function CollectionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           characterId: character.id,
-          collectionId: 1, // Use a constant collection ID
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
@@ -348,7 +347,6 @@ export default function CollectionsPage() {
         .from('GeneratedImage')
         .insert([{
           characterId: selectedCharacter.id,
-          collectionId: 1,
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
