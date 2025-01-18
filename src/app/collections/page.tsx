@@ -255,39 +255,26 @@ export default function CollectionsPage() {
       const data = await response.json()
       console.log('API Response Success:', data)
       
-      // Store image in Supabase using admin client
-      if (!supabaseAdmin) {
-        console.error('Admin client not configured:', {
-          serviceKeyExists: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
-          serviceKeyLength: process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY?.length,
-          envVars: {
-            url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-            anonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length
-          }
-        })
-        throw new Error('Admin client not configured')
-      }
-
-      console.log('Attempting insert with admin client:', {
-        hasAdminClient: !!supabaseAdmin,
-        characterId: character.id,
-        imageUrl: !!data.image_url
-      })
-      const { error: uploadError } = await supabaseAdmin
-        .from('GeneratedImage')
-        .insert([{
+      // Store image using server-side API route
+      const storeResponse = await fetch('/api/store-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           characterId: character.id,
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
           seed: Math.floor(Math.random() * 1000000)
-        }])
+        })
+      })
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw uploadError
+      if (!storeResponse.ok) {
+        const errorData = await storeResponse.json()
+        console.error('Store error:', errorData)
+        throw new Error(errorData.error || 'Failed to store image')
       }
-      console.log('Insert successful!')
+
+      console.log('Image stored successfully')
       
       // Refresh character data to get new image
       fetchCharacters()
