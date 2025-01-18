@@ -257,9 +257,22 @@ export default function CollectionsPage() {
       
       // Store image in Supabase using admin client
       if (!supabaseAdmin) {
+        console.error('Admin client not configured:', {
+          serviceKeyExists: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
+          serviceKeyLength: process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY?.length,
+          envVars: {
+            url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+            anonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length
+          }
+        })
         throw new Error('Admin client not configured')
       }
 
+      console.log('Attempting insert with admin client:', {
+        hasAdminClient: !!supabaseAdmin,
+        characterId: character.id,
+        imageUrl: !!data.image_url
+      })
       const { error: uploadError } = await supabaseAdmin
         .from('GeneratedImage')
         .insert([{
@@ -274,6 +287,7 @@ export default function CollectionsPage() {
         console.error('Upload error:', uploadError)
         throw uploadError
       }
+      console.log('Insert successful!')
       
       // Refresh character data to get new image
       fetchCharacters()
