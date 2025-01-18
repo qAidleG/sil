@@ -315,11 +315,11 @@ export default function ChatbotPage() {
       const response = await generateImage(imagePrompt, fluxKey || undefined)
       
       // Add to gallery
-      setGeneratedImages([{
+      setGeneratedImages(prevImages => [{
         url: response.image_url,
         prompt: imagePrompt,
         createdAt: Date.now()
-      }, ...generatedImages])
+      }, ...prevImages])
 
       if (currentThreadId) {
         const thread = getCurrentThread()
@@ -327,10 +327,11 @@ export default function ChatbotPage() {
           const userMessage: Message = { role: 'user', content: `Generated image: ${imagePrompt}` }
           const assistantMessage: Message = { 
             role: 'assistant', 
-            content: '', 
+            content: `Generated image for: ${imagePrompt}`, 
             image_url: response.image_url 
           }
-          updateThreadMessages(currentThreadId, [...thread.messages, userMessage, assistantMessage])
+          const updatedMessages = [...thread.messages, userMessage, assistantMessage]
+          updateThreadMessages(currentThreadId, updatedMessages)
         }
       }
       setImagePrompt('')
@@ -343,7 +344,8 @@ export default function ChatbotPage() {
             role: 'assistant', 
             content: 'Sorry, there was an error generating the image. Please try again.' 
           }
-          updateThreadMessages(currentThreadId, [...thread.messages, errorMessage])
+          const updatedMessages = [...thread.messages, errorMessage]
+          updateThreadMessages(currentThreadId, updatedMessages)
         }
       }
     } finally {
@@ -624,12 +626,21 @@ export default function ChatbotPage() {
 
       {/* Image Preview Modal */}
       {(selectedImage || selectedChatImage) && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-4xl w-full bg-gray-800/90 rounded-xl p-4 animate-float">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setSelectedImage(null);
+            setSelectedChatImage(null);
+          }}
+        >
+          <div 
+            className="relative max-w-4xl w-full bg-gray-800/90 rounded-xl p-4 animate-float"
+            onClick={(e) => e.stopPropagation()} // Prevent clicks on the content from closing the modal
+          >
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2"
+              className="absolute top-2 right-2 z-10 hover:bg-gray-700/50"
               onClick={() => {
                 setSelectedImage(null);
                 setSelectedChatImage(null);
