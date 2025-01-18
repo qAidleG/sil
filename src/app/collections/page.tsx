@@ -235,15 +235,25 @@ export default function CollectionsPage() {
       // Use default settings for quick generation
       const basePrompt = `Create a high-quality anime style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. Character shown in a noble portrait pose, facing slightly to the side, elegant and composed. Expression is determined and focused. Premium trading card game background with subtle magical effects and professional card frame. High-quality anime art style, clean lines, vibrant colors. Ensure high quality, professional trading card game art style, centered composition, high detail on character. Use dramatic lighting and rich colors.`
 
+      console.log('Making request to /api/flux with prompt:', basePrompt)
       const response = await fetch('/api/flux', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: basePrompt })
       })
 
-      if (!response.ok) throw new Error('Failed to generate image')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('API Response Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: errorData
+        })
+        throw new Error(`Failed to generate image: ${errorData.error || response.statusText}`)
+      }
       
       const data = await response.json()
+      console.log('API Response Success:', data)
       
       // Store image in Supabase with explicit headers
       const { error: uploadError } = await supabase

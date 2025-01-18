@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   try {
     const { prompt, apiKey } = await request.json()
+    console.log('API Route - Request received:', { hasPrompt: !!prompt })
 
     if (!prompt) {
       return NextResponse.json(
@@ -12,6 +13,10 @@ export async function POST(request: Request) {
     }
 
     const fluxApiKey = apiKey || process.env.FLUX_API_KEY
+    console.log('API Route - API Key status:', { 
+      hasApiKey: !!fluxApiKey,
+      envKeyExists: !!process.env.FLUX_API_KEY
+    })
 
     if (!fluxApiKey) {
       return NextResponse.json(
