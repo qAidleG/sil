@@ -19,23 +19,40 @@ export async function POST(request: Request) {
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { characterId, url, prompt, style, seed, collectionId } = await request.json()
+    const { characterId, url, prompt, style, seed } = await request.json()
 
     // Validate required fields
-    if (!characterId || !collectionId) {
+    if (!characterId) {
       return NextResponse.json(
-        { error: 'characterId and collectionId are required' },
+        { error: 'characterId is required' },
         { status: 400 }
       )
     }
 
     const now = new Date().toISOString()
 
-    const { error } = await supabaseAdmin
+    // First, ensure we have a UserCollection entry
+    const { data: userCollection, error: collectionError } = await supabaseAdmin
+      .from('UserCollection')
+      .insert([{
+        userId: 'default',  // We can use a default user ID for now
+        characterId: characterId,
+        createdAt: now
+      }])
+      .select()
+      .single()
+
+    if (collectionError) {
+      console.error('Error creating user collection:', collectionError)
+      return NextResponse.json({ error: collectionError.message }, { status: 500 })
+    }
+
+    // Then create the generated image
+    const { error: imageError } = await supabaseAdmin
       .from('GeneratedImage')
       .insert([{
         characterId,
-        collectionId,
+        collectionId: userCollection.id,  // Use the ID from the created UserCollection
         url,
         prompt,
         style,
@@ -44,9 +61,9 @@ export async function POST(request: Request) {
         updatedAt: now
       }])
 
-    if (error) {
-      console.error('Error storing image:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (imageError) {
+      console.error('Error storing image:', imageError)
+      return NextResponse.json({ error: imageError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
