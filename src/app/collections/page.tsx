@@ -249,7 +249,11 @@ export default function CollectionsPage() {
           statusText: response.statusText,
           data: errorData
         })
-        throw new Error(`Failed to generate image: ${errorData.error || response.statusText}`)
+        if (response.status === 400 && errorData.error.includes('Maximum of')) {
+          setError(errorData.error)  // Show the max images message
+        } else {
+          throw new Error(`Failed to generate image: ${errorData.error || response.statusText}`)
+        }
       }
       
       const data = await response.json()
@@ -363,6 +367,21 @@ export default function CollectionsPage() {
       setError('Failed to generate image. Please try again.')
     } finally {
       setGeneratingImage(false)
+    }
+  }
+
+  const handleDeleteImage = async (imageId: number) => {
+    try {
+      const { error } = await supabase
+        .from('GeneratedImage')
+        .delete()
+        .eq('id', imageId);
+      
+      if (error) throw error;
+      fetchCharacters(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      setError('Failed to delete image. Please try again.');
     }
   }
 
@@ -492,6 +511,7 @@ export default function CollectionsPage() {
                   setShowImageModal(true)
                 }}
                 onQuickGenerate={handleQuickGenerate}
+                onDeleteImage={handleDeleteImage}
               />
             ))}
           </div>
@@ -730,9 +750,10 @@ interface CharacterCardProps {
   character: Character
   onGenerateImage: (character: Character) => void
   onQuickGenerate: (character: Character) => void
+  onDeleteImage: (imageId: number) => Promise<void>
 }
 
-function CharacterCard({ character, onGenerateImage, onQuickGenerate }: CharacterCardProps) {
+function CharacterCard({ character, onGenerateImage, onQuickGenerate, onDeleteImage }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Get rarity color based on rarity level
@@ -810,7 +831,7 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate }: Characte
                 image.url && (  // Only render if URL exists
                   <div 
                     key={image.id}
-                    className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700"
+                    className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 group"
                   >
                     <img
                       src={image.url}
@@ -822,6 +843,15 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate }: Characte
                         target.style.display = 'none';
                       }}
                     />
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await onDeleteImage(image.id);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
                 )
               ))}
