@@ -11,6 +11,7 @@ export interface Character {
     name: string
     universe: string
   } | null
+  images?: GeneratedImage[]
 }
 
 export interface Series {

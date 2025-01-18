@@ -13,19 +13,6 @@ interface Series {
   universe: string
 }
 
-interface Character {
-  id: number
-  name: string
-  bio: string
-  rarity: number
-  seriesId: number | null
-  dialogs: string[]
-  Series?: Series
-  images?: GeneratedImage[]
-  createdAt: string
-  updatedAt: string
-}
-
 interface GeneratedImage {
   id: number
   characterId: number
@@ -457,6 +444,7 @@ export default function CollectionsPage() {
                   setSelectedCharacter(char)
                   setShowImageModal(true)
                 }}
+                onQuickGenerate={handleQuickGenerate}
               />
             ))}
           </div>
@@ -694,9 +682,10 @@ export default function CollectionsPage() {
 interface CharacterCardProps {
   character: Character
   onGenerateImage: (character: Character) => void
+  onQuickGenerate: (character: Character) => void
 }
 
-function CharacterCard({ character, onGenerateImage }: CharacterCardProps) {
+function CharacterCard({ character, onGenerateImage, onQuickGenerate }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Get rarity color based on rarity level
@@ -789,7 +778,7 @@ function CharacterCard({ character, onGenerateImage }: CharacterCardProps) {
         {isExpanded && (
           <div className="mt-4 flex justify-end space-x-3">
             <button
-              onClick={() => handleQuickGenerate(character)}
+              onClick={() => onQuickGenerate(character)}
               className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition-colors"
             >
               <Upload size={18} />
