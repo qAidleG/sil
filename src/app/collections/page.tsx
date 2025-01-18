@@ -114,6 +114,7 @@ export default function CollectionsPage() {
       setLoading(true)
       setError(null)
       
+      // First, let's get the basic character data
       const { data, error } = await supabase
         .from('Character')
         .select(`
@@ -121,13 +122,6 @@ export default function CollectionsPage() {
           Series (
             name,
             universe
-          ),
-          images:GeneratedImage (
-            id,
-            url,
-            prompt,
-            style,
-            created_at
           )
         `)
         .order('name')
@@ -142,8 +136,24 @@ export default function CollectionsPage() {
         return
       }
 
-      console.log('Fetched characters:', data)
-      setCharacters(data || [])
+      // Then get images separately to avoid join issues
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('GeneratedImage')
+        .select('*')
+
+      if (imagesError) {
+        console.error('Error fetching images:', imagesError)
+        // Don't return here, just continue without images
+      }
+
+      // Combine the data
+      const charactersWithImages = data?.map(character => ({
+        ...character,
+        images: imagesData?.filter(img => img.characterId === character.id) || []
+      })) || []
+
+      console.log('Fetched characters:', charactersWithImages)
+      setCharacters(charactersWithImages)
     } catch (error) {
       console.error('Error fetching characters:', error)
       setError('Failed to load characters. Please try again later.')
@@ -222,6 +232,7 @@ export default function CollectionsPage() {
     setError(null)
     
     try {
+      // Use default settings for quick generation
       const basePrompt = `Create a high-quality anime style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. Character shown in a noble portrait pose, facing slightly to the side, elegant and composed. Expression is determined and focused. Premium trading card game background with subtle magical effects and professional card frame. High-quality anime art style, clean lines, vibrant colors. Ensure high quality, professional trading card game art style, centered composition, high detail on character. Use dramatic lighting and rich colors.`
 
       const response = await fetch('/api/flux', {
@@ -234,6 +245,7 @@ export default function CollectionsPage() {
       
       const data = await response.json()
       
+      // Store image in Supabase
       const { error: uploadError } = await supabase
         .from('GeneratedImage')
         .insert([{
@@ -241,10 +253,12 @@ export default function CollectionsPage() {
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
+          seed: Math.floor(Math.random() * 1000000)
         }])
 
       if (uploadError) throw uploadError
       
+      // Refresh character data to get new image
       fetchCharacters()
     } catch (error) {
       console.error('Error in quick generate:', error)
@@ -760,16 +774,23 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate }: Characte
             <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
             <div className="grid grid-cols-2 gap-4">
               {character.images.map((image) => (
-                <div 
-                  key={image.id}
-                  className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700"
-                >
-                  <img
-                    src={image.url}
-                    alt={`Card art for ${character.name}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                image.url && (  // Only render if URL exists
+                  <div 
+                    key={image.id}
+                    className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700"
+                  >
+                    <img
+                      src={image.url}
+                      alt={`Card art for ${character.name}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Handle broken images
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )
               ))}
             </div>
           </div>
