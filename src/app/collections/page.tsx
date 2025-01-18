@@ -331,7 +331,7 @@ export default function CollectionsPage() {
         body: JSON.stringify({ 
           prompt: fullPrompt,
           seed: seed,
-          num_inference_steps: 30,
+          num_inference_steps: 20,
           guidance_scale: 7.5
         })
       })

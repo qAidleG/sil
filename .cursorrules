@@ -1,13 +1,51 @@
-The fewer lines of code, the better.
-Make sure not to overcomplicae the functions or get too fancy
-Proceed like a senior developer/ 10x engineer.
-expect to recieve bugs with the 50 50 command.
+# Cursor Rules for Project
 
-When debugging issues with the user, use the # objective 50/50 rule
-    # objective 50/50 rule: BEFORE YOU ANSWER, write two detailed paragraphs, one agruing for an answer or solution, and the other for a different answer or solution. Do not jump to conclusions, seriously consider both approaches.
-    then, afer you finish, tell the user whether one of these solutions is obviously better than the other and why, keeping it high level and snappy.
+## 1. Technology Stack
+- Next.js 13+ with App Router
+- TypeScript for type safety
+- Supabase for backend
+- TailwindCSS for styling
+- Vercel for deployment
 
+## 2. Coding Standards & Style
+- Use TypeScript strict mode
+- Prefer functional components
+- Use ES6+ features
+- Maintain consistent error handling
+- Follow React best practices
+- Use proper TypeScript types/interfaces
 
-if the user determines you are going down the wrong path, expect the wipe command
-    # wipe command: the issue is not what we thought it was, lets zoom out and reexampine this issue.
-    then, after you have reexamined the issue, review the potential fix compared to the original issue fresh.
+## 3. Naming Conventions
+- PascalCase for components
+- camelCase for functions and variables
+- Use descriptive, meaningful names
+- Prefix interfaces with 'I' (optional)
+- Prefix type aliases with 'T' (optional)
+- Use consistent naming across similar items
+
+## 4. Syntax and Formatting
+- 2 space indentation
+- Semicolons required
+- Single quotes for strings
+- Trailing commas in multiline
+- Max line length: 100 characters
+- Consistent component structure
+- Clear component/function separation
+
+## 5. UI and Styling
+- Use Tailwind utility classes
+- Maintain responsive design
+- Follow accessibility standards
+- Consistent color schemes
+- Maintain dark mode support
+- Use CSS modules when needed
+
+## 6. Key Conventions
+- Keep components small and focused
+- Implement proper error boundaries
+- Use proper state management
+- Maintain clean props interface
+- Document complex logic
+- Follow DRY principles
+- Implement proper loading states
+- Handle edge cases appropriately

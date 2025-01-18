@@ -29,6 +29,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const now = new Date().toISOString()
+
     const { error } = await supabaseAdmin
       .from('GeneratedImage')
       .insert([{
@@ -37,7 +39,9 @@ export async function POST(request: Request) {
         url,
         prompt,
         style,
-        seed
+        seed,
+        createdAt: now,
+        updatedAt: now
       }])
 
     if (error) {
