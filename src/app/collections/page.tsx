@@ -350,7 +350,9 @@ export default function CollectionsPage() {
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
-          seed: seed  // Store the same seed we used for generation
+          seed: seed,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         }])
 
       if (uploadError) {
