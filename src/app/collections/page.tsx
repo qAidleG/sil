@@ -119,12 +119,7 @@ export default function CollectionsPage() {
 }
 
 interface CharacterCardProps {
-  character: Character & {
-    Series?: {
-      name: string
-      description: string | null
-    } | null
-  }
+  character: Character
 }
 
 function CharacterCard({ character }: CharacterCardProps) {
@@ -153,7 +148,7 @@ function CharacterCard({ character }: CharacterCardProps) {
           </div>
           {character.Series && (
             <p className="text-sm text-gray-400">
-              Series: {character.Series.name}
+              Universe: {character.Series.universe}
             </p>
           )}
           <p className="text-gray-300 line-clamp-3">
