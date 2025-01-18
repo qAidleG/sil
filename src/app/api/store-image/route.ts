@@ -18,9 +18,8 @@ export async function POST(request: Request) {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: false
+      db: {
+        schema: 'public'
       }
     })
 
