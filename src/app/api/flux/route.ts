@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Key': fluxApiKey
+        'x-key': fluxApiKey
       },
       body: JSON.stringify(requestBody)
     })
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       const resultResponse = await fetch(`https://api.bfl.ai/v1/get_result?id=${task.id}`, {
         method: 'GET',
         headers: {
-          'X-Key': fluxApiKey
+          'x-key': fluxApiKey
         }
       })
 
