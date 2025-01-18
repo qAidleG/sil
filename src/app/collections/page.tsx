@@ -245,7 +245,7 @@ export default function CollectionsPage() {
       
       const data = await response.json()
       
-      // Store image in Supabase
+      // Store image in Supabase with explicit headers
       const { error: uploadError } = await supabase
         .from('GeneratedImage')
         .insert([{
@@ -256,7 +256,10 @@ export default function CollectionsPage() {
           seed: Math.floor(Math.random() * 1000000)
         }])
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
       
       // Refresh character data to get new image
       fetchCharacters()
@@ -319,9 +322,13 @@ export default function CollectionsPage() {
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
+          seed: Math.floor(Math.random() * 1000000)
         }])
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
       
       setImageUrl(data.image_url)
       fetchCharacters()
