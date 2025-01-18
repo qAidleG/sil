@@ -1,67 +1,72 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
-const MAX_IMAGES_PER_CHARACTER = 6  // Limit to 6 images per character
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const { characterId, url, prompt, style, seed } = await req.json()
+
+    if (!characterId || !url) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Fetch the image from the Flux API URL
+    const imageResponse = await fetch(url)
+    if (!imageResponse.ok) {
+      throw new Error('Failed to fetch image from Flux API')
+    }
+    const imageBlob = await imageResponse.blob()
+
+    // Convert blob to jpg if it isn't already
+    const jpgBlob = new Blob([imageBlob], { type: 'image/jpeg' })
+
+    // Generate a unique filename in the public folder
+    const filename = `public/${Date.now()}-${seed}.jpg`
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing environment variables')
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
+    // Upload to Supabase Storage
+    const { data: storageData, error: storageError } = await supabase
+      .storage
+      .from('character-images')
+      .upload(filename, jpgBlob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600'
+      })
+
+    if (storageError) {
+      console.error('Storage error:', storageError)
+      throw new Error('Failed to upload image to storage')
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
-    const { characterId, url, prompt, style, seed } = await request.json()
+    // Get the public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('character-images')
+      .getPublicUrl(filename)
 
-    // Check how many images this character already has
-    const { data: existingImages, error: countError } = await supabaseAdmin
-      .from('GeneratedImage')
-      .select('id')
-      .eq('characterId', characterId)
-
-    if (countError) {
-      console.error('Error checking existing images:', countError)
-      return NextResponse.json({ error: countError.message }, { status: 500 })
-    }
-
-    if (existingImages && existingImages.length >= MAX_IMAGES_PER_CHARACTER) {
-      return NextResponse.json(
-        { error: `Maximum of ${MAX_IMAGES_PER_CHARACTER} images allowed per character. Please delete some images to generate more.` },
-        { status: 400 }
-      )
-    }
-
+    // Store the record with our stored image URL
     const now = new Date().toISOString()
-    
-    // Store the new image
-    const { error: insertError } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('GeneratedImage')
       .insert([{
         characterId,
-        url,
+        url: publicUrl,
         prompt,
         style,
         seed,
         createdAt: now,
         updatedAt: now
       }])
+      .select()
 
-    if (insertError) {
-      console.error('Error storing image:', insertError)
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+    if (error) {
+      console.error('Database error:', error)
+      throw error
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json(data[0])
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error in store-image:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Failed to store image' },
       { status: 500 }
     )
   }
