@@ -295,9 +295,14 @@ export default function CollectionsPage() {
             <p className="text-gray-400 text-lg">No characters found matching your criteria.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredCharacters.map((character) => (
-              <CharacterCard key={character.id} character={character} />
+          <div className="grid auto-rows-[minmax(200px,auto)] grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredCharacters.map((character, index) => (
+              <CharacterCard 
+                key={character.id} 
+                character={character} 
+                index={index}
+                totalCount={filteredCharacters.length}
+              />
             ))}
           </div>
         )}
@@ -416,9 +421,11 @@ export default function CollectionsPage() {
 
 interface CharacterCardProps {
   character: Character
+  index: number
+  totalCount: number
 }
 
-function CharacterCard({ character }: CharacterCardProps) {
+function CharacterCard({ character, index, totalCount }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Get rarity color based on rarity level
@@ -432,10 +439,25 @@ function CharacterCard({ character }: CharacterCardProps) {
     }
   }
 
+  // Calculate if this is the last item in a row
+  const isLastInRow = (index + 1) % 4 === 0
+
+  // Calculate grid column position for expanded cards
+  const getExpandedStyles = () => {
+    if (!isExpanded) return ''
+    
+    // For the last column, expand to the left instead of right
+    if (isLastInRow) {
+      return 'col-span-2 row-span-2 -translate-x-full'
+    }
+    
+    return 'col-span-2 row-span-2'
+  }
+
   return (
     <div 
       className={`group relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl overflow-hidden border border-gray-700 hover:border-blue-500 transition-all duration-500 backdrop-blur-sm shadow-lg hover:shadow-blue-500/20 ${
-        isExpanded ? 'col-span-2 row-span-2 scale-100' : 'hover:scale-105'
+        isExpanded ? getExpandedStyles() : 'hover:scale-105'
       }`}
     >
       <div className="p-6">
