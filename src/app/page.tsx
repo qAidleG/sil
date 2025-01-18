@@ -94,18 +94,21 @@ const Home = () => {
             </div>
           </Link>
 
-          {/* Coming Soon Card */}
-          <div 
-            className="relative aspect-[4/3] rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm animate-float-most-delayed"
+          {/* Collections Card */}
+          <Link 
+            href="/collections" 
+            className="group relative aspect-[4/3] rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-blue-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm shadow-lg hover:shadow-blue-500/20 animate-float-most-delayed"
           >
             <div className="absolute inset-0">
-              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent group-hover:opacity-75 transition-opacity duration-500" />
             </div>
             <div className="relative h-full p-6 flex flex-col justify-end">
-              <h2 className="text-3xl font-bold mb-3 text-gray-400">Coming Soon</h2>
-              <p className="text-gray-500 text-lg">More exciting features ahead...</p>
+              <div className="transform group-hover:translate-y-[-4px] transition-transform duration-500">
+                <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-blue-400">Collections</h2>
+                <p className="text-gray-300 text-lg">Browse and explore character collections</p>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Contact Section */}
