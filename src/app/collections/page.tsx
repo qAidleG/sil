@@ -56,16 +56,6 @@ export default function CollectionsPage() {
     dialogs: [],
     currentDialog: ''
   })
-  const [showImageModal, setShowImageModal] = useState(false)
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
-  const [generatingImage, setGeneratingImage] = useState(false)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageForm, setImageForm] = useState<ImageGenerationForm>({
-    pose: 'portrait',
-    style: 'anime',
-    mood: 'neutral',
-    background: 'card'
-  })
 
   // Get unique universes from characters
   const universes = React.useMemo(() => {
@@ -288,87 +278,6 @@ export default function CollectionsPage() {
     }
   }
 
-  const handleGenerateImage = async (character: Character) => {
-    setGeneratingImage(true)
-    
-    try {
-      const basePrompt = `Create a ${imageForm.style} style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. `
-      
-      const posePrompt = {
-        portrait: 'Character shown in a noble portrait pose, facing slightly to the side, elegant and composed.',
-        action: 'Character in a dynamic action pose, showcasing their abilities and power.',
-        dramatic: 'Character in a dramatic pose with intense lighting and atmosphere.'
-      }[imageForm.pose]
-      
-      const moodPrompt = {
-        neutral: 'Expression is calm and composed.',
-        happy: 'Expression is confident and cheerful.',
-        serious: 'Expression is determined and focused.',
-        intense: 'Expression is powerful and commanding.'
-      }[imageForm.mood]
-      
-      const backgroundPrompt = {
-        card: 'Premium trading card game background with subtle magical effects and professional card frame.',
-        scene: 'Contextual background showing their world or environment.',
-        abstract: 'Abstract magical background with flowing energy and symbols.'
-      }[imageForm.background]
-      
-      const styleDetails = {
-        anime: 'High-quality anime art style, clean lines, vibrant colors.',
-        realistic: 'Detailed realistic rendering with dramatic lighting.',
-        painterly: 'Digital painting style with artistic brushstrokes.'
-      }[imageForm.style]
-
-      const fullPrompt = `${basePrompt}${posePrompt} ${moodPrompt} ${backgroundPrompt} ${styleDetails} Ensure high quality, professional trading card game art style, centered composition, high detail on character. Use dramatic lighting and rich colors.`
-
-      // Generate a seed for consistent results
-      const seed = Math.floor(Math.random() * 1000000)
-      console.log('Using seed:', seed)
-
-      const response = await fetch('/api/flux', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: fullPrompt,
-          seed: seed,
-          num_inference_steps: 20,
-          guidance_scale: 7.5
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to generate image')
-
-      const data = await response.json()
-      
-      // Store image using server-side API route
-      const storeResponse = await fetch('/api/store-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characterId: character.id,
-          url: data.image_url,
-          prompt: fullPrompt,
-          style: imageForm.style,
-          seed: seed
-        })
-      })
-
-      if (!storeResponse.ok) {
-        const errorData = await storeResponse.json()
-        console.error('Store error:', errorData)
-        throw new Error(errorData.error || 'Failed to store image')
-      }
-
-      console.log('Image stored successfully')
-      fetchCharacters() // Refresh the list
-    } catch (error) {
-      console.error('Error generating image:', error)
-      setError('Failed to generate image. Please try again.')
-    } finally {
-      setGeneratingImage(false)
-    }
-  }
-
   const handleDeleteImage = async (imageId: number) => {
     try {
       const { error } = await supabase
@@ -505,13 +414,10 @@ export default function CollectionsPage() {
               <CharacterCard 
                 key={character.id} 
                 character={character}
-                onGenerateImage={(char) => {
-                  setSelectedCharacter(char)
-                  setShowImageModal(true)
-                }}
                 onQuickGenerate={handleQuickGenerate}
                 onDeleteImage={handleDeleteImage}
                 setError={setError}
+                fetchCharacters={fetchCharacters}
               />
             ))}
           </div>
@@ -624,123 +530,6 @@ export default function CollectionsPage() {
             </div>
           </div>
         )}
-
-        {/* Image Generation Modal */}
-        {showImageModal && selectedCharacter && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="relative max-w-2xl w-full bg-gray-800/90 rounded-xl p-6 animate-float">
-              <button
-                onClick={() => {
-                  setShowImageModal(false)
-                  setSelectedCharacter(null)
-                  setImageUrl(null)
-                }}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white"
-              >
-                <X size={24} />
-              </button>
-              
-              <h2 className="text-2xl font-bold mb-6 text-blue-400">Generate Card Art</h2>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Pose</label>
-                    <select
-                      value={imageForm.pose}
-                      onChange={(e) => setImageForm(prev => ({ ...prev, pose: e.target.value as any }))}
-                      className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="portrait">Portrait</option>
-                      <option value="action">Action</option>
-                      <option value="dramatic">Dramatic</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Art Style</label>
-                    <select
-                      value={imageForm.style}
-                      onChange={(e) => setImageForm(prev => ({ ...prev, style: e.target.value as any }))}
-                      className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="anime">Anime</option>
-                      <option value="realistic">Realistic</option>
-                      <option value="painterly">Painterly</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Mood</label>
-                    <select
-                      value={imageForm.mood}
-                      onChange={(e) => setImageForm(prev => ({ ...prev, mood: e.target.value as any }))}
-                      className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="neutral">Neutral</option>
-                      <option value="happy">Happy</option>
-                      <option value="serious">Serious</option>
-                      <option value="intense">Intense</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Background</label>
-                    <select
-                      value={imageForm.background}
-                      onChange={(e) => setImageForm(prev => ({ ...prev, background: e.target.value as any }))}
-                      className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="card">Card Frame</option>
-                      <option value="scene">Scene</option>
-                      <option value="abstract">Abstract</option>
-                    </select>
-                  </div>
-                </div>
-
-                {imageUrl && (
-                  <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden">
-                    <img
-                      src={imageUrl}
-                      alt={`Generated art for ${selectedCharacter.name}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowImageModal(false)
-                      setSelectedCharacter(null)
-                      setImageUrl(null)
-                    }}
-                    className="px-4 py-2 border border-gray-700 rounded-lg hover:border-gray-600"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => handleGenerateImage(selectedCharacter)}
-                    disabled={generatingImage}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center space-x-2"
-                  >
-                    {generatingImage ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon size={18} />
-                        <span>Generate</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </main>
   )
@@ -748,13 +537,13 @@ export default function CollectionsPage() {
 
 interface CharacterCardProps {
   character: Character
-  onGenerateImage: (character: Character) => void
   onQuickGenerate: (character: Character) => void
   onDeleteImage: (imageId: number) => Promise<void>
   setError: (error: string | null) => void
+  fetchCharacters: () => Promise<void>
 }
 
-function CharacterCard({ character, onGenerateImage, onQuickGenerate, onDeleteImage, setError }: CharacterCardProps) {
+function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fetchCharacters }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imageForm, setImageForm] = useState<ImageGenerationForm>({
@@ -776,7 +565,10 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate, onDeleteIm
   }
 
   const handleAdvancedGenerate = async () => {
+    if (generatingImage) return
     setGeneratingImage(true)
+    setError(null)
+    
     try {
       const basePrompt = `Create a ${imageForm.style} style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. `
       
@@ -822,7 +614,13 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate, onDeleteIm
         })
       })
 
-      if (!response.ok) throw new Error('Failed to generate image')
+      if (!response.ok) {
+        const errorData = await response.json()
+        if (response.status === 400 && errorData.error.includes('Maximum of')) {
+          throw new Error(errorData.error)  // Show the max images message
+        }
+        throw new Error('Failed to generate image')
+      }
 
       const data = await response.json()
       
@@ -846,7 +644,7 @@ function CharacterCard({ character, onGenerateImage, onQuickGenerate, onDeleteIm
       }
 
       console.log('Image stored successfully')
-      onGenerateImage(character) // This will trigger fetchCharacters()
+      fetchCharacters()
     } catch (error) {
       console.error('Error generating image:', error)
       setError(error instanceof Error ? error.message : 'Failed to generate image. Please try again.')
