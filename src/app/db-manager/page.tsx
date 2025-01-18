@@ -5,7 +5,17 @@ import { supabase } from '@/lib/supabase'
 
 interface TableInfo {
   name: string
-  rowCount: number
+}
+
+interface PaginationState {
+  page: number
+  pageSize: number
+  total: number
+}
+
+interface SortState {
+  column: string | null
+  ascending: boolean
 }
 
 export default function DbManagerPage() {
@@ -14,41 +24,38 @@ export default function DbManagerPage() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [tableData, setTableData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    pageSize: 10,
+    total: 0
+  })
+  const [sort, setSort] = useState<SortState>({
+    column: null,
+    ascending: true
+  })
+  const [showRelations, setShowRelations] = useState(false)
+
+  // Known tables in your database
+  const knownTables = ['Character', 'Series', 'GeneratedImage', 'UserCollection']
 
   useEffect(() => {
     fetchTables()
   }, [])
 
+  useEffect(() => {
+    if (selectedTable) {
+      fetchTableData(selectedTable)
+    }
+  }, [selectedTable, pagination.page, sort, showRelations])
+
   async function fetchTables() {
     try {
       setLoading(true)
       setError(null)
-
-      // Try to fetch data directly from Character table first
-      const { data: characterData, error: characterError } = await supabase
-        .from('Character')
-        .select('*')
-        .limit(1)
-
-      if (!characterError) {
-        setTables([{ name: 'Character', rowCount: 0 }])
-        // If we can access Character table, try others
-        const otherTables = ['GeneratedImage', 'Series', 'UserCollection']
-        for (const tableName of otherTables) {
-          const { error } = await supabase
-            .from(tableName)
-            .select('*')
-            .limit(1)
-          
-          if (!error) {
-            setTables(prev => [...prev, { name: tableName, rowCount: 0 }])
-          }
-        }
-      } else {
-        setError(`Error accessing tables: ${characterError.message}. Make sure RLS is enabled and policies are set up correctly.`)
-      }
+      const tableInfos = knownTables.map(name => ({ name }))
+      setTables(tableInfos)
     } catch (err: any) {
-      setError(err.message)
+      setError(`Error loading tables: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -58,19 +65,45 @@ export default function DbManagerPage() {
     try {
       setLoading(true)
       setError(null)
-      const { data, error } = await supabase
+
+      // Calculate range for pagination
+      const from = (pagination.page - 1) * pagination.pageSize
+      const to = from + pagination.pageSize - 1
+
+      // Build query
+      let query = supabase
         .from(tableName)
-        .select('*')
-        .limit(100)
-      
+        .select(showRelations ? `*, Series(*)` : '*', { count: 'exact' })
+        .range(from, to)
+
+      // Add sorting if specified
+      if (sort.column) {
+        query = query.order(sort.column, { ascending: sort.ascending })
+      }
+
+      const { data, error, count } = await query
+
       if (error) throw error
+
       setTableData(data || [])
-      setSelectedTable(tableName)
+      setPagination(prev => ({ ...prev, total: count || 0 }))
+
     } catch (err: any) {
-      setError(`Error fetching ${tableName} data: ${err.message}`)
+      setError(`Error loading ${tableName} data: ${err.message}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleSort(column: string) {
+    setSort(prev => ({
+      column,
+      ascending: prev.column === column ? !prev.ascending : true
+    }))
+  }
+
+  function handlePageChange(newPage: number) {
+    setPagination(prev => ({ ...prev, page: newPage }))
   }
 
   return (
@@ -83,25 +116,6 @@ export default function DbManagerPage() {
         {error && (
           <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded mb-6">
             {error}
-            <div className="mt-2 text-sm">
-              <p>To fix this:</p>
-              <ol className="list-decimal ml-5 mt-1 space-y-2">
-                <li>Go to your Supabase dashboard</li>
-                <li>Click on "Authentication" in the left sidebar</li>
-                <li>Click on "Policies"</li>
-                <li>For each table:
-                  <ul className="list-disc ml-5 mt-1">
-                    <li>Enable RLS if not enabled</li>
-                    <li>Click "New Policy"</li>
-                    <li>Choose "Create a policy from scratch"</li>
-                    <li>Set policy name: "Enable read access for all users"</li>
-                    <li>Operation: SELECT</li>
-                    <li>Using expression: true</li>
-                    <li>Click Review then Save policy</li>
-                  </ul>
-                </li>
-              </ol>
-            </div>
           </div>
         )}
 
@@ -109,12 +123,17 @@ export default function DbManagerPage() {
           {/* Tables List */}
           <div className="col-span-1 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
             <h2 className="text-xl font-semibold mb-4 text-blue-400">Tables</h2>
-            {loading && <p className="text-gray-400">Loading...</p>}
+            {loading && !selectedTable && (
+              <p className="text-gray-400">Loading tables...</p>
+            )}
             <ul className="space-y-2">
               {tables.map((table) => (
                 <li key={table.name}>
                   <button
-                    onClick={() => fetchTableData(table.name)}
+                    onClick={() => {
+                      setSelectedTable(table.name)
+                      setPagination(prev => ({ ...prev, page: 1 }))
+                    }}
                     className={`w-full text-left px-3 py-2 rounded ${
                       selectedTable === table.name
                         ? 'bg-blue-600 text-white'
@@ -126,55 +145,107 @@ export default function DbManagerPage() {
                 </li>
               ))}
             </ul>
-            {tables.length === 0 && !loading && (
-              <div>
-                <p className="text-gray-400 mb-4">No tables found</p>
-                <button
-                  onClick={() => fetchTables()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm transition-colors"
-                >
-                  Refresh Tables
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Table Data */}
           <div className="col-span-1 md:col-span-3 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-            <h2 className="text-xl font-semibold mb-4 text-blue-400">
-              {selectedTable ? `Data: ${selectedTable}` : 'Select a table'}
-            </h2>
+            {selectedTable && (
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-blue-400">
+                  Data: {selectedTable}
+                </h2>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowRelations(!showRelations)}
+                    className={`px-3 py-1 rounded ${
+                      showRelations 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    {showRelations ? 'Hide Relations' : 'Show Relations'}
+                  </button>
+                  <select
+                    value={pagination.pageSize}
+                    onChange={(e) => setPagination(prev => ({
+                      ...prev,
+                      pageSize: Number(e.target.value),
+                      page: 1
+                    }))}
+                    className="bg-gray-700 text-gray-300 rounded px-2 py-1"
+                  >
+                    {[10, 25, 50, 100].map(size => (
+                      <option key={size} value={size}>
+                        {size} rows
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             
-            {loading && <p className="text-gray-400">Loading data...</p>}
+            {loading && selectedTable && (
+              <p className="text-gray-400">Loading data...</p>
+            )}
             
             {selectedTable && tableData.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
-                  <thead>
-                    <tr>
-                      {Object.keys(tableData[0]).map((column) => (
-                        <th
-                          key={column}
-                          className="px-4 py-3 text-left text-sm font-medium text-gray-300 uppercase tracking-wider"
-                        >
-                          {column}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-700">
-                    {tableData.map((row, i) => (
-                      <tr key={i} className="hover:bg-gray-700/50">
-                        {Object.values(row).map((value: any, j) => (
-                          <td key={j} className="px-4 py-2 text-sm text-gray-300">
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead>
+                      <tr>
+                        {Object.keys(tableData[0]).map((column) => (
+                          <th
+                            key={column}
+                            onClick={() => handleSort(column)}
+                            className="px-4 py-3 text-left text-sm font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:text-blue-400"
+                          >
+                            {column}
+                            {sort.column === column && (
+                              <span className="ml-2">
+                                {sort.ascending ? '↑' : '↓'}
+                              </span>
+                            )}
+                          </th>
                         ))}
                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {tableData.map((row, i) => (
+                        <tr key={i} className="hover:bg-gray-700/50">
+                          {Object.values(row).map((value: any, j) => (
+                            <td key={j} className="px-4 py-2 text-sm text-gray-300">
+                              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-gray-400">
+                    Showing {((pagination.page - 1) * pagination.pageSize) + 1} to {Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} results
+                  </div>
+                  <div className="flex space-x-2">
+                    {Array.from({ length: Math.ceil(pagination.total / pagination.pageSize) }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handlePageChange(i + 1)}
+                        className={`px-3 py-1 rounded ${
+                          pagination.page === i + 1
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+              </>
             )}
             
             {selectedTable && tableData.length === 0 && !loading && (
