@@ -380,9 +380,9 @@ export default function ChatbotPage() {
       <StarField />
       
       {/* Main Content */}
-      <div className="relative flex h-screen z-10">
-        {/* Sidebar */}
-        <div className={`fixed md:relative inset-y-0 left-0 w-72 bg-gray-800/50 backdrop-blur-sm border-r border-gray-700 transform transition-transform duration-300 flex flex-col h-screen ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <div className="fixed inset-0 flex z-10">
+        {/* Sidebar - keeping sidebar fixed */}
+        <div className={`fixed md:relative inset-y-0 left-0 w-72 bg-gray-800/50 backdrop-blur-sm border-r border-gray-700 transform transition-transform duration-300 flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
           <div className="flex flex-col h-full overflow-hidden">
             {/* Header */}
             <div className="flex-shrink-0 p-4">
@@ -519,10 +519,10 @@ export default function ChatbotPage() {
           </div>
         </div>
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col h-screen">
+        {/* Main Chat Area - Ensuring it stays within viewport */}
+        <div className="flex-1 flex flex-col h-screen overflow-hidden">
           <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-            <div className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm p-2">
+            <div className="flex-shrink-0 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm p-2">
               <TabsList className="bg-gray-900/50">
                 <TabsTrigger value="chat" className="data-[state=active]:bg-blue-600">
                   <MessageSquare className="w-4 h-4 mr-2" />
@@ -535,39 +535,61 @@ export default function ChatbotPage() {
               </TabsList>
             </div>
 
-            <TabsContent value="chat" className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
-              {getCurrentThread()?.messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+            <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {getCurrentThread()?.messages.map((message, index) => (
                   <div
-                    className={`max-w-[80%] p-4 rounded-xl backdrop-blur-sm animate-float ${
-                      message.role === 'user'
-                        ? 'bg-blue-600/20 border border-blue-500'
-                        : 'bg-gray-800/50 border border-gray-700'
-                    }`}
+                    key={index}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    {message.image_url && (
-                      <div 
-                        className="mb-2 cursor-pointer relative aspect-square w-[300px]" 
-                        onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}
-                      >
-                        <img
-                          src={message.image_url}
-                          alt="Generated"
-                          className="rounded-lg w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div
+                      className={`max-w-[80%] p-4 rounded-xl backdrop-blur-sm animate-float ${
+                        message.role === 'user'
+                          ? 'bg-blue-600/20 border border-blue-500'
+                          : 'bg-gray-800/50 border border-gray-700'
+                      }`}
+                    >
+                      {message.image_url && (
+                        <div 
+                          className="mb-2 cursor-pointer relative aspect-square w-[300px]" 
+                          onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}
+                        >
+                          <img
+                            src={message.image_url}
+                            alt="Generated"
+                            className="rounded-lg w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    </div>
                   </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              {/* Input Area - Keep at bottom */}
+              <div className="flex-shrink-0 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm p-4">
+                <div className="flex space-x-2">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                    placeholder="Type a message..."
+                    className="bg-gray-900/50 border-gray-700"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={isLoading}
+                    className="bg-blue-600 hover:bg-blue-500"
+                  >
+                    Send
+                  </Button>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
+              </div>
             </TabsContent>
 
-            <TabsContent value="images" className="flex-1 p-4 overflow-y-auto">
+            <TabsContent value="images" className="flex-1 overflow-y-auto p-4">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {generatedImages.map((img) => (
                   <div
@@ -601,27 +623,6 @@ export default function ChatbotPage() {
                 ))}
               </div>
             </TabsContent>
-
-            {/* Input Area */}
-            <div className="border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm p-4">
-              <div className="flex space-x-2">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                  placeholder="Type a message..."
-                  className="bg-gray-900/50 border-gray-700"
-                  disabled={isLoading}
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-500"
-                >
-                  Send
-                </Button>
-              </div>
-            </div>
           </Tabs>
         </div>
       </div>
