@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
+import Link from 'next/link'
+import { Home } from 'lucide-react'
 
 export default function CollectionsPage() {
   const [characters, setCharacters] = useState<Character[]>([])
@@ -95,6 +97,13 @@ export default function CollectionsPage() {
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
+        <div className="mb-6">
+          <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors w-fit">
+            <Home size={20} />
+            <span>Home</span>
+          </Link>
+        </div>
+        
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
             Character Collection
