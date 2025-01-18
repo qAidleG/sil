@@ -61,7 +61,7 @@ const { data, error } = await supabase
     *,
     Series (
       name,
-      description
+      universe
     )
   `)
 
@@ -271,4 +271,69 @@ const channel = supabase.channel('custom-series-channel')
 
 ### GeneratedImage Operations
 
+```typescript
+// Read all generated images
+const { data, error } = await supabase
+  .from('GeneratedImage')
+  .select('*')
+
+// Read with relationships
+const { data, error } = await supabase
+  .from('GeneratedImage')
+  .select(`
+    *,
+    Character (
+      name,
+      rarity
+    )
+  `)
+
+// Create new image
+const { data, error } = await supabase
+  .from('GeneratedImage')
+  .insert([{
+    characterId: 1,
+    seed: 12345,
+    prompt: 'Character portrait',
+    style: 'anime',
+    url: 'https://example.com/image.png'
+  }])
+  .select()
+
+// Update image
+const { data, error } = await supabase
+  .from('GeneratedImage')
+  .update({ 
+    prompt: 'Updated prompt',
+    style: 'realistic'
+  })
+  .eq('id', 1)
+  .select()
+
+// Delete image
+const { error } = await supabase
+  .from('GeneratedImage')
+  .delete()
+  .eq('id', 1)
+
+// Get images by character
+const { data, error } = await supabase
+  .from('GeneratedImage')
+  .select('*')
+  .eq('characterId', 1)
+
+// Real-time subscription to image changes
+const channel = supabase.channel('custom-image-channel')
+  .on(
+    'postgres_changes',
+    { 
+      event: '*', 
+      schema: 'public', 
+      table: 'GeneratedImage'
+    },
+    (payload) => {
+      console.log('Image changed:', payload)
+    }
+  )
+  .subscribe()
 ```
