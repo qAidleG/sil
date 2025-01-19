@@ -39,6 +39,43 @@
 | createdAt    | timestamp without time zone | Creation timestamp |
 | updatedAt    | timestamp without time zone | Last update timestamp |
 
+### Deck Table
+
+| Name        | Type                    | Description |
+|-------------|-------------------------|-------------|
+| id          | integer                 | Primary key |
+| userId      | text                    | Foreign key to auth.users |
+| name        | text                    | Deck name |
+| description | text                    | Deck description |
+| cards       | jsonb[]                 | Array of card configurations |
+| createdAt   | timestamp without time zone | Creation timestamp |
+| updatedAt   | timestamp without time zone | Last update timestamp |
+
+### Battle Table
+
+| Name        | Type                    | Description |
+|-------------|-------------------------|-------------|
+| id          | integer                 | Primary key |
+| player1Id   | text                    | Foreign key to auth.users |
+| player2Id   | text                    | Foreign key to auth.users |
+| winner      | text                    | Foreign key to auth.users |
+| turns       | jsonb[]                 | Array of turn data |
+| startedAt   | timestamp without time zone | Battle start time |
+| endedAt     | timestamp without time zone | Battle end time |
+
+### PlayerStats Table
+
+| Name           | Type                    | Description |
+|----------------|-------------------------|-------------|
+| userId         | text                    | Primary key, Foreign key to auth.users |
+| wins           | integer                 | Total wins |
+| losses         | integer                 | Total losses |
+| cardsCollected | integer                 | Total unique cards collected |
+| rank          | integer                 | Player rank |
+| experience    | integer                 | Total experience points |
+| createdAt     | timestamp without time zone | Stats creation time |
+| updatedAt     | timestamp without time zone | Stats update time |
+
 ## Common Operations
 
 ### Character Operations

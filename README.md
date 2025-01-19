@@ -1,6 +1,6 @@
 # Sery's Infinite Library
 
-A modern web application that combines creative tools, AI capabilities, and database management. This project showcases the integration of multiple cutting-edge technologies in a user-friendly interface.
+A modern web application that combines creative tools, AI capabilities, and a character-based card game. This project showcases the integration of multiple cutting-edge technologies in a user-friendly interface.
 
 ## 🌟 Features
 
@@ -11,22 +11,35 @@ A modern web application that combines creative tools, AI capabilities, and data
 
 ### 2. AI Chatbot
 - Integration with Grok for intelligent conversations
-- Image generation capabilities using Flux
+- Advanced image generation capabilities using Flux:
+  - Quick generate with optimized defaults
+  - Advanced controls for pose, style, mood, and background
+  - Permanent image storage in Supabase
+  - Up to 6 images per character with manual deletion
+  - Seed tracking for reproducible results
 - Interactive chat interface
 
-### 3. Database Management
-- Complete Supabase integration
-- Visual database management interface
-- Real-time data synchronization
+### 3. CharaSphere Card Game
+- Character-based card game system
+- Collection and battle mechanics
+- Character rarity system (1-5 stars)
+- Dynamic card generation using AI
+- Real-time multiplayer capabilities
+- Card management and deck building
+- Character dialog system for immersion
 
 ## 🛠 Tech Stack
 
 - **Frontend**: Next.js 13+ with App Router
 - **UI**: TailwindCSS with custom animations
-- **Database**: Supabase
+- **Database**: Supabase with Row Level Security
+- **Storage**: Supabase Storage for permanent image hosting
 - **Authentication**: Supabase Auth
 - **Drawing**: TLDraw
-- **AI Integration**: Grok & Flux APIs
+- **AI Integration**: 
+  - Grok API for chat
+  - Flux API for high-quality image generation
+  - Server-side image processing and storage
 
 ## 🏗 Project Structure
 
@@ -34,8 +47,7 @@ A modern web application that combines creative tools, AI capabilities, and data
 src/
 ├── app/
 │   ├── chatbot/      # AI chat interface
-│   ├── db-manager/   # Database management
-│   │   └── supabase.md  # Complete database documentation
+│   ├── charasphere/  # Card game system
 │   ├── tldraw/       # Drawing interface
 │   └── components/   # Shared components
 ├── lib/
@@ -78,6 +90,8 @@ Please refer to [Database Documentation](src/app/db-manager/supabase.md).
 - Public read access with authenticated write operations
 - Secure environment variable management
 - Protected API routes
+- Server-side image processing and storage
+- Secure storage bucket policies for public assets
 
 For detailed security policies and database access patterns, see the [Database Documentation](src/app/db-manager/supabase.md).
 
@@ -85,7 +99,8 @@ For detailed security policies and database access patterns, see the [Database D
 
 - Responsive design for all screen sizes
 - Modern gradient animations
-- Interactive card layouts
+- Interactive card layouts with image galleries
+- Advanced image generation controls
 - Star field background animation
 - Smooth transitions and hover effects
 

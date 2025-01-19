@@ -75,21 +75,28 @@ const Home = () => {
             </div>
           </Link>
 
-          {/* Database Manager Card */}
+          {/* CharaSphere Card */}
           <Link 
-            href="/db-manager" 
+            href="/charasphere" 
             className="group relative aspect-[4/3] rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-blue-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm shadow-lg hover:shadow-blue-500/20 animate-float-more-delayed"
           >
             {/* Background Image */}
             <div className="absolute inset-0">
-              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent group-hover:opacity-75 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-900/90 to-gray-900/70">
+                {/* Card Grid Preview */}
+                <div className="absolute inset-0 grid grid-cols-5 gap-1 p-4 opacity-30">
+                  {[...Array(10)].map((_, i) => (
+                    <div key={i} className="aspect-[2.5/3.5] rounded-md border border-blue-500/50" />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Content */}
             <div className="relative h-full p-6 flex flex-col justify-end">
               <div className="transform group-hover:translate-y-[-4px] transition-transform duration-500">
-                <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-blue-400">Database Manager</h2>
-                <p className="text-gray-300 text-lg">View and manage your Supabase database</p>
+                <h2 className="text-3xl font-bold mb-3 text-white group-hover:text-blue-400">CharaSphere</h2>
+                <p className="text-gray-300 text-lg">Collect and battle with character cards</p>
               </div>
             </div>
           </Link>
