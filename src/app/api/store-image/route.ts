@@ -1,8 +1,12 @@
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
   try {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not initialized')
+    }
+
     const { characterId, url, prompt, style, seed } = await req.json()
 
     if (!characterId || !url) {
@@ -22,8 +26,8 @@ export async function POST(req: Request) {
     // Generate a unique filename in the public folder
     const filename = `public/${Date.now()}-${seed}.jpg`
     
-    // Upload to Supabase Storage
-    const { data: storageData, error: storageError } = await supabase
+    // Upload to Supabase Storage using admin client
+    const { data: storageData, error: storageError } = await supabaseAdmin
       .storage
       .from('character-images')
       .upload(filename, jpgBlob, {
@@ -36,15 +40,15 @@ export async function POST(req: Request) {
       throw new Error('Failed to upload image to storage')
     }
 
-    // Get the public URL
-    const { data: { publicUrl } } = supabase
+    // Get the public URL using admin client
+    const { data: { publicUrl } } = supabaseAdmin
       .storage
       .from('character-images')
       .getPublicUrl(filename)
 
-    // Store the record with our stored image URL
+    // Store the record with our stored image URL using admin client
     const now = new Date().toISOString()
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('GeneratedImage')
       .insert([{
         characterId,
