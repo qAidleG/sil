@@ -280,12 +280,15 @@ export default function CollectionsPage() {
 
   const handleDeleteImage = async (imageId: number) => {
     try {
-      const { error } = await supabase
-        .from('GeneratedImage')
-        .delete()
-        .eq('id', imageId);
-      
-      if (error) throw error;
+      const response = await fetch(`/api/delete-image?id=${imageId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete image');
+      }
+
       fetchCharacters(); // Refresh the list
     } catch (error) {
       console.error('Error deleting image:', error);
