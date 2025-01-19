@@ -17,7 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // Admin client (for schema modifications and admin operations)
-const supabaseServiceKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 // Create admin client for database operations
 export const supabaseAdmin = supabaseServiceKey 
