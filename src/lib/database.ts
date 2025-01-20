@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabase, supabaseAdmin } from './supabase'
 import type {
   Character,
   Series,
@@ -265,13 +265,15 @@ export const handleDatabaseError = (error: any) => {
 
 export const giveStarterPack = async (userId: string) => {
   try {
+    if (!supabaseAdmin) throw new Error('Admin client not initialized');
+    
     // Check if user is authenticated and matches provided userId
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
     if (user.id !== userId) throw new Error('User ID mismatch');
 
-    // Fetch characters with a simple query
-    const { data: characters, error: fetchError } = await supabase
+    // Use supabaseAdmin for fetching characters
+    const { data: characters, error: fetchError } = await supabaseAdmin
       .from('Character')
       .select('id');
 
@@ -284,10 +286,10 @@ export const giveStarterPack = async (userId: string) => {
       .slice(0, 3);
 
     // Create the collections using provided userId
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from('UserCollection')
       .insert(selectedCharacters.map(char => ({
-        userId: userId,  // Use the provided userId consistently
+        userId: userId,
         characterId: char.id
       })));
 
