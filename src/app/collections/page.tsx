@@ -108,17 +108,19 @@ export default function CollectionsPage() {
       setError(null)
       
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      if (!user && !showAll) {
         setError('Please sign in to view your collection')
+        setCharacters([])
         return
       }
 
-      const data = await getCharacters(user.id, showAll)
+      const data = await getCharacters(user?.id || '', showAll)
       console.log('Fetched characters:', data)
       setCharacters(data || [])
     } catch (error: any) {
       console.error('Error fetching characters:', error)
       setError('Failed to load characters. Please try again later.')
+      setCharacters([])
     } finally {
       setLoading(false)
     }

@@ -14,36 +14,53 @@ import type {
 
 // Character Operations
 export const getCharacters = async (userId: string, showAll: boolean = false) => {
-  let query = supabase
-    .from('Character')
-    .select(`
-      *,
-      Series (
-        id,
-        name,
-        description,
-        universe
-      ),
-      GeneratedImage (
-        id,
-        url,
-        prompt,
-        style,
-        createdAt
-      ),
-      UserCollection!inner (
-        userId
-      )
-    `)
+  try {
+    let query = supabase
+      .from('Character')
+      .select(`
+        *,
+        Series (
+          id,
+          name,
+          universe
+        ),
+        GeneratedImage (
+          id,
+          url,
+          prompt,
+          style,
+          createdAt
+        )
+      `)
+      .order('name')
 
-  if (!showAll) {
-    query = query.eq('UserCollection.userId', userId)
+    if (!showAll && userId) {
+      // Get characters that are in the user's collection
+      const { data: userCollection } = await supabase
+        .from('UserCollection')
+        .select('characterId')
+        .eq('userId', userId)
+
+      if (userCollection && userCollection.length > 0) {
+        const characterIds = userCollection.map(uc => uc.characterId)
+        query = query.in('id', characterIds)
+      } else {
+        return [] // Return empty if user has no characters
+      }
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Database error:', error)
+      return []
+    }
+
+    return data as Character[]
+  } catch (error) {
+    console.error('Error fetching characters:', error)
+    return []
   }
-  
-  const { data, error } = await query.order('name')
-  
-  if (error) throw error
-  return data as Character[]
 }
 
 export const getCharacterById = async (id: number) => {
