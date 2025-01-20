@@ -265,12 +265,11 @@ export const handleDatabaseError = (error: any) => {
 
 export const giveStarterPack = async (userId: string) => {
   try {
-    // Get 3 random characters with rarity 3 or less
+    // Get 3 random characters without rarity restriction
     const { data: characters, error: fetchError } = await supabase
       .from('Character')
       .select('id')
-      .lte('rarity', 3)
-      .order('random()')
+      .order('random()') // Use Postgres random() function
       .limit(3)
 
     if (fetchError) throw fetchError
@@ -290,6 +289,7 @@ export const giveStarterPack = async (userId: string) => {
 
     return true
   } catch (error) {
+    console.error('Error giving starter pack:', error)
     handleDatabaseError(error)
     return false
   }
