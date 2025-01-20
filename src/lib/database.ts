@@ -270,29 +270,59 @@ export const giveStarterPack = async (userId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    // Fetch characters and insert into UserCollection with proper error handling
+    console.log('Authenticated user:', user.id);
+
+    // First try to get the count of characters
+    const { count, error: countError } = await supabase
+      .from('Character')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) {
+      console.error('Error getting character count:', countError);
+      throw countError;
+    }
+
+    console.log('Total characters available:', count);
+
+    // Fetch characters with more detailed logging
     const { data: characters, error: fetchError } = await supabase
       .from('Character')
-      .select('id');
+      .select('id, name');  // Add name for better logging
 
-    if (fetchError) throw fetchError;
-    if (!characters || characters.length === 0) throw new Error('No starter characters available');
+    if (fetchError) {
+      console.error('Error fetching characters:', fetchError);
+      throw fetchError;
+    }
+
+    console.log('Fetched characters:', characters);
+
+    if (!characters || characters.length === 0) {
+      throw new Error('No starter characters available');
+    }
 
     const selectedCharacters = characters
       .sort(() => Math.random() - 0.5)
       .slice(0, 3);
+
+    console.log('Selected characters:', selectedCharacters);
 
     const collections = selectedCharacters.map(char => ({
       userId: user.id,
       characterId: char.id
     }));
 
+    console.log('Attempting to insert collections:', collections);
+
     const { error: insertError } = await supabase
       .from('UserCollection')
       .insert(collections);
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Error inserting collections:', insertError);
+      throw insertError;
+    }
 
+    console.log('Successfully added starter pack');
     return true;
   } catch (error) {
     console.error('Error giving starter pack:', error);
