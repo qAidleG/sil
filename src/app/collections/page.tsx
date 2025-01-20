@@ -275,15 +275,17 @@ export default function CollectionsPage() {
       setClaimingStarter(true)
       setError(null)
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Please sign in to claim starter pack')
-      
-      const success = await giveStarterPack(user.id)
-      if (success) {
-        fetchCharacters()
-      } else {
-        throw new Error('Failed to claim starter pack')
+      const response = await fetch('/api/starter-pack', {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to claim starter pack')
       }
+
+      // Refresh characters list
+      fetchCharacters()
     } catch (err: any) {
       setError(err.message)
     } finally {
