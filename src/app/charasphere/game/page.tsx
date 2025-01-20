@@ -383,99 +383,31 @@ function GameContent() {
     return newGrid
   }
 
-  // Update fetchCharacter to load grid progress by user
+  // Update fetchCharacter to use API route
   const fetchCharacter = async (id: number) => {
-    if (!user) {
-      handleError('Please sign in to play', 'network')
-      return
-    }
-
     try {
       setLoading(true)
       setError(null)
       
       console.log('Fetching character:', id)
       
-      // First check if character exists
-      const { data: existingCharacter, error: checkError } = await supabase
-        .from('Character')
-        .select(`
-          *,
-          Series (
-            name,
-            universe
-          ),
-          GeneratedImage (
-            url
-          )
-        `)
-        .eq('id', id)
-        .single()
-
-      if (checkError) {
-        if (checkError.code === 'PGRST116') { // Not found
-          // Create initial character
-          const { data: newCharacter, error: createError } = await supabase
-            .from('Character')
-            .insert([{
-              id: id,
-              name: 'New Character',
-              rarity: 1,
-              dialogs: ['Hello!'],
-              created_at: new Date().toISOString()
-            }])
-            .select()
-            .single()
-
-          if (createError) throw createError
-          if (newCharacter) {
-            setSelectedCharacter(newCharacter)
-            const newGrid = generateGameGrid(newCharacter)
-            setGrid(newGrid)
-            setUndiscoveredCount(24)
-            return
-          }
-        } else {
-          throw checkError
-        }
+      const response = await fetch('/api/characters');
+      if (!response.ok) {
+        throw new Error('Failed to fetch characters');
+      }
+      
+      const characters = await response.json();
+      const character = characters.find((c: Character) => c.id === id);
+      
+      if (!character) {
+        throw new Error('Character not found');
       }
 
-      // If character exists, proceed with normal flow
-      if (existingCharacter) {
-        setSelectedCharacter(existingCharacter)
-        
-        // Check for grid progress using user_id
-        const { data: progress, error: progressError } = await supabase
-          .from('GridProgress')
-          .select('*')
-          .eq('user_id', user?.id)  // Use user_id instead of characterId
-          .single()
+      setSelectedCharacter(character);
+      const newGrid = generateGameGrid(character);
+      setGrid(newGrid);
+      setUndiscoveredCount(24);
 
-        let newGrid: CardState[][]
-
-        if (!progressError && progress) {
-          // Load saved progress
-          newGrid = generateGameGrid(existingCharacter)
-          const savedTiles = JSON.parse(progress.discoveredTiles)
-          let undiscovered = 24
-
-          savedTiles.forEach((tile: any) => {
-            if (newGrid[tile.y][tile.x].tileType === tile.tileType) {
-              newGrid[tile.y][tile.x].revealed = true
-              newGrid[tile.y][tile.x].eventSeen = tile.eventSeen
-              undiscovered--
-            }
-          })
-
-          setUndiscoveredCount(undiscovered)
-        } else {
-          // Generate new grid
-          newGrid = generateGameGrid(existingCharacter)
-          setUndiscoveredCount(24)
-        }
-
-        setGrid(newGrid)
-      }
     } catch (err) {
       console.error('Fetch error:', err)
       handleError(err, 'load')
@@ -637,27 +569,22 @@ function GameContent() {
     }
   }
 
-  // Update user effect to bypass auth in development
+  // Update user effect to not require authentication
   useEffect(() => {
     const getUser = async () => {
       try {
-        if (isDevelopment) {
-          // Use a hardcoded dev user in development
-          setUser({
-            id: 'dev-user-id',
-            email: 'dev@example.com'
-          })
-        } else {
-          const { data: { user } } = await supabase.auth.getUser()
-          setUser(user)
-        }
+        // Always set a default user for the game
+        setUser({
+          id: 'default-user',
+          email: 'player@example.com'
+        });
       } catch (err) {
-        console.error('Auth error:', err)
-        handleError(err, 'network')
+        console.error('Auth error:', err);
+        handleError(err, 'network');
       }
-    }
-    getUser()
-  }, [])
+    };
+    getUser();
+  }, []);
 
   // Only load character after auth is checked
   useEffect(() => {
