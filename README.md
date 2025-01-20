@@ -20,13 +20,16 @@ A modern web application that combines creative tools, AI capabilities, and a ch
 - Interactive chat interface
 
 ### 3. CharaSphere Card Game
-- Character-based card game system
-- Collection and battle mechanics
-- Character rarity system (1-5 stars)
-- Dynamic card generation using AI
-- Real-time multiplayer capabilities
-- Card management and deck building
-- Character dialog system for immersion
+- Character-based exploration game system
+- Grid-based movement with hidden tiles
+- Character collection and switching mechanics
+- Special abilities and gold collection
+- Move management system with auto-refresh
+- Progress saving and loading
+- Character dialog events
+- Sound effects and animations
+- Touch and keyboard controls
+- Multiplayer capabilities (coming soon)
 
 ## 🛠 Tech Stack
 
@@ -103,6 +106,37 @@ For detailed security policies and database access patterns, see the [Database D
 - Advanced image generation controls
 - Star field background animation
 - Smooth transitions and hover effects
+
+## 🎮 Game Features
+
+### Movement & Exploration
+- 5x5 grid with hidden tiles
+- Move using arrow keys or touch swipes
+- Discover tiles with different rewards:
+  - Low-value tiles (1 gold)
+  - High-value tiles (3 gold)
+  - Event tiles (random 1-6 gold + dialog)
+
+### Character System
+- Switch between collected characters
+- Character-specific dialogs
+- Special ability for bonus gold
+- Image cycling for characters with multiple generations
+- Character switching costs 10 moves
+
+### Progress System
+- 30 moves with auto-refresh (10 moves per minute)
+- Gold collection and tracking
+- Progress saving per character
+- Grid state persistence
+- Visual progress indicators
+
+### Sound & Animation
+- Sound effects for all actions
+- Smooth card flip animations
+- Character switch transitions
+- Progress bar animations
+- Touch feedback effects
 
 ## 🤝 Contributing
 

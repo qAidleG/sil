@@ -65,16 +65,22 @@
 
 ### PlayerStats Table
 
-| Name           | Type                    | Description |
-|----------------|-------------------------|-------------|
-| userId         | text                    | Primary key, Foreign key to auth.users |
-| wins           | integer                 | Total wins |
-| losses         | integer                 | Total losses |
-| cardsCollected | integer                 | Total unique cards collected |
-| rank          | integer                 | Player rank |
-| experience    | integer                 | Total experience points |
-| createdAt     | timestamp without time zone | Stats creation time |
-| updatedAt     | timestamp without time zone | Stats update time |
+| Name              | Type                    | Description |
+|-------------------|-------------------------|-------------|
+| id                | integer                 | Primary key |
+| user_id           | uuid                    | Foreign key to auth.users |
+| moves             | integer                 | Available moves (max 30) |
+| gold              | integer                 | Collected gold |
+| last_move_refresh | timestamp with time zone| Last move refresh timestamp |
+
+### GridProgress Table
+
+| Name         | Type                    | Description |
+|--------------|-------------------------|-------------|
+| id           | integer                 | Primary key |
+| characterId  | integer                 | Foreign key to Character table |
+| discoveredTiles | jsonb                | Array of discovered tile data |
+| goldCollected  | integer              | Total gold collected in this grid |
 
 ## Common Operations
 
@@ -373,4 +379,119 @@ const channel = supabase.channel('custom-image-channel')
     }
   )
   .subscribe()
+```
+
+## Game Operations
+
+### PlayerStats Operations
+
+```typescript
+// Read player stats
+const { data, error } = await supabase
+  .from('PlayerStats')
+  .select('*')
+  .eq('user_id', userId)
+  .single()
+
+// Create initial stats
+const { data, error } = await supabase
+  .from('PlayerStats')
+  .insert([{
+    user_id: userId,
+    moves: 30,
+    gold: 0,
+    last_move_refresh: new Date().toISOString()
+  }])
+  .select()
+  .single()
+
+// Update player stats
+const { error } = await supabase
+  .from('PlayerStats')
+  .update({ 
+    moves: newMoves,
+    gold: newGold,
+    last_move_refresh: new Date().toISOString()
+  })
+  .eq('user_id', userId)
+```
+
+### GridProgress Operations
+
+```typescript
+// Save grid progress
+const { error } = await supabase
+  .from('GridProgress')
+  .upsert({
+    characterId: characterId,
+    discoveredTiles: JSON.stringify(discoveredTiles),
+    goldCollected: goldCollected
+  })
+
+// Load grid progress
+const { data, error } = await supabase
+  .from('GridProgress')
+  .select('*')
+  .eq('characterId', characterId)
+  .single()
+
+// Reset grid progress
+const { error } = await supabase
+  .from('GridProgress')
+  .delete()
+  .eq('characterId', characterId)
+```
+
+## Row Level Security (RLS) Policies
+
+### PlayerStats Policies
+
+```sql
+-- Enable RLS
+ALTER TABLE public."PlayerStats" ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can read their own stats"
+ON public."PlayerStats"
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own stats"
+ON public."PlayerStats"
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own stats"
+ON public."PlayerStats"
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+```
+
+### GridProgress Policies
+
+```sql
+-- Enable RLS
+ALTER TABLE public."GridProgress" ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can read their grid progress"
+ON public."GridProgress"
+FOR SELECT
+TO authenticated
+USING (true);
+
+CREATE POLICY "Users can update their grid progress"
+ON public."GridProgress"
+FOR UPDATE
+TO authenticated
+USING (true);
+
+CREATE POLICY "Users can insert grid progress"
+ON public."GridProgress"
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
 ```
