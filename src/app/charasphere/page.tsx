@@ -1,13 +1,58 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { StarField } from '../components/StarField'
-import { Home, LayoutGrid, Swords, Trophy, User } from 'lucide-react'
+import { Home, LayoutGrid, Swords, Trophy, User, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Character } from '@/types/database'
+import { supabase } from '@/lib/supabase'
 
 export default function CharaSpherePage() {
   const router = useRouter()
+  const [showPlayModal, setShowPlayModal] = useState(false)
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const loadCharacters = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('Character')
+        .select(`
+          *,
+          Series (
+            name,
+            universe
+          ),
+          GeneratedImage (
+            url
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      if (data) setCharacters(data)
+    } catch (err) {
+      console.error('Error loading characters:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePlayClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    await loadCharacters()
+    setShowPlayModal(true)
+  }
+
+  const startGame = (character: Character) => {
+    if (!character.GeneratedImage?.length) {
+      return // Can't play without images
+    }
+    router.push(`/charasphere/game?character=${character.id}`)
+  }
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
@@ -47,9 +92,9 @@ export default function CharaSpherePage() {
             </div>
           </Link>
 
-          {/* Play CharaSphere Link */}
-          <Link 
-            href="/charasphere/game" 
+          {/* Play CharaSphere - Updated to open modal */}
+          <button 
+            onClick={handlePlayClick}
             className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm"
           >
             <div className="absolute inset-0 flex items-center justify-center">
@@ -59,7 +104,7 @@ export default function CharaSpherePage() {
               <h2 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">Play CharaSphere</h2>
               <p className="text-sm text-gray-400">Start your adventure</p>
             </div>
-          </Link>
+          </button>
 
           {/* Deck Builder Link - Coming Soon */}
           <div className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm">
@@ -109,6 +154,82 @@ export default function CharaSpherePage() {
             <li>Character evolution and power-ups</li>
           </ul>
         </div>
+
+        {/* Character Selection Modal */}
+        <AnimatePresence>
+          {showPlayModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowPlayModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-blue-400">Select Character</h2>
+                  <button
+                    onClick={() => setShowPlayModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400" />
+                  </div>
+                ) : characters.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-400 text-lg">No characters found</p>
+                    <Link href="/collections" className="mt-4 text-blue-400 hover:text-blue-300">
+                      Add characters to your collection
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {characters.map(character => (
+                      <button
+                        key={character.id}
+                        onClick={() => startGame(character)}
+                        disabled={!character.GeneratedImage?.length}
+                        className={`
+                          relative aspect-[3/4] rounded-lg overflow-hidden border
+                          ${character.GeneratedImage?.length
+                            ? 'border-gray-700 hover:border-green-500 cursor-pointer'
+                            : 'border-gray-800 opacity-50 cursor-not-allowed'}
+                        `}
+                      >
+                        {character.GeneratedImage?.[0]?.url ? (
+                          <img
+                            src={character.GeneratedImage[0].url}
+                            alt={character.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <p className="text-gray-500 text-sm">No image</p>
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                          <p className="text-sm font-semibold truncate">{character.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </main>
   )

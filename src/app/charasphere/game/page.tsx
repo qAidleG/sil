@@ -66,15 +66,15 @@ function GameContent() {
 
   const loadUserStats = async () => {
     try {
-      const { data: userStats, error } = await supabase
-        .from('UserStats')
+      const { data: playerStats, error } = await supabase
+        .from('PlayerStats')
         .select('*')
         .single()
 
       if (error) {
         if (error.code === 'PGRST116') {
           const { data: newStats, error: createError } = await supabase
-            .from('UserStats')
+            .from('PlayerStats')
             .insert([{
               moves: 30,
               gold: 0,
@@ -92,10 +92,10 @@ function GameContent() {
         } else {
           throw error
         }
-      } else if (userStats) {
-        setMoves(userStats.moves)
-        setGold(userStats.gold)
-        setLastMoveRefresh(new Date(userStats.lastMoveRefresh))
+      } else if (playerStats) {
+        setMoves(playerStats.moves)
+        setGold(playerStats.gold)
+        setLastMoveRefresh(new Date(playerStats.lastMoveRefresh))
       }
     } catch (err) {
       handleError(err, 'network')
@@ -218,7 +218,7 @@ function GameContent() {
         const newMoves = Math.min(moves + 10, 30)
         try {
           const { error } = await supabase
-            .from('UserStats')
+            .from('PlayerStats')
             .update({
               moves: newMoves,
               lastMoveRefresh: now.toISOString()
@@ -283,9 +283,9 @@ function GameContent() {
 
       if (error) throw error
 
-      // Update UserStats gold
+      // Update PlayerStats gold
       const { error: statsError } = await supabase
-        .from('UserStats')
+        .from('PlayerStats')
         .update({ gold: newGold })
 
       if (statsError) throw statsError
@@ -466,7 +466,7 @@ function GameContent() {
     setMoves(newMoves)
     try {
       const { error } = await supabase
-        .from('UserStats')
+        .from('PlayerStats')
         .update({ moves: newMoves })
 
       if (error) throw error
@@ -495,9 +495,9 @@ function GameContent() {
 
         if (gridError) throw gridError
 
-        // Reset user stats
+        // Reset player stats
         const { error: statsError } = await supabase
-          .from('UserStats')
+          .from('PlayerStats')
           .update({
             moves: 30,
             gold: 0,
