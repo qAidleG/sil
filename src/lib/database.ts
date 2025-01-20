@@ -19,6 +19,11 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
     console.log('Fetching characters for userId:', userId, 'showAll:', showAll);
     
     if (!showAll && userId) {
+      type UserCollectionWithCharacter = {
+        characterId: number;
+        Character: Character;
+      };
+
       // First, get the user's collection
       const { data: userCollection, error: collectionError } = await supabase
         .from('UserCollection')
@@ -40,7 +45,7 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
             )
           )
         `)
-        .eq('userId', userId);
+        .eq('userId', userId) as { data: UserCollectionWithCharacter[] | null, error: any };
 
       console.log('User collection fetch result:', { userCollection, collectionError });
 
@@ -54,10 +59,10 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
         return [];
       }
 
-      // Extract characters from the nested response with proper type casting
+      // Extract characters from the nested response
       return userCollection
         .map(uc => uc.Character)
-        .filter((char): char is Character => char !== null) as Character[];
+        .filter((char): char is Character => char !== null);
     }
 
     // If showAll is true, fetch all characters
