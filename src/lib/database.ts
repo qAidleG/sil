@@ -18,33 +18,15 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
   try {
     console.log('Fetching all characters');
     
-    // Always fetch all characters
-    const { data, error } = await supabase
-      .from('Character')
-      .select(`
-        *,
-        Series (
-          id,
-          name,
-          universe
-        ),
-        GeneratedImage (
-          id,
-          url,
-          prompt,
-          style,
-          createdAt
-        )
-      `)
-      .order('name');
-
-    console.log('Character query result:', { data, error });
-
-    if (error) {
-      console.error('Database error:', error);
-      return [];
+    const response = await fetch('/api/characters');
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error);
     }
-
+    
+    const data = await response.json();
+    console.log('Character query result:', { data });
+    
     return data as Character[];
   } catch (error) {
     console.error('Error in getCharacters:', error);
