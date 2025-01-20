@@ -16,6 +16,8 @@ import type {
 // Character Operations
 export const getCharacters = async (userId: string, showAll: boolean = false) => {
   try {
+    console.log('Fetching characters for userId:', userId, 'showAll:', showAll);
+    
     let query = supabase
       .from('Character')
       .select(`
@@ -33,34 +35,43 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
           createdAt
         )
       `)
-      .order('name')
+      .order('name');
 
     if (!showAll && userId) {
-      // Get characters that are in the user's collection
-      const { data: userCollection } = await supabase
+      // First, get the user's collection
+      const { data: userCollection, error: collectionError } = await supabase
         .from('UserCollection')
         .select('characterId')
-        .eq('userId', userId)
+        .eq('userId', userId);
+
+      console.log('User collection fetch result:', { userCollection, collectionError });
+
+      if (collectionError) {
+        console.error('Error fetching user collection:', collectionError);
+        return [];
+      }
 
       if (userCollection && userCollection.length > 0) {
-        const characterIds = userCollection.map(uc => uc.characterId)
-        query = query.in('id', characterIds)
+        const characterIds = userCollection.map(uc => uc.characterId);
+        query = query.in('id', characterIds);
       } else {
-        return [] // Return empty if user has no characters
+        console.log('No characters in user collection');
+        return []; // Return empty if user has no characters
       }
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
+    console.log('Character query result:', { data, error });
 
     if (error) {
-      console.error('Database error:', error)
-      return []
+      console.error('Database error:', error);
+      return [];
     }
 
-    return data as Character[]
+    return data as Character[];
   } catch (error) {
-    console.error('Error fetching characters:', error)
-    return []
+    console.error('Error in getCharacters:', error);
+    return [];
   }
 }
 
