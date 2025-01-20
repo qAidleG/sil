@@ -95,6 +95,9 @@ function GameContent() {
   const [selectedAbility, setSelectedAbility] = useState<SeriesAbility | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
+  // Add development mode check
+  const isDevelopment = process.env.NODE_ENV === 'development'
+
   const loadUserStats = async () => {
     try {
       const { data: playerStats, error } = await supabase
@@ -635,12 +638,20 @@ function GameContent() {
     }
   }
 
-  // Add user effect
+  // Update user effect to bypass auth in development
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
+        if (isDevelopment) {
+          // Use a hardcoded dev user in development
+          setUser({
+            id: 'dev-user-id',
+            email: 'dev@example.com'
+          })
+        } else {
+          const { data: { user } } = await supabase.auth.getUser()
+          setUser(user)
+        }
       } catch (err) {
         console.error('Auth error:', err)
         handleError(err, 'network')
@@ -836,13 +847,13 @@ function GameContent() {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-        <p className="mt-4 text-gray-400">Checking authentication...</p>
+        <p className="mt-4 text-gray-400">Loading game...</p>
       </div>
     )
   }
 
-  // Show sign in prompt if no user
-  if (authChecked && !user) {
+  // Remove the sign in check completely in development
+  if (authChecked && !user && !isDevelopment) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <p className="text-xl text-gray-400 mb-4">Please sign in to play</p>
