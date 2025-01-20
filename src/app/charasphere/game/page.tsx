@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { Character } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -402,7 +402,14 @@ function GameContent() {
 export default function GamePage() {
   return (
     <ErrorBoundary>
-      <GameContent />
+      <Suspense fallback={
+        <div className="min-h-[400px] flex flex-col items-center justify-center">
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+          <p className="mt-4 text-gray-400">Loading game...</p>
+        </div>
+      }>
+        <GameContent />
+      </Suspense>
     </ErrorBoundary>
   )
 } 
