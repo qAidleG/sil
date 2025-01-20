@@ -99,16 +99,19 @@ function GameContent() {
       const { data: playerStats, error } = await supabase
         .from('PlayerStats')
         .select('*')
+        .eq('user_id', user?.id)
         .single()
 
       if (error) {
         if (error.code === 'PGRST116') {
+          // Create initial stats
           const { data: newStats, error: createError } = await supabase
             .from('PlayerStats')
             .insert([{
+              user_id: user?.id,
               moves: 30,
               gold: 0,
-              lastMoveRefresh: new Date().toISOString()
+              last_move_refresh: new Date().toISOString()
             }])
             .select()
             .single()
@@ -117,15 +120,16 @@ function GameContent() {
           if (newStats) {
             setMoves(newStats.moves)
             setGold(newStats.gold)
-            setLastMoveRefresh(new Date(newStats.lastMoveRefresh))
+            setLastMoveRefresh(new Date(newStats.last_move_refresh))
           }
         } else {
           throw error
         }
       } else if (playerStats) {
+        // Use existing stats
         setMoves(playerStats.moves)
         setGold(playerStats.gold)
-        setLastMoveRefresh(new Date(playerStats.lastMoveRefresh))
+        setLastMoveRefresh(new Date(playerStats.last_move_refresh))
       }
     } catch (err) {
       handleError(err, 'network')
@@ -251,7 +255,7 @@ function GameContent() {
             .from('PlayerStats')
             .update({
               moves: newMoves,
-              lastMoveRefresh: now.toISOString()
+              last_move_refresh: now.toISOString()
             })
 
           if (error) throw error
@@ -313,16 +317,21 @@ function GameContent() {
 
       if (error) throw error
 
-      // Update PlayerStats gold
+      // Update PlayerStats
       const { error: statsError } = await supabase
         .from('PlayerStats')
-        .update({ gold: newGold })
+        .update({ 
+          moves,
+          gold: newGold,
+          last_move_refresh: lastMoveRefresh.toISOString()
+        })
+        .eq('user_id', user?.id)
 
       if (statsError) throw statsError
     } catch (err) {
       handleError(err, 'save')
     }
-  }, [characterId, handleError])
+  }, [characterId, moves, lastMoveRefresh, user?.id])
 
   // Function to generate random grid with events and rewards
   const generateGameGrid = (character: Character): CardState[][] => {
@@ -518,15 +527,6 @@ function GameContent() {
     if (!selectedAbility) {
       const newMoves = moves - 1
       setMoves(newMoves)
-      try {
-        const { error } = await supabase
-          .from('PlayerStats')
-          .update({ moves: newMoves })
-
-        if (error) throw error
-      } catch (err) {
-        console.error('Error updating moves:', err)
-      }
     }
   }
 
@@ -542,7 +542,7 @@ function GameContent() {
       setMoves(30)
 
       try {
-        // Reset grid progress
+        // Only reset grid progress
         const { error: gridError } = await supabase
           .from('GridProgress')
           .delete()
@@ -550,16 +550,7 @@ function GameContent() {
 
         if (gridError) throw gridError
 
-        // Reset player stats
-        const { error: statsError } = await supabase
-          .from('PlayerStats')
-          .update({
-            moves: 30,
-            gold: 0,
-            lastMoveRefresh: new Date().toISOString()
-          })
-
-        if (statsError) throw statsError
+        // Don't reset PlayerStats anymore
       } catch (err) {
         console.error('Error resetting progress:', err)
         setError('Failed to reset progress')
@@ -678,14 +669,6 @@ function GameContent() {
           outgoingCharacter: selectedCharacter,
           incomingCharacter: newCharacter
         })
-
-        // Update moves in database
-        const { error: statsError } = await supabase
-          .from('PlayerStats')
-          .update({ moves: moves - 10 })
-          .eq('userId', user?.id)
-
-        if (statsError) throw statsError
 
         // Update URL without reload
         const url = new URL(window.location.href)
