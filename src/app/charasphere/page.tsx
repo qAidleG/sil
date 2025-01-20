@@ -47,11 +47,56 @@ export default function CharaSpherePage() {
     setShowPlayModal(true)
   }
 
-  const startGame = (character: Character) => {
+  const startGame = async (character: Character) => {
     if (!character.GeneratedImage?.length) {
-      return // Can't play without images
+      setLoading(true)
+      try {
+        // Generate image
+        const { data: imageData, error: imageError } = await supabase.rpc(
+          'generate_character_image',
+          { character_id: character.id }
+        )
+        
+        if (imageError) throw imageError
+
+        // Refresh character data to get the new image
+        const { data: refreshedChar, error: refreshError } = await supabase
+          .from('Character')
+          .select(`
+            *,
+            Series (
+              name,
+              universe
+            ),
+            GeneratedImage (
+              url
+            )
+          `)
+          .eq('id', character.id)
+          .single()
+
+        if (refreshError) throw refreshError
+        if (!refreshedChar.GeneratedImage?.length) {
+          throw new Error('Failed to generate character image')
+        }
+
+        // Update local state
+        setCharacters(chars => chars.map(c => 
+          c.id === character.id ? refreshedChar : c
+        ))
+        
+        // Start game with refreshed character
+        router.push(`/charasphere/game?character=${refreshedChar.id}`)
+      } catch (err) {
+        console.error('Error generating image:', err)
+        // Show error message to user
+        // You might want to add error state and UI for this
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      router.push(`/charasphere/game?character=${character.id}`)
     }
-    router.push(`/charasphere/game?character=${character.id}`)
   }
 
   return (
@@ -199,12 +244,11 @@ export default function CharaSpherePage() {
                       <button
                         key={character.id}
                         onClick={() => startGame(character)}
-                        disabled={!character.GeneratedImage?.length}
                         className={`
                           relative aspect-[3/4] rounded-lg overflow-hidden border
                           ${character.GeneratedImage?.length
                             ? 'border-gray-700 hover:border-green-500 cursor-pointer'
-                            : 'border-gray-800 opacity-50 cursor-not-allowed'}
+                            : 'border-gray-700 hover:border-blue-500 cursor-pointer'}
                         `}
                       >
                         {character.GeneratedImage?.[0]?.url ? (
@@ -214,8 +258,9 @@ export default function CharaSpherePage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                            <p className="text-gray-500 text-sm">No image</p>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
+                            <p className="text-gray-400 text-sm mb-2">No image</p>
+                            <p className="text-blue-400 text-xs">Click to generate</p>
                           </div>
                         )}
                         <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
