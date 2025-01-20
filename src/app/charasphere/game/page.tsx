@@ -5,7 +5,7 @@ import { Character } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Volume2, VolumeX, Loader2, X } from 'lucide-react'
+import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { soundManager } from '@/lib/sounds'
 import { ErrorBoundary } from '@/app/components/ErrorBoundary'
 
@@ -28,6 +28,28 @@ interface EventDialogState {
   isOpen: boolean
   dialog: string | null
   reward: number
+}
+
+interface SwitchDialogState {
+  isOpen: boolean
+  outgoingDialog?: string
+  incomingDialog?: string
+  outgoingCharacter?: Character
+  incomingCharacter?: Character
+}
+
+// Simplify ability interface
+interface SeriesAbility {
+  name: string
+  description: string
+  cost: number
+}
+
+// Single default ability
+const DEFAULT_ABILITY: SeriesAbility = {
+  name: 'Special Move',
+  description: 'Gain 1-3 bonus gold (costs 5 moves)',
+  cost: 5
 }
 
 const createEmptyGrid = (): CardState[][] => 
@@ -63,6 +85,14 @@ function GameContent() {
   const [moveRefreshProgress, setMoveRefreshProgress] = useState(0)
   const [errorType, setErrorType] = useState<'load' | 'save' | 'network' | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [showSwitchPanel, setShowSwitchPanel] = useState(false)
+  const [availableCharacters, setAvailableCharacters] = useState<Character[]>([])
+  const [switchLoading, setSwitchLoading] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const [switchDialog, setSwitchDialog] = useState<SwitchDialogState>({
+    isOpen: false
+  })
+  const [selectedAbility, setSelectedAbility] = useState<SeriesAbility | null>(null)
 
   const loadUserStats = async () => {
     try {
@@ -416,9 +446,30 @@ function GameContent() {
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1)
   }
 
-  // Update handleMove to save progress
+  // Simplify useAbility function
+  const useAbility = () => {
+    if (!selectedCharacter || moves < DEFAULT_ABILITY.cost) return
+
+    // Roll 1d3 for gold
+    const bonusGold = Math.floor(Math.random() * 3) + 1
+    setGold(prev => prev + bonusGold)
+    setMoves(prev => prev - DEFAULT_ABILITY.cost)
+    
+    // Play sound and save progress
+    soundManager.play('move')
+    saveGridProgress(grid, gold + bonusGold)
+  }
+
+  // Update handleMove for abilities
   const handleMove = async (x: number, y: number) => {
-    if (!canMoveTo(x, y) || moves <= 0) return
+    // Check for 3D Maneuver ability range
+    const isManeuverValid = selectedCharacter?.Series?.name === 'Attack on Titan' && 
+      selectedAbility?.name === '3D Maneuver' &&
+      Math.abs(x - playerPosition.x) <= 2 && 
+      Math.abs(y - playerPosition.y) <= 2
+
+    if (!canMoveTo(x, y) && !isManeuverValid) return
+    if (moves <= 0 && !selectedAbility) return
 
     soundManager.play('move')
     const newGrid = grid.map(row => row.map(cell => ({ ...cell })))
@@ -426,7 +477,9 @@ function GameContent() {
     
     if (selectedCharacter) {
       if (!targetCell.revealed) {
-        const newGold = gold + targetCell.value
+        let rewardValue = targetCell.value
+        
+        const newGold = gold + rewardValue
         setGold(newGold)
         setUndiscoveredCount(prev => prev - 1)
         
@@ -462,16 +515,18 @@ function GameContent() {
     setGrid(newGrid)
     setPlayerPosition({ x, y })
 
-    const newMoves = moves - 1
-    setMoves(newMoves)
-    try {
-      const { error } = await supabase
-        .from('PlayerStats')
-        .update({ moves: newMoves })
+    if (!selectedAbility) {
+      const newMoves = moves - 1
+      setMoves(newMoves)
+      try {
+        const { error } = await supabase
+          .from('PlayerStats')
+          .update({ moves: newMoves })
 
-      if (error) throw error
-    } catch (err) {
-      console.error('Error updating moves:', err)
+        if (error) throw error
+      } catch (err) {
+        console.error('Error updating moves:', err)
+      }
     }
   }
 
@@ -525,6 +580,231 @@ function GameContent() {
       setCurrentImageIndex((prev) => (prev + 1) % images.length)
       soundManager.play('flip')
     }
+  }
+
+  // Add loadAvailableCharacters function
+  const loadAvailableCharacters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('Character')
+        .select(`
+          *,
+          Series (
+            name,
+            universe
+          ),
+          GeneratedImage (
+            url
+          )
+        `)
+        .order('name')
+
+      if (error) throw error
+      if (data) {
+        // Only show characters with images
+        setAvailableCharacters(data.filter(char => char.GeneratedImage?.length > 0))
+      }
+    } catch (err) {
+      console.error('Error loading characters:', err)
+    }
+  }
+
+  // Add to useEffect
+  useEffect(() => {
+    if (characterId) {
+      fetchCharacter(parseInt(characterId))
+      loadAvailableCharacters()
+    }
+  }, [characterId])
+
+  // Add user effect
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    getUser()
+  }, [])
+
+  // Add character dialog generation
+  const generateSwitchDialog = async (outgoing: Character, incoming: Character) => {
+    try {
+      const response = await fetch('/api/generate-dialog', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outgoingCharacter: {
+            name: outgoing.name,
+            series: outgoing.Series?.name
+          },
+          incomingCharacter: {
+            name: incoming.name,
+            series: incoming.Series?.name
+          }
+        })
+      })
+
+      if (!response.ok) throw new Error('Failed to generate dialog')
+      
+      const dialogs = await response.json()
+      return dialogs
+    } catch (err) {
+      console.error('Error generating dialog:', err)
+      return {
+        outgoing: `Good luck, ${incoming.name}!`,
+        incoming: `Thanks, ${outgoing.name}! I'll take it from here!`
+      }
+    }
+  }
+
+  // Update handleCharacterSwitch
+  const handleCharacterSwitch = async (newCharacter: Character) => {
+    if (moves < 10) return
+    if (newCharacter.id === selectedCharacter?.id) return
+    
+    setSwitchLoading(true)
+    try {
+      if (selectedCharacter) {
+        // Generate dialog between characters
+        const dialogs = await generateSwitchDialog(selectedCharacter, newCharacter)
+        
+        // Show switch dialog
+        setSwitchDialog({
+          isOpen: true,
+          outgoingDialog: dialogs.outgoing,
+          incomingDialog: dialogs.incoming,
+          outgoingCharacter: selectedCharacter,
+          incomingCharacter: newCharacter
+        })
+
+        // Update moves in database
+        const { error: statsError } = await supabase
+          .from('PlayerStats')
+          .update({ moves: moves - 10 })
+          .eq('userId', user?.id)
+
+        if (statsError) throw statsError
+
+        // Update URL without reload
+        const url = new URL(window.location.href)
+        url.searchParams.set('character', newCharacter.id.toString())
+        window.history.pushState({}, '', url.toString())
+
+        // Animate character switch after dialog
+        setTimeout(() => {
+          setSelectedCharacter(newCharacter)
+          setMoves(prev => prev - 10)
+          soundManager.play('move')
+          setSwitchDialog(prev => ({ ...prev, isOpen: false }))
+        }, 3000) // Show dialog for 3 seconds
+      }
+    } catch (err) {
+      console.error('Error switching character:', err)
+      setError('Failed to switch character. Please try again.')
+      setErrorType('network')
+    } finally {
+      setSwitchLoading(false)
+    }
+  }
+
+  // Add Character Switch Dialog Modal
+  const renderSwitchDialog = () => (
+    <AnimatePresence>
+      {switchDialog.isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gray-800/90 rounded-xl p-6 max-w-2xl w-full"
+          >
+            <div className="flex justify-between space-x-4">
+              {/* Outgoing Character */}
+              <motion.div
+                initial={{ x: 0 }}
+                animate={{ x: -20 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1 text-center"
+              >
+                {switchDialog.outgoingCharacter?.GeneratedImage?.[0]?.url && (
+                  <img
+                    src={switchDialog.outgoingCharacter.GeneratedImage[0].url}
+                    alt={switchDialog.outgoingCharacter.name}
+                    className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+                  />
+                )}
+                <p className="text-blue-400 font-bold">
+                  {switchDialog.outgoingCharacter?.name}
+                </p>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="mt-2 p-3 bg-gray-700/50 rounded-lg"
+                >
+                  <p className="text-gray-300 italic">"{switchDialog.outgoingDialog}"</p>
+                </motion.div>
+              </motion.div>
+
+              {/* Incoming Character */}
+              <motion.div
+                initial={{ x: 0 }}
+                animate={{ x: 20 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1 text-center"
+              >
+                {switchDialog.incomingCharacter?.GeneratedImage?.[0]?.url && (
+                  <img
+                    src={switchDialog.incomingCharacter.GeneratedImage[0].url}
+                    alt={switchDialog.incomingCharacter.name}
+                    className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+                  />
+                )}
+                <p className="text-green-400 font-bold">
+                  {switchDialog.incomingCharacter?.name}
+                </p>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                  className="mt-2 p-3 bg-gray-700/50 rounded-lg"
+                >
+                  <p className="text-gray-300 italic">"{switchDialog.incomingDialog}"</p>
+                </motion.div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
+  // Simplify ability UI
+  const renderAbilityButton = () => {
+    if (!selectedCharacter) return null
+
+    return (
+      <button
+        onClick={useAbility}
+        disabled={moves < DEFAULT_ABILITY.cost}
+        className={`
+          px-4 py-2 rounded-lg text-sm font-medium
+          ${moves >= DEFAULT_ABILITY.cost
+            ? 'bg-purple-500 hover:bg-purple-600 text-white'
+            : 'bg-gray-700 text-gray-400 cursor-not-allowed'}
+        `}
+      >
+        {DEFAULT_ABILITY.name} ({DEFAULT_ABILITY.cost} moves)
+        <span className="block text-xs opacity-75">{DEFAULT_ABILITY.description}</span>
+      </button>
+    )
   }
 
   if (loading) {
@@ -596,7 +876,7 @@ function GameContent() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="relative min-h-screen bg-gray-900 text-white overflow-hidden">
       {/* Game Header */}
       <div className="mb-8 text-center relative">
         <button
@@ -851,6 +1131,72 @@ function GameContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Character Switch Panel */}
+      <div className="fixed right-0 top-1/2 -translate-y-1/2">
+        <button
+          onClick={() => setShowSwitchPanel(prev => !prev)}
+          className="bg-gray-800 p-2 rounded-l-lg text-gray-400 hover:text-white transition-colors"
+        >
+          {showSwitchPanel ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
+        </button>
+        
+        <AnimatePresence>
+          {showSwitchPanel && (
+            <motion.div
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-64 bg-gray-800/95 backdrop-blur-sm rounded-l-xl p-4 border-l border-t border-b border-gray-700"
+            >
+              <h3 className="text-lg font-bold text-blue-400 mb-4">Switch Character</h3>
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                {availableCharacters.map(character => (
+                  <button
+                    key={character.id}
+                    onClick={() => handleCharacterSwitch(character)}
+                    disabled={moves < 10 || switchLoading || character.id === selectedCharacter?.id}
+                    className={`
+                      w-full flex items-center space-x-3 p-2 rounded-lg transition-colors
+                      ${character.id === selectedCharacter?.id
+                        ? 'bg-blue-500/20 border border-blue-500/50'
+                        : moves >= 10 && !switchLoading
+                          ? 'hover:bg-gray-700/50 border border-gray-700 hover:border-blue-500'
+                          : 'opacity-50 cursor-not-allowed border border-gray-700'}
+                    `}
+                  >
+                    {character.GeneratedImage?.[0]?.url && (
+                      <img
+                        src={character.GeneratedImage[0].url}
+                        alt={character.name}
+                        className="w-12 h-12 rounded-md object-cover"
+                      />
+                    )}
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-semibold truncate">{character.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 text-center text-sm text-gray-400">
+                Switching costs 10 moves
+                {moves < 10 && (
+                  <p className="text-red-400 mt-1">Not enough moves</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Add Switch Dialog */}
+      {renderSwitchDialog()}
+
+      {/* Add Ability Button */}
+      <div className="mt-4 flex justify-center">
+        {renderAbilityButton()}
+      </div>
     </div>
   )
 }

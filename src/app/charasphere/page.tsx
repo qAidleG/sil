@@ -8,10 +8,12 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Character } from '@/types/database'
 import { supabase } from '@/lib/supabase'
+import { CharacterDetails } from '@/app/collections/CharacterDetails'
 
 export default function CharaSpherePage() {
   const router = useRouter()
   const [showPlayModal, setShowPlayModal] = useState(false)
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,85 +51,17 @@ export default function CharaSpherePage() {
     setShowPlayModal(true)
   }
 
-  const startGame = async (character: Character) => {
-    setError(null)
-    if (!character.GeneratedImage?.length) {
-      setLoading(true)
-      try {
-        setLoadingMessage('Starting image generation...')
-        // Generate the prompt
-        const prompt = `${character.name} from ${character.Series?.name}, high quality, detailed, anime style`
-        
-        // Start generation
-        const generateResponse = await fetch('/api/flux', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
-        })
-        
-        if (!generateResponse.ok) {
-          throw new Error('Failed to start image generation')
-        }
+  const handleCharacterClick = (character: Character) => {
+    setSelectedCharacter(character)
+  }
 
-        setLoadingMessage('Processing generated image...')
-        const { image_url } = await generateResponse.json()
-        
-        // Store the generated image
-        setLoadingMessage('Saving image...')
-        const storeResponse = await fetch('/api/store-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            characterId: character.id,
-            url: image_url,
-            prompt,
-            style: 'anime',
-            seed: Date.now()
-          })
-        })
+  const handleCloseDetails = () => {
+    setSelectedCharacter(null)
+  }
 
-        if (!storeResponse.ok) {
-          throw new Error('Failed to store generated image')
-        }
-
-        // Refresh character data
-        setLoadingMessage('Updating character...')
-        const { data: refreshedChar, error: refreshError } = await supabase
-          .from('Character')
-          .select(`
-            *,
-            Series (
-              name,
-              universe
-            ),
-            GeneratedImage (
-              url
-            )
-          `)
-          .eq('id', character.id)
-          .single()
-
-        if (refreshError) throw refreshError
-        if (!refreshedChar.GeneratedImage?.length) {
-          throw new Error('Failed to update character with new image')
-        }
-
-        // Update local state
-        setCharacters(chars => chars.map(c => 
-          c.id === character.id ? refreshedChar : c
-        ))
-        
-        // Start game with refreshed character
-        router.push(`/charasphere/game?character=${refreshedChar.id}`)
-      } catch (err) {
-        console.error('Error generating image:', err)
-        setError(err instanceof Error ? err.message : 'Failed to generate character image. Please try again.')
-      } finally {
-        setLoading(false)
-        setLoadingMessage('')
-      }
-    } else {
-      router.push(`/charasphere/game?character=${character.id}`)
+  const handlePlay = () => {
+    if (selectedCharacter?.GeneratedImage?.length) {
+      router.push(`/charasphere/game?character=${selectedCharacter.id}`)
     }
   }
 
@@ -240,7 +174,7 @@ export default function CharaSpherePage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-              onClick={() => setShowPlayModal(false)}
+              onClick={() => !selectedCharacter && setShowPlayModal(false)}
             >
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
@@ -249,72 +183,92 @@ export default function CharaSpherePage() {
                 className="bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
                 onClick={e => e.stopPropagation()}
               >
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-blue-400">Select Character</h2>
-                  <button
-                    onClick={() => setShowPlayModal(false)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
-
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400" />
-                    {loadingMessage && (
-                      <p className="text-blue-400">{loadingMessage}</p>
-                    )}
-                  </div>
-                ) : error ? (
-                  <div className="text-center py-12">
-                    <p className="text-red-400 text-lg mb-4">{error}</p>
-                    <button 
-                      onClick={() => setError(null)}
-                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                {selectedCharacter ? (
+                  <div className="relative">
+                    <button
+                      onClick={handleCloseDetails}
+                      className="absolute right-0 top-0 text-gray-400 hover:text-white transition-colors"
                     >
-                      Try Again
+                      <X size={24} />
                     </button>
-                  </div>
-                ) : characters.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-400 text-lg">No characters found</p>
-                    <Link href="/collections" className="mt-4 text-blue-400 hover:text-blue-300">
-                      Add characters to your collection
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {characters.map(character => (
+                    <CharacterDetails 
+                      character={selectedCharacter}
+                      onUpdate={(updatedChar: Character) => {
+                        setCharacters(chars => 
+                          chars.map(c => c.id === updatedChar.id ? updatedChar : c)
+                        )
+                        setSelectedCharacter(updatedChar)
+                      }}
+                    />
+                    <div className="mt-6 flex justify-end">
                       <button
-                        key={character.id}
-                        onClick={() => startGame(character)}
+                        onClick={handlePlay}
+                        disabled={!selectedCharacter.GeneratedImage?.length}
                         className={`
-                          relative aspect-[3/4] rounded-lg overflow-hidden border
-                          ${character.GeneratedImage?.length
-                            ? 'border-gray-700 hover:border-green-500 cursor-pointer'
-                            : 'border-gray-700 hover:border-blue-500 cursor-pointer'}
+                          px-6 py-3 rounded-lg font-semibold
+                          ${selectedCharacter.GeneratedImage?.length
+                            ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
+                          transition-colors
                         `}
                       >
-                        {character.GeneratedImage?.[0]?.url ? (
-                          <img
-                            src={character.GeneratedImage[0].url}
-                            alt={character.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
-                            <p className="text-gray-400 text-sm mb-2">No image</p>
-                            <p className="text-blue-400 text-xs">Click to generate</p>
-                          </div>
-                        )}
-                        <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                          <p className="text-sm font-semibold truncate">{character.name}</p>
-                          <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
-                        </div>
+                        {selectedCharacter.GeneratedImage?.length
+                          ? 'Play Game'
+                          : 'Generate Image to Play'}
                       </button>
-                    ))}
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-blue-400">Select Character</h2>
+                      <button
+                        onClick={() => setShowPlayModal(false)}
+                        className="text-gray-400 hover:text-white transition-colors"
+                      >
+                        <X size={24} />
+                      </button>
+                    </div>
+
+                    {loading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400" />
+                      </div>
+                    ) : characters.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-gray-400 text-lg">No characters found</p>
+                        <Link href="/collections" className="mt-4 text-blue-400 hover:text-blue-300">
+                          Add characters to your collection
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {characters.map(character => (
+                          <button
+                            key={character.id}
+                            onClick={() => handleCharacterClick(character)}
+                            className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 hover:border-blue-500 cursor-pointer"
+                          >
+                            {character.GeneratedImage?.[0]?.url ? (
+                              <img
+                                src={character.GeneratedImage[0].url}
+                                alt={character.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
+                                <p className="text-gray-400 text-sm">No image</p>
+                              </div>
+                            )}
+                            <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                              <p className="text-sm font-semibold truncate">{character.name}</p>
+                              <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </motion.div>
             </motion.div>
