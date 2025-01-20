@@ -1,18 +1,20 @@
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  // Get the response
-  const response = NextResponse.next()
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  // Add CORS headers
-  response.headers.set('Access-Control-Allow-Origin', '*')
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  // Refresh session if expired
+  const { data: { session } } = await supabase.auth.getSession()
 
-  return response
+  return res
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  matcher: [
+    '/collections/:path*',
+    '/api/starter-pack'
+  ]
 } 

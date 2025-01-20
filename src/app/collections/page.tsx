@@ -59,6 +59,7 @@ export default function CollectionsPage() {
   })
   const [claimingStarter, setClaimingStarter] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
   // Get unique universes from characters
   const universes = React.useMemo(() => {
@@ -97,6 +98,20 @@ export default function CollectionsPage() {
         }
       })
   }, [characters, searchQuery, selectedRarity, selectedUniverse, sortBy, sortOrder])
+
+  // Add auth state listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     fetchCharacters()
@@ -272,10 +287,13 @@ export default function CollectionsPage() {
 
   const handleClaimStarter = async () => {
     try {
+      if (!user) {
+        throw new Error('Please sign in to claim starter pack')
+      }
+
       setClaimingStarter(true)
       setError(null)
 
-      // Check if user is authenticated first
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         throw new Error('Please sign in to claim starter pack')
@@ -285,9 +303,9 @@ export default function CollectionsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Include the auth token
           Authorization: `Bearer ${session.access_token}`
-        }
+        },
+        credentials: 'include'  // Important: include cookies
       })
 
       if (!response.ok) {
@@ -302,6 +320,41 @@ export default function CollectionsPage() {
     } finally {
       setClaimingStarter(false)
     }
+  }
+
+  // Add login function
+  const handleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/collections`
+        }
+      })
+      if (error) throw error
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  // Modify the return statement to show login button when not authenticated
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white">
+        <StarField />
+        <div className="relative z-10 max-w-7xl mx-auto p-8">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to view your collection</h1>
+            <button
+              onClick={handleLogin}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Sign in with Google
+            </button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
