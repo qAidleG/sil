@@ -265,18 +265,21 @@ export const handleDatabaseError = (error: any) => {
 
 export const giveStarterPack = async (userId: string) => {
   try {
-    // Get 3 random characters without rarity restriction
+    // Get all characters first
     const { data: characters, error: fetchError } = await supabase
       .from('Character')
       .select('id')
-      .order('random()') // Use Postgres random() function
-      .limit(3)
 
     if (fetchError) throw fetchError
     if (!characters || characters.length === 0) throw new Error('No starter characters available')
 
+    // Randomly select 3 characters
+    const selectedCharacters = characters
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+
     // Add characters to user's collection
-    const collections = characters.map(char => ({
+    const collections = selectedCharacters.map(char => ({
       userId,
       characterId: char.id
     }))
