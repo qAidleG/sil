@@ -265,64 +265,33 @@ export const handleDatabaseError = (error: any) => {
 
 export const giveStarterPack = async (userId: string) => {
   try {
-    // Ensure correct RLS policies are applied for authenticated users
-    // Check if user is authenticated before proceeding
+    // Check if user is authenticated and matches provided userId
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
+    if (user.id !== userId) throw new Error('User ID mismatch');
 
-    console.log('Authenticated user:', user.id);
-
-    // First try to get the count of characters
-    const { count, error: countError } = await supabase
-      .from('Character')
-      .select('*', { count: 'exact', head: true });
-
-    if (countError) {
-      console.error('Error getting character count:', countError);
-      throw countError;
-    }
-
-    console.log('Total characters available:', count);
-
-    // Fetch characters with more detailed logging
+    // Fetch characters with a simple query
     const { data: characters, error: fetchError } = await supabase
       .from('Character')
-      .select('id, name');  // Add name for better logging
+      .select('id');
 
-    if (fetchError) {
-      console.error('Error fetching characters:', fetchError);
-      throw fetchError;
-    }
+    if (fetchError) throw fetchError;
+    if (!characters || characters.length === 0) throw new Error('No starter characters available');
 
-    console.log('Fetched characters:', characters);
-
-    if (!characters || characters.length === 0) {
-      throw new Error('No starter characters available');
-    }
-
+    // Select 3 random characters
     const selectedCharacters = characters
       .sort(() => Math.random() - 0.5)
       .slice(0, 3);
 
-    console.log('Selected characters:', selectedCharacters);
-
-    const collections = selectedCharacters.map(char => ({
-      userId: user.id,
-      characterId: char.id
-    }));
-
-    console.log('Attempting to insert collections:', collections);
-
+    // Create the collections using provided userId
     const { error: insertError } = await supabase
       .from('UserCollection')
-      .insert(collections);
+      .insert(selectedCharacters.map(char => ({
+        userId: userId,  // Use the provided userId consistently
+        characterId: char.id
+      })));
 
-    if (insertError) {
-      console.error('Error inserting collections:', insertError);
-      throw insertError;
-    }
-
-    console.log('Successfully added starter pack');
+    if (insertError) throw insertError;
     return true;
   } catch (error) {
     console.error('Error giving starter pack:', error);
