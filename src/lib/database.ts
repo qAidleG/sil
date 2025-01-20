@@ -265,35 +265,38 @@ export const handleDatabaseError = (error: any) => {
 
 export const giveStarterPack = async (userId: string) => {
   try {
-    // Get all characters first
+    // Ensure correct RLS policies are applied for authenticated users
+    // Check if user is authenticated before proceeding
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Fetch characters and insert into UserCollection with proper error handling
     const { data: characters, error: fetchError } = await supabase
       .from('Character')
-      .select('id')
+      .select('id');
 
-    if (fetchError) throw fetchError
-    if (!characters || characters.length === 0) throw new Error('No starter characters available')
+    if (fetchError) throw fetchError;
+    if (!characters || characters.length === 0) throw new Error('No starter characters available');
 
-    // Randomly select 3 characters
     const selectedCharacters = characters
       .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
+      .slice(0, 3);
 
-    // Add characters to user's collection
     const collections = selectedCharacters.map(char => ({
-      userId,
+      userId: user.id,
       characterId: char.id
-    }))
+    }));
 
     const { error: insertError } = await supabase
       .from('UserCollection')
-      .insert(collections)
+      .insert(collections);
 
-    if (insertError) throw insertError
+    if (insertError) throw insertError;
 
-    return true
+    return true;
   } catch (error) {
-    console.error('Error giving starter pack:', error)
-    handleDatabaseError(error)
-    return false
+    console.error('Error giving starter pack:', error);
+    handleDatabaseError(error);
+    return false;
   }
 } 
