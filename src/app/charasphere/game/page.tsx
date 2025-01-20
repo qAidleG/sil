@@ -62,6 +62,9 @@ const createEmptyGrid = (): CardState[][] =>
     }))
   )
 
+// Dev mode flag - set to true to bypass auth
+const DEV_MODE = true
+
 function GameContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -642,11 +645,12 @@ function GameContent() {
   useEffect(() => {
     const getUser = async () => {
       try {
-        if (isDevelopment) {
-          // Use a hardcoded dev user in development
+        if (DEV_MODE) {
+          // Use a dev user in dev mode
           setUser({
             id: 'dev-user-id',
-            email: 'dev@example.com'
+            email: 'dev@example.com',
+            role: 'developer'
           })
         } else {
           const { data: { user } } = await supabase.auth.getUser()
@@ -853,7 +857,7 @@ function GameContent() {
   }
 
   // Remove the sign in check completely in development
-  if (authChecked && !user && !isDevelopment) {
+  if (!user && !DEV_MODE) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <p className="text-xl text-gray-400 mb-4">Please sign in to play</p>
