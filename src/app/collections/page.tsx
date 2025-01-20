@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { supabase, supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
