@@ -4,8 +4,11 @@ import React from 'react'
 import Link from 'next/link'
 import { StarField } from '../components/StarField'
 import { Home, LayoutGrid, Swords, Trophy, User } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function CharaSpherePage() {
+  const router = useRouter()
+
   return (
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
@@ -41,6 +44,20 @@ export default function CharaSpherePage() {
             <div className="absolute bottom-0 inset-x-0 p-4 text-center">
               <h2 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">Collection</h2>
               <p className="text-sm text-gray-400">View and manage your cards</p>
+            </div>
+          </Link>
+
+          {/* Play CharaSphere Link */}
+          <Link 
+            href="/charasphere/game" 
+            className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm"
+          >
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Swords className="w-16 h-16 text-green-400 group-hover:scale-110 transition-transform duration-500" />
+            </div>
+            <div className="absolute bottom-0 inset-x-0 p-4 text-center">
+              <h2 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">Play CharaSphere</h2>
+              <p className="text-sm text-gray-400">Start your adventure</p>
             </div>
           </Link>
 

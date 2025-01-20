@@ -62,6 +62,7 @@ function GameContent() {
   })
   const [moveRefreshProgress, setMoveRefreshProgress] = useState(0)
   const [errorType, setErrorType] = useState<'load' | 'save' | 'network' | null>(null)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   const loadUserStats = async () => {
     try {
@@ -516,6 +517,16 @@ function GameContent() {
     setIsMuted(newMuted)
   }
 
+  // Add image cycling function
+  const cycleCharacterImage = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering move
+    const images = selectedCharacter?.GeneratedImage
+    if (images && images.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length)
+      soundManager.play('flip')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
@@ -701,17 +712,25 @@ function GameContent() {
                   >
                     {cell.character ? (
                       <motion.div 
-                        className="w-full h-full p-2"
+                        className="w-full h-full p-2 relative group"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: soundManager.durations.flip / 2, delay: soundManager.durations.flip / 2 }}
                       >
-                        {cell.character.GeneratedImage?.[0]?.url ? (
-                          <img
-                            src={cell.character.GeneratedImage[0].url}
-                            alt={cell.character.name}
-                            className="w-full h-full object-cover rounded-md"
-                          />
+                        {cell.character.GeneratedImage?.[currentImageIndex]?.url ? (
+                          <>
+                            <img
+                              src={cell.character.GeneratedImage[currentImageIndex].url}
+                              alt={cell.character.name}
+                              className="w-full h-full object-cover rounded-md"
+                              onClick={cycleCharacterImage}
+                            />
+                            {cell.character.GeneratedImage.length > 1 && (
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 px-2 py-1 rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                Click to cycle images ({currentImageIndex + 1}/{cell.character.GeneratedImage.length})
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-500">
                             No Image
