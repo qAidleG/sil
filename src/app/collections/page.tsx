@@ -112,6 +112,13 @@ export default function CollectionsPage() {
           Series (
             name,
             universe
+          ),
+          GeneratedImage (
+            id,
+            url,
+            prompt,
+            style,
+            createdAt
           )
         `)
         .order('name')
@@ -126,24 +133,8 @@ export default function CollectionsPage() {
         return
       }
 
-      // Then get images separately to avoid join issues
-      const { data: imagesData, error: imagesError } = await supabase
-        .from('GeneratedImage')
-        .select('*')
-
-      if (imagesError) {
-        console.error('Error fetching images:', imagesError)
-        // Don't return here, just continue without images
-      }
-
-      // Combine the data
-      const charactersWithImages = data?.map(character => ({
-        ...character,
-        images: imagesData?.filter(img => img.characterId === character.id) || []
-      })) || []
-
-      console.log('Fetched characters:', charactersWithImages)
-      setCharacters(charactersWithImages)
+      console.log('Fetched characters:', data)
+      setCharacters(data || [])
     } catch (error) {
       console.error('Error fetching characters:', error)
       setError('Failed to load characters. Please try again later.')
@@ -718,12 +709,12 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
           </div>
         </div>
 
-        {isExpanded && character.images && character.images.length > 0 && (
+        {isExpanded && character.GeneratedImage && character.GeneratedImage.length > 0 && (
           <div className="mt-6">
             <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
             <div className="grid grid-cols-2 gap-4">
-              {character.images.map((image) => (
-                image.url && (  // Only render if URL exists
+              {character.GeneratedImage.map((image) => (
+                image.url && (
                   <div 
                     key={image.id}
                     className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 group"
@@ -733,7 +724,6 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
                       alt={`Card art for ${character.name}`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        // Handle broken images
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
                       }}
