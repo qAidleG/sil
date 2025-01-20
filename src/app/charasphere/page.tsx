@@ -30,7 +30,7 @@ export default function CharaSpherePage() {
             url
           )
         `)
-        .order('created_at', { ascending: false })
+        .order('createdAt', { ascending: false })
 
       if (error) throw error
       if (data) setCharacters(data)
