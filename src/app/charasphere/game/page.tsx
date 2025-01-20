@@ -93,6 +93,7 @@ function GameContent() {
     isOpen: false
   })
   const [selectedAbility, setSelectedAbility] = useState<SeriesAbility | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
   const loadUserStats = async () => {
     try {
@@ -382,6 +383,11 @@ function GameContent() {
 
   // Update fetchCharacter to load grid progress by user
   const fetchCharacter = async (id: number) => {
+    if (!user) {
+      handleError('Please sign in to play', 'network')
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
@@ -629,22 +635,28 @@ function GameContent() {
     }
   }
 
-  // Add to useEffect
-  useEffect(() => {
-    if (characterId) {
-      fetchCharacter(parseInt(characterId))
-      loadAvailableCharacters()
-    }
-  }, [characterId])
-
   // Add user effect
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+      } catch (err) {
+        console.error('Auth error:', err)
+        handleError(err, 'network')
+      } finally {
+        setAuthChecked(true)
+      }
     }
     getUser()
   }, [])
+
+  // Only load character after auth is checked
+  useEffect(() => {
+    if (authChecked && characterId) {
+      fetchCharacter(parseInt(characterId))
+    }
+  }, [authChecked, characterId])
 
   // Add character dialog generation
   const generateSwitchDialog = async (outgoing: Character, incoming: Character) => {
@@ -816,6 +828,31 @@ function GameContent() {
         {DEFAULT_ABILITY.name} ({DEFAULT_ABILITY.cost} moves)
         <span className="block text-xs opacity-75">{DEFAULT_ABILITY.description}</span>
       </button>
+    )
+  }
+
+  // Show loading state while checking auth
+  if (!authChecked) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+        <p className="mt-4 text-gray-400">Checking authentication...</p>
+      </div>
+    )
+  }
+
+  // Show sign in prompt if no user
+  if (authChecked && !user) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center">
+        <p className="text-xl text-gray-400 mb-4">Please sign in to play</p>
+        <button
+          onClick={() => router.push('/login')}
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
+        >
+          Sign In
+        </button>
+      </div>
     )
   }
 
