@@ -14,6 +14,7 @@ export default function CharaSpherePage() {
   const [showPlayModal, setShowPlayModal] = useState(false)
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const loadCharacters = async () => {
     setLoading(true)
@@ -48,37 +49,17 @@ export default function CharaSpherePage() {
   }
 
   const startGame = async (character: Character) => {
+    setError(null) // Reset error state
     if (!character.GeneratedImage?.length) {
       setLoading(true)
       try {
-        // Generate image using our Flux API
-        const generateResponse = await fetch('/api/flux', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `${character.name} from ${character.Series?.name}, high quality, detailed, anime style`
-          })
+        // Use the existing character generation workflow
+        const response = await fetch(`/api/generate/${character.id}`, {
+          method: 'POST'
         })
         
-        if (!generateResponse.ok) throw new Error('Failed to generate image')
-        const { image_url } = await generateResponse.json()
-
-        // Store the generated image
-        const storeResponse = await fetch('/api/store-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            characterId: character.id,
-            url: image_url,
-            prompt: `${character.name} from ${character.Series?.name}`,
-            style: 'anime',
-            seed: Date.now()
-          })
-        })
-
-        if (!storeResponse.ok) throw new Error('Failed to store image')
-        const storedImage = await storeResponse.json()
-
+        if (!response.ok) throw new Error('Failed to generate character image')
+        
         // Refresh character data to get the new image
         const { data: refreshedChar, error: refreshError } = await supabase
           .from('Character')
@@ -109,7 +90,7 @@ export default function CharaSpherePage() {
         router.push(`/charasphere/game?character=${refreshedChar.id}`)
       } catch (err) {
         console.error('Error generating image:', err)
-        // TODO: Add error state UI
+        setError('Failed to generate character image. Please try again.')
       } finally {
         setLoading(false)
       }
@@ -249,6 +230,16 @@ export default function CharaSpherePage() {
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-12">
+                    <p className="text-red-400 text-lg mb-4">{error}</p>
+                    <button 
+                      onClick={() => setError(null)}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                    >
+                      Try Again
+                    </button>
                   </div>
                 ) : characters.length === 0 ? (
                   <div className="text-center py-12">
