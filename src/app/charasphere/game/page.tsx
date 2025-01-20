@@ -847,10 +847,15 @@ function GameContent() {
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <p className="text-xl text-gray-400 mb-4">Please sign in to play</p>
         <button
-          onClick={() => router.push('/login')}
+          onClick={() => supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: window.location.href
+            }
+          })}
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
         >
-          Sign In
+          Sign in with Google
         </button>
       </div>
     )
