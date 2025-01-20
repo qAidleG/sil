@@ -125,43 +125,30 @@ export default function CollectionsPage() {
     return () => subscription.unsubscribe()
   }, [])
 
-  useEffect(() => {
-    fetchCharacters()
-  }, [showAll])
-
   const fetchCharacters = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Auth state:', { user, authError });
-
-      if (authError) {
-        console.error('Auth error:', authError);
-        setError('Authentication error. Please try signing in again.');
-        setCharacters([]);
-        return;
-      }
-
-      if (!user && !showAll) {
-        console.log('No user found and showAll is false');
-        setError('Please sign in to view your collection');
-        setCharacters([]);
-        return;
-      }
-
-      const data = await getCharacters(user?.id || '', showAll);
-      console.log('Fetched characters:', data);
-      setCharacters(data || []);
-    } catch (error: any) {
-      console.error('Error in fetchCharacters:', error);
-      setError('Failed to load characters. Please try again later.');
-      setCharacters([]);
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current user:', user);
+      
+      const characters = await getCharacters(user?.id || '', showAll);
+      console.log('Fetched characters:', characters);
+      
+      setCharacters(characters);
+    } catch (err: any) {
+      console.error('Error fetching characters:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    console.log('CollectionsPage: Fetching initial characters');
+    fetchCharacters();
+  }, [showAll]);
 
   const handleCreateCharacter = async () => {
     try {
