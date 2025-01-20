@@ -13,18 +13,34 @@ import type {
 } from '@/types/database'
 
 // Character Operations
-export const getCharacters = async () => {
-  const { data, error } = await supabase
+export const getCharacters = async (userId: string, showAll: boolean = false) => {
+  let query = supabase
     .from('Character')
     .select(`
       *,
       Series (
         id,
         name,
-        description
+        description,
+        universe
+      ),
+      GeneratedImage (
+        id,
+        url,
+        prompt,
+        style,
+        createdAt
+      ),
+      UserCollection!inner (
+        userId
       )
     `)
-    .order('name')
+
+  if (!showAll) {
+    query = query.eq('UserCollection.userId', userId)
+  }
+  
+  const { data, error } = await query.order('name')
   
   if (error) throw error
   return data as Character[]
@@ -227,5 +243,37 @@ export const handleDatabaseError = (error: any) => {
   } else {
     console.error('Database error:', error)
     throw new Error('An unexpected database error occurred.')
+  }
+}
+
+export const giveStarterPack = async (userId: string) => {
+  try {
+    // Get 3 random characters with rarity 3 or less
+    const { data: characters, error: fetchError } = await supabase
+      .from('Character')
+      .select('id')
+      .lte('rarity', 3)
+      .order('random()')
+      .limit(3)
+
+    if (fetchError) throw fetchError
+    if (!characters || characters.length === 0) throw new Error('No starter characters available')
+
+    // Add characters to user's collection
+    const collections = characters.map(char => ({
+      userId,
+      characterId: char.id
+    }))
+
+    const { error: insertError } = await supabase
+      .from('UserCollection')
+      .insert(collections)
+
+    if (insertError) throw insertError
+
+    return true
+  } catch (error) {
+    handleDatabaseError(error)
+    return false
   }
 } 

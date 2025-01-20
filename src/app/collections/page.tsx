@@ -6,6 +6,7 @@ import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
 import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords } from 'lucide-react'
+import { giveStarterPack, getCharacters } from '@/lib/database'
 
 interface Series {
   id: number
@@ -56,6 +57,8 @@ export default function CollectionsPage() {
     dialogs: [],
     currentDialog: ''
   })
+  const [claimingStarter, setClaimingStarter] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
   // Get unique universes from characters
   const universes = React.useMemo(() => {
@@ -97,45 +100,23 @@ export default function CollectionsPage() {
 
   useEffect(() => {
     fetchCharacters()
-  }, [])
+  }, [showAll])
 
   const fetchCharacters = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // First, let's get the basic character data
-      const { data, error } = await supabase
-        .from('Character')
-        .select(`
-          *,
-          Series (
-            name,
-            universe
-          ),
-          GeneratedImage (
-            id,
-            url,
-            prompt,
-            style,
-            createdAt
-          )
-        `)
-        .order('name')
-      
-      if (error) {
-        console.error('Supabase error:', error)
-        if (error.code === '401' || error.code === '42501') {
-          setError('Authentication error. Please check your API credentials.')
-        } else {
-          setError('Failed to load characters. Please try again later.')
-        }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Please sign in to view your collection')
         return
       }
 
+      const data = await getCharacters(user.id, showAll)
       console.log('Fetched characters:', data)
       setCharacters(data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching characters:', error)
       setError('Failed to load characters. Please try again later.')
     } finally {
@@ -287,6 +268,27 @@ export default function CollectionsPage() {
     }
   }
 
+  const handleClaimStarter = async () => {
+    try {
+      setClaimingStarter(true)
+      setError(null)
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Please sign in to claim starter pack')
+      
+      const success = await giveStarterPack(user.id)
+      if (success) {
+        fetchCharacters()
+      } else {
+        throw new Error('Failed to claim starter pack')
+      }
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setClaimingStarter(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
@@ -335,6 +337,18 @@ export default function CollectionsPage() {
         {/* Filter and Sort Controls */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-wrap gap-4">
+            {/* Show All Toggle */}
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                showAll 
+                  ? 'bg-blue-500 hover:bg-blue-600' 
+                  : 'bg-gray-800/50 border border-gray-700 hover:border-blue-500'
+              }`}
+            >
+              {showAll ? 'Show Owned Only' : 'Show All Characters'}
+            </button>
+
             {/* Search Bar */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -406,7 +420,18 @@ export default function CollectionsPage() {
           </div>
         ) : filteredCharacters.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">No characters found matching your criteria.</p>
+            <p className="text-gray-400 text-lg mb-4">No characters found matching your criteria.</p>
+            {characters.length === 0 && (
+              <button
+                onClick={handleClaimStarter}
+                disabled={claimingStarter}
+                className={`px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors ${
+                  claimingStarter ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {claimingStarter ? 'Claiming...' : 'Claim Starter Pack'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-6">

@@ -40,14 +40,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async () => {
+    // Clear any existing auth state
+    await supabase.auth.signOut()
+    
+    const productionUrl = 'https://sil-peach.vercel.app'
     const redirectTo = process.env.NODE_ENV === 'production' 
-      ? 'https://sil-peach.vercel.app/charasphere'
+      ? `${productionUrl}/charasphere`
       : `${window.location.origin}/charasphere`
-      
+    
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        }
       }
     })
   }
