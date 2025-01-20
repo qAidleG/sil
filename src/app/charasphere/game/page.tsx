@@ -293,7 +293,7 @@ function GameContent() {
     }
   }
 
-  // Save grid progress
+  // Update saveGridProgress to use user_id instead of characterId
   const saveGridProgress = useCallback(async (newGrid: CardState[][], newGold: number) => {
     try {
       const discoveredTiles = newGrid.flatMap((row, y) => 
@@ -310,7 +310,7 @@ function GameContent() {
       const { error } = await supabase
         .from('GridProgress')
         .upsert({
-          characterId: parseInt(characterId || ''),
+          user_id: user?.id,  // Use user_id instead of characterId
           discoveredTiles: JSON.stringify(discoveredTiles),
           goldCollected: newGold
         })
@@ -331,7 +331,7 @@ function GameContent() {
     } catch (err) {
       handleError(err, 'save')
     }
-  }, [characterId, moves, lastMoveRefresh, user?.id])
+  }, [moves, lastMoveRefresh, user?.id])
 
   // Function to generate random grid with events and rewards
   const generateGameGrid = (character: Character): CardState[][] => {
@@ -380,46 +380,76 @@ function GameContent() {
     return newGrid
   }
 
-  // Update fetchCharacter to load saved progress
+  // Update fetchCharacter to load grid progress by user
   const fetchCharacter = async (id: number) => {
     try {
       setLoading(true)
       setError(null)
       
-      // Fetch character and grid progress in parallel
-      const [characterResponse, progressResponse] = await Promise.all([
-        supabase
-          .from('Character')
-          .select(`
-            *,
-            Series (
-              name,
-              universe
-            ),
-            GeneratedImage (
-              url
-            )
-          `)
-          .eq('id', id)
-          .single(),
-        supabase
+      console.log('Fetching character:', id)
+      
+      // First check if character exists
+      const { data: existingCharacter, error: checkError } = await supabase
+        .from('Character')
+        .select(`
+          *,
+          Series (
+            name,
+            universe
+          ),
+          GeneratedImage (
+            url
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      if (checkError) {
+        if (checkError.code === 'PGRST116') { // Not found
+          // Create initial character
+          const { data: newCharacter, error: createError } = await supabase
+            .from('Character')
+            .insert([{
+              id: id,
+              name: 'New Character',
+              rarity: 1,
+              dialogs: ['Hello!'],
+              created_at: new Date().toISOString()
+            }])
+            .select()
+            .single()
+
+          if (createError) throw createError
+          if (newCharacter) {
+            setSelectedCharacter(newCharacter)
+            const newGrid = generateGameGrid(newCharacter)
+            setGrid(newGrid)
+            setUndiscoveredCount(24)
+            return
+          }
+        } else {
+          throw checkError
+        }
+      }
+
+      // If character exists, proceed with normal flow
+      if (existingCharacter) {
+        setSelectedCharacter(existingCharacter)
+        
+        // Check for grid progress using user_id
+        const { data: progress, error: progressError } = await supabase
           .from('GridProgress')
           .select('*')
-          .eq('characterId', id)
+          .eq('user_id', user?.id)  // Use user_id instead of characterId
           .single()
-      ])
 
-      if (characterResponse.error) throw characterResponse.error
-
-      if (characterResponse.data) {
-        setSelectedCharacter(characterResponse.data)
         let newGrid: CardState[][]
 
-        if (!progressResponse.error && progressResponse.data) {
+        if (!progressError && progress) {
           // Load saved progress
-          newGrid = generateGameGrid(characterResponse.data)
-          const savedTiles = JSON.parse(progressResponse.data.discoveredTiles)
-          let undiscovered = 24 // Start with all tiles undiscovered except starting position
+          newGrid = generateGameGrid(existingCharacter)
+          const savedTiles = JSON.parse(progress.discoveredTiles)
+          let undiscovered = 24
 
           savedTiles.forEach((tile: any) => {
             if (newGrid[tile.y][tile.x].tileType === tile.tileType) {
@@ -432,13 +462,14 @@ function GameContent() {
           setUndiscoveredCount(undiscovered)
         } else {
           // Generate new grid
-          newGrid = generateGameGrid(characterResponse.data)
+          newGrid = generateGameGrid(existingCharacter)
           setUndiscoveredCount(24)
         }
 
         setGrid(newGrid)
       }
     } catch (err) {
+      console.error('Fetch error:', err)
       handleError(err, 'load')
     } finally {
       setLoading(false)
@@ -530,7 +561,7 @@ function GameContent() {
     }
   }
 
-  // Update handleReset to reset progress
+  // Update handleReset to reset progress by user
   const handleReset = async () => {
     soundManager.play('reset')
     if (selectedCharacter) {
@@ -542,15 +573,13 @@ function GameContent() {
       setMoves(30)
 
       try {
-        // Only reset grid progress
+        // Reset grid progress for user
         const { error: gridError } = await supabase
           .from('GridProgress')
           .delete()
-          .eq('characterId', characterId)
+          .eq('user_id', user?.id)  // Use user_id instead of characterId
 
         if (gridError) throw gridError
-
-        // Don't reset PlayerStats anymore
       } catch (err) {
         console.error('Error resetting progress:', err)
         setError('Failed to reset progress')
