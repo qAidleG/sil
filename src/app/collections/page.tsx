@@ -274,9 +274,20 @@ export default function CollectionsPage() {
     try {
       setClaimingStarter(true)
       setError(null)
+
+      // Check if user is authenticated first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Please sign in to claim starter pack')
+      }
       
       const response = await fetch('/api/starter-pack', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include the auth token
+          Authorization: `Bearer ${session.access_token}`
+        }
       })
 
       if (!response.ok) {
