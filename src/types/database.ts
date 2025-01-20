@@ -1,17 +1,25 @@
 export interface Character {
   id: number
   name: string
-  seriesId: number | null
   bio: string | null
   rarity: number
+  seriesId: number | null
   dialogs: string[]
-  createdAt: string
-  updatedAt: string
   Series?: {
+    id: number
     name: string
     universe: string
-  } | null
-  images?: GeneratedImage[]
+  }
+  GeneratedImage?: {
+    id: number
+    characterId: number
+    url: string
+    prompt: string
+    style: string
+    createdAt: string
+  }[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Series {

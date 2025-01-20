@@ -5,7 +5,7 @@ import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
-import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload } from 'lucide-react'
+import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords } from 'lucide-react'
 
 interface Series {
   id: number
@@ -300,11 +300,17 @@ export default function CollectionsPage() {
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors w-fit">
             <Home size={20} />
             <span>Home</span>
           </Link>
+          <span className="text-gray-600">/</span>
+          <Link href="/charasphere" className="text-blue-400 hover:text-blue-300 transition-colors">
+            CharaSphere
+          </Link>
+          <span className="text-gray-600">/</span>
+          <span className="text-gray-300">Collection</span>
         </div>
         
         <div className="flex justify-between items-center mb-8">
@@ -807,6 +813,13 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
             </div>
 
             <div className="flex justify-end space-x-3">
+              <Link
+                href={`/charasphere/game?character=${character.id}`}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors"
+              >
+                <Swords size={18} />
+                <span>Play</span>
+              </Link>
               <button
                 onClick={() => onQuickGenerate(character)}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition-colors"
