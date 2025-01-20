@@ -6,18 +6,18 @@ CREATE POLICY "Users can read their own collections"
 ON public."UserCollection"
 FOR SELECT
 TO authenticated
-USING (auth.uid() = "userId"::uuid);
+USING ("userId"::uuid = auth.uid());
 
 -- Allow users to insert into their own collections
 CREATE POLICY "Users can insert into their own collections"
 ON public."UserCollection"
 FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = "userId"::uuid);
+WITH CHECK ("userId"::uuid = auth.uid());
 
 -- Allow users to delete from their own collections
 CREATE POLICY "Users can delete from their own collections"
 ON public."UserCollection"
 FOR DELETE
 TO authenticated
-USING (auth.uid() = "userId"::uuid); 
+USING ("userId"::uuid = auth.uid()); 

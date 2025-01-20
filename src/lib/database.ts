@@ -18,7 +18,50 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
   try {
     console.log('Fetching characters for userId:', userId, 'showAll:', showAll);
     
-    let query = supabase
+    if (!showAll && userId) {
+      // First, get the user's collection
+      const { data: userCollection, error: collectionError } = await supabase
+        .from('UserCollection')
+        .select(`
+          characterId,
+          Character (
+            *,
+            Series (
+              id,
+              name,
+              universe
+            ),
+            GeneratedImage (
+              id,
+              url,
+              prompt,
+              style,
+              createdAt
+            )
+          )
+        `)
+        .eq('userId', userId);
+
+      console.log('User collection fetch result:', { userCollection, collectionError });
+
+      if (collectionError) {
+        console.error('Error fetching user collection:', collectionError);
+        return [];
+      }
+
+      if (!userCollection || userCollection.length === 0) {
+        console.log('No characters in user collection');
+        return [];
+      }
+
+      // Extract characters from the nested response with proper type casting
+      return userCollection
+        .map(uc => uc.Character)
+        .filter((char): char is Character => char !== null) as Character[];
+    }
+
+    // If showAll is true, fetch all characters
+    const { data, error } = await supabase
       .from('Character')
       .select(`
         *,
@@ -37,30 +80,6 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
       `)
       .order('name');
 
-    if (!showAll && userId) {
-      // First, get the user's collection
-      const { data: userCollection, error: collectionError } = await supabase
-        .from('UserCollection')
-        .select('characterId')
-        .eq('userId', userId);
-
-      console.log('User collection fetch result:', { userCollection, collectionError });
-
-      if (collectionError) {
-        console.error('Error fetching user collection:', collectionError);
-        return [];
-      }
-
-      if (userCollection && userCollection.length > 0) {
-        const characterIds = userCollection.map(uc => uc.characterId);
-        query = query.in('id', characterIds);
-      } else {
-        console.log('No characters in user collection');
-        return []; // Return empty if user has no characters
-      }
-    }
-
-    const { data, error } = await query;
     console.log('Character query result:', { data, error });
 
     if (error) {
