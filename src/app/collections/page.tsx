@@ -305,12 +305,17 @@ export default function CollectionsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`
         },
-        credentials: 'include'  // Important: include cookies
+        credentials: 'include'
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to claim starter pack')
+        const text = await response.text()
+        try {
+          const data = JSON.parse(text)
+          throw new Error(data.error || 'Failed to claim starter pack')
+        } catch {
+          throw new Error(text)
+        }
       }
 
       // Refresh characters list
