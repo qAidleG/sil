@@ -7,20 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-// Create public client with simplified config
+// Create public client with auth config
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: {
-      'x-supabase-admin': 'true'  // Bypass RLS
-    }
+    detectSessionInUrl: true,
+    storageKey: 'charasphere-auth',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined
   }
 })
 
@@ -30,8 +24,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 // Create admin client for database operations
 export const supabaseAdmin = supabaseServiceKey 
   ? createClient(supabaseUrl, supabaseServiceKey, {
-      db: {
-        schema: 'public'
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
       }
     })
   : null

@@ -62,10 +62,6 @@ const createEmptyGrid = (): CardState[][] =>
     }))
   )
 
-// Dev mode flag - set to true to bypass auth
-const DEV_MODE = true
-const DEV_USER_ID = '00000000-0000-0000-0000-000000000000' // Valid UUID format
-
 function GameContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -97,7 +93,6 @@ function GameContent() {
     isOpen: false
   })
   const [selectedAbility, setSelectedAbility] = useState<SeriesAbility | null>(null)
-  const [authChecked, setAuthChecked] = useState(false)
 
   // Add development mode check
   const isDevelopment = process.env.NODE_ENV === 'development'
@@ -642,16 +637,15 @@ function GameContent() {
     }
   }
 
-  // Update user effect to use proper UUID
+  // Update user effect to bypass auth in development
   useEffect(() => {
     const getUser = async () => {
       try {
-        if (DEV_MODE) {
-          // Use a dev user with proper UUID
+        if (isDevelopment) {
+          // Use a hardcoded dev user in development
           setUser({
-            id: DEV_USER_ID,
-            email: 'dev@example.com',
-            role: 'developer'
+            id: 'dev-user-id',
+            email: 'dev@example.com'
           })
         } else {
           const { data: { user } } = await supabase.auth.getUser()
@@ -660,8 +654,6 @@ function GameContent() {
       } catch (err) {
         console.error('Auth error:', err)
         handleError(err, 'network')
-      } finally {
-        setAuthChecked(true)
       }
     }
     getUser()
@@ -669,10 +661,10 @@ function GameContent() {
 
   // Only load character after auth is checked
   useEffect(() => {
-    if (authChecked && characterId) {
+    if (characterId) {
       fetchCharacter(parseInt(characterId))
     }
-  }, [authChecked, characterId])
+  }, [characterId])
 
   // Add character dialog generation
   const generateSwitchDialog = async (outgoing: Character, incoming: Character) => {
@@ -844,36 +836,6 @@ function GameContent() {
         {DEFAULT_ABILITY.name} ({DEFAULT_ABILITY.cost} moves)
         <span className="block text-xs opacity-75">{DEFAULT_ABILITY.description}</span>
       </button>
-    )
-  }
-
-  // Show loading state while checking auth
-  if (!authChecked) {
-    return (
-      <div className="min-h-[400px] flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-        <p className="mt-4 text-gray-400">Loading game...</p>
-      </div>
-    )
-  }
-
-  // Remove the sign in check completely in development
-  if (!user && !DEV_MODE) {
-    return (
-      <div className="min-h-[400px] flex flex-col items-center justify-center">
-        <p className="text-xl text-gray-400 mb-4">Please sign in to play</p>
-        <button
-          onClick={() => supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo: window.location.href
-            }
-          })}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
-        >
-          Sign in with Google
-        </button>
-      </div>
     )
   }
 
