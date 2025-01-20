@@ -51,13 +51,33 @@ export default function CharaSpherePage() {
     if (!character.GeneratedImage?.length) {
       setLoading(true)
       try {
-        // Generate image
-        const { data: imageData, error: imageError } = await supabase.rpc(
-          'generate_character_image',
-          { character_id: character.id }
-        )
+        // Generate image using our Flux API
+        const generateResponse = await fetch('/api/flux', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `${character.name} from ${character.Series?.name}, high quality, detailed, anime style`
+          })
+        })
         
-        if (imageError) throw imageError
+        if (!generateResponse.ok) throw new Error('Failed to generate image')
+        const { image_url } = await generateResponse.json()
+
+        // Store the generated image
+        const storeResponse = await fetch('/api/store-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId: character.id,
+            url: image_url,
+            prompt: `${character.name} from ${character.Series?.name}`,
+            style: 'anime',
+            seed: Date.now()
+          })
+        })
+
+        if (!storeResponse.ok) throw new Error('Failed to store image')
+        const storedImage = await storeResponse.json()
 
         // Refresh character data to get the new image
         const { data: refreshedChar, error: refreshError } = await supabase
@@ -77,7 +97,7 @@ export default function CharaSpherePage() {
 
         if (refreshError) throw refreshError
         if (!refreshedChar.GeneratedImage?.length) {
-          throw new Error('Failed to generate character image')
+          throw new Error('Failed to update character with new image')
         }
 
         // Update local state
@@ -89,8 +109,7 @@ export default function CharaSpherePage() {
         router.push(`/charasphere/game?character=${refreshedChar.id}`)
       } catch (err) {
         console.error('Error generating image:', err)
-        // Show error message to user
-        // You might want to add error state and UI for this
+        // TODO: Add error state UI
       } finally {
         setLoading(false)
       }
