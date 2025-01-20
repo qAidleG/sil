@@ -20,6 +20,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Admin client (for schema modifications and admin operations)
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+console.log('Service key exists:', !!supabaseServiceKey)
 
 // Create admin client for database operations
 export const supabaseAdmin = supabaseServiceKey 
@@ -29,7 +30,10 @@ export const supabaseAdmin = supabaseServiceKey
         persistSession: false
       }
     })
-  : null
+  : (() => {
+      console.error('Admin client not created - missing service key');
+      return null;
+    })();
 
 // Schema modification functions
 export const modifySchema = {
