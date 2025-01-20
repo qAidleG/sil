@@ -16,56 +16,9 @@ import type {
 // Character Operations
 export const getCharacters = async (userId: string, showAll: boolean = false) => {
   try {
-    console.log('Fetching characters for userId:', userId, 'showAll:', showAll);
+    console.log('Fetching all characters');
     
-    if (!showAll && userId) {
-      type UserCollectionWithCharacter = {
-        characterId: number;
-        Character: Character;
-      };
-
-      // First, get the user's collection
-      const { data: userCollection, error: collectionError } = await supabase
-        .from('UserCollection')
-        .select(`
-          characterId,
-          Character (
-            *,
-            Series (
-              id,
-              name,
-              universe
-            ),
-            GeneratedImage (
-              id,
-              url,
-              prompt,
-              style,
-              createdAt
-            )
-          )
-        `)
-        .eq('userId', userId) as { data: UserCollectionWithCharacter[] | null, error: any };
-
-      console.log('User collection fetch result:', { userCollection, collectionError });
-
-      if (collectionError) {
-        console.error('Error fetching user collection:', collectionError);
-        return [];
-      }
-
-      if (!userCollection || userCollection.length === 0) {
-        console.log('No characters in user collection');
-        return [];
-      }
-
-      // Extract characters from the nested response
-      return userCollection
-        .map(uc => uc.Character)
-        .filter((char): char is Character => char !== null);
-    }
-
-    // If showAll is true, fetch all characters
+    // Always fetch all characters
     const { data, error } = await supabase
       .from('Character')
       .select(`
