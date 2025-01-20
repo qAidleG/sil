@@ -64,6 +64,7 @@ const createEmptyGrid = (): CardState[][] =>
 
 // Dev mode flag - set to true to bypass auth
 const DEV_MODE = true
+const DEV_USER_ID = '00000000-0000-0000-0000-000000000000' // Valid UUID format
 
 function GameContent() {
   const router = useRouter()
@@ -641,14 +642,14 @@ function GameContent() {
     }
   }
 
-  // Update user effect to bypass auth in development
+  // Update user effect to use proper UUID
   useEffect(() => {
     const getUser = async () => {
       try {
         if (DEV_MODE) {
-          // Use a dev user in dev mode
+          // Use a dev user with proper UUID
           setUser({
-            id: 'dev-user-id',
+            id: DEV_USER_ID,
             email: 'dev@example.com',
             role: 'developer'
           })
