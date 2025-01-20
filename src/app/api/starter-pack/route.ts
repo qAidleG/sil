@@ -2,23 +2,17 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'
-
-export async function POST(request: Request) {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-  
+export async function POST() {
   try {
-    // Verify auth session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return new Response('Unauthorized', {
-        status: 401,
-        statusText: 'Unauthorized'
-      })
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    // Get authenticated user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
     }
 
     // Fetch characters
@@ -43,7 +37,7 @@ export async function POST(request: Request) {
     const { error: insertError } = await supabase
       .from('UserCollection')
       .insert(selectedCharacters.map(char => ({
-        userId: session.user.id,
+        userId: user.id,
         characterId: char.id
       })))
 
@@ -57,4 +51,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-} 
+}

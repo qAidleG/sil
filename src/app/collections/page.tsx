@@ -40,6 +40,8 @@ interface ImageGenerationForm {
 }
 
 export default function CollectionsPage() {
+  console.log('CollectionsPage: Component initialized')
+  
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +62,16 @@ export default function CollectionsPage() {
   const [claimingStarter, setClaimingStarter] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    console.log('CollectionsPage: State updated', {
+      searchQuery,
+      selectedRarity,
+      selectedUniverse,
+      sortBy,
+      sortOrder
+    })
+  }, [searchQuery, selectedRarity, selectedUniverse, sortBy, sortOrder])
 
   // Get unique universes from characters
   const universes = React.useMemo(() => {
