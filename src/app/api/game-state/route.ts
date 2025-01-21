@@ -48,6 +48,17 @@ export async function POST(request: Request) {
     }
 
     console.log('POST request body:', JSON.stringify(body, null, 2));
+    console.log('Stats data to save:', {
+      user_id: userId,
+      moves: moves ?? 30,
+      gold: gold ?? 0,
+      last_move_refresh: lastMoveRefresh ?? new Date().toISOString(),
+      wins: 0,
+      losses: 0,
+      cards_collected: 0,
+      rank: 0,
+      experience: 0
+    });
 
     try {
       // First check if stats exist
