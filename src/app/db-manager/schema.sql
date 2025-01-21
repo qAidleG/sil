@@ -164,4 +164,11 @@ CREATE TRIGGER update_deck_updated_at
 CREATE TRIGGER update_player_stats_updated_at
     BEFORE UPDATE ON "public"."playerstats"
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column(); 
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Allow anyone to read characters
+CREATE POLICY "Allow anyone to read characters"
+ON public."Character"
+FOR SELECT
+TO public
+USING (true); 
