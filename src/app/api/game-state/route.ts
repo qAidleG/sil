@@ -49,15 +49,7 @@ export async function POST(request: Request) {
 
     console.log('POST request body:', body);
 
-    // For default user, first check if stats exist
-    const { data: existingStats, error: checkError } = await supabaseAdmin
-      .from('playerstats')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    console.log('Existing stats:', existingStats, 'Check error:', checkError);
-
+    // Create stats data
     const statsData = {
       user_id: userId,
       moves: moves ?? 30,
@@ -68,36 +60,20 @@ export async function POST(request: Request) {
 
     console.log('Stats data to save:', statsData);
 
-    // If no stats exist, create them
-    if (!existingStats) {
-      console.log('Creating initial stats');
-      const { data: insertData, error: insertError } = await supabaseAdmin
-        .from('playerstats')
-        .insert([statsData])
-        .select()
-        .single();
+    // Upsert stats
+    const { data: statsResult, error: statsError } = await supabaseAdmin
+      .from('playerstats')
+      .upsert([statsData], {
+        onConflict: 'user_id'
+      })
+      .select()
+      .single();
 
-      console.log('Insert result:', insertData, 'Insert error:', insertError);
+    console.log('Stats result:', statsResult, 'Stats error:', statsError);
 
-      if (insertError) {
-        console.error('Error creating stats:', insertError);
-        throw insertError;
-      }
-    } else {
-      console.log('Updating existing stats');
-      const { data: updateData, error: updateError } = await supabaseAdmin
-        .from('playerstats')
-        .update(statsData)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      console.log('Update result:', updateData, 'Update error:', updateError);
-
-      if (updateError) {
-        console.error('Error updating stats:', updateError);
-        throw updateError;
-      }
+    if (statsError) {
+      console.error('Error updating stats:', statsError);
+      throw statsError;
     }
 
     // Only update grid progress if grid is provided
