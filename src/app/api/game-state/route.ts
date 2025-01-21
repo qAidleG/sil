@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         // Create new stats with minimal required fields
         const { data, error: insertError } = await supabaseAdmin
           .from('playerstats')
-          .insert({
+          .upsert({
             user_id: userId,
             moves: moves ?? 30,
             gold: gold ?? 0,
@@ -92,8 +92,7 @@ export async function POST(request: Request) {
             cards_collected: 0,
             rank: 0,
             experience: 0
-          })
-          .select();
+          });
 
         if (insertError) {
           console.error('Error inserting stats:', insertError);
