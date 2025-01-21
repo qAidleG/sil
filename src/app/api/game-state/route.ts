@@ -95,13 +95,36 @@ export async function POST(request: Request) {
 
       console.log('Grid data to save:', gridPayload);
 
-      const { data: gridResult, error: gridError } = await supabaseAdmin
+      // First try to find existing record
+      const { data: existingGrid } = await supabaseAdmin
         .from('gridprogress')
-        .upsert([gridPayload], {
-          onConflict: 'user_id'
-        })
         .select()
+        .eq('user_id', userId)
         .single();
+
+      let gridResult;
+      let gridError;
+
+      if (existingGrid) {
+        // Update existing record
+        const { data, error } = await supabaseAdmin
+          .from('gridprogress')
+          .update(gridPayload)
+          .eq('user_id', userId)
+          .select()
+          .single();
+        gridResult = data;
+        gridError = error;
+      } else {
+        // Insert new record
+        const { data, error } = await supabaseAdmin
+          .from('gridprogress')
+          .insert([gridPayload])
+          .select()
+          .single();
+        gridResult = data;
+        gridError = error;
+      }
 
       console.log('Grid update result:', gridResult, 'Grid error:', gridError);
 
