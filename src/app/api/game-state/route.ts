@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    console.log('POST request body:', body);
+    console.log('POST request body:', JSON.stringify(body, null, 2));
 
     // Create stats data
     const statsData = {
@@ -65,83 +65,115 @@ export async function POST(request: Request) {
       created_at: new Date().toISOString()
     };
 
-    console.log('Stats data to save:', statsData);
+    console.log('Stats data to save:', JSON.stringify(statsData, null, 2));
 
-    // Upsert stats
-    const { data: statsResult, error: statsError } = await supabaseAdmin
-      .from('playerstats')
-      .upsert([statsData], {
-        onConflict: 'user_id'
-      })
-      .select()
-      .single();
-
-    console.log('Stats result:', statsResult, 'Stats error:', statsError);
-
-    if (statsError) {
-      console.error('Error updating stats:', statsError);
-      throw statsError;
-    }
-
-    // Only update grid progress if grid is provided
-    if (grid) {
-      console.log('Updating grid progress');
-      const gridPayload = {
-        user_id: userId,
-        discoveredTiles: grid,
-        goldCollected: gold,
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('Grid data to save:', gridPayload);
-
-      // First try to find existing record
-      const { data: existingGrid } = await supabaseAdmin
-        .from('gridprogress')
+    try {
+      // Upsert stats
+      const { data: statsResult, error: statsError } = await supabaseAdmin
+        .from('playerstats')
+        .upsert([statsData])
         .select()
-        .eq('user_id', userId)
         .single();
 
-      let gridResult;
-      let gridError;
+      console.log('Stats result:', statsResult, 'Stats error:', statsError);
 
-      if (existingGrid) {
-        // Update existing record
-        const { data, error } = await supabaseAdmin
-          .from('gridprogress')
-          .update(gridPayload)
-          .eq('user_id', userId)
-          .select()
-          .single();
-        gridResult = data;
-        gridError = error;
+      if (statsError) {
+        console.error('Error updating stats:', statsError);
+        return NextResponse.json({ 
+          error: 'Failed to update stats',
+          details: statsError
+        }, { status: 500 });
+      }
+
+      // Only update grid progress if grid is provided
+      if (grid) {
+        console.log('Updating grid progress');
+        const gridPayload = {
+          user_id: userId,
+          discoveredTiles: grid,
+          goldCollected: gold,
+          updated_at: new Date().toISOString()
+        };
+
+        console.log('Grid data to save:', JSON.stringify(gridPayload, null, 2));
+
+        try {
+          // First try to find existing record
+          const { data: existingGrid, error: findError } = await supabaseAdmin
+            .from('gridprogress')
+            .select()
+            .eq('user_id', userId)
+            .single();
+
+          if (findError && findError.code !== 'PGRST116') { // Ignore "no rows returned" error
+            console.error('Error finding grid:', findError);
+            return NextResponse.json({ 
+              error: 'Failed to find grid progress',
+              details: findError
+            }, { status: 500 });
+          }
+
+          let result;
+          if (existingGrid) {
+            // Update existing record
+            const { data, error } = await supabaseAdmin
+              .from('gridprogress')
+              .update(gridPayload)
+              .eq('user_id', userId)
+              .select()
+              .single();
+
+            if (error) {
+              console.error('Error updating grid:', error);
+              return NextResponse.json({ 
+                error: 'Failed to update grid progress',
+                details: error
+              }, { status: 500 });
+            }
+            result = data;
+          } else {
+            // Insert new record
+            const { data, error } = await supabaseAdmin
+              .from('gridprogress')
+              .insert([gridPayload])
+              .select()
+              .single();
+
+            if (error) {
+              console.error('Error inserting grid:', error);
+              return NextResponse.json({ 
+                error: 'Failed to insert grid progress',
+                details: error
+              }, { status: 500 });
+            }
+            result = data;
+          }
+
+          console.log('Grid operation result:', result);
+        } catch (gridError) {
+          console.error('Error in grid operations:', gridError);
+          return NextResponse.json({ 
+            error: 'Grid operation failed',
+            details: gridError
+          }, { status: 500 });
+        }
       } else {
-        // Insert new record
-        const { data, error } = await supabaseAdmin
-          .from('gridprogress')
-          .insert([gridPayload])
-          .select()
-          .single();
-        gridResult = data;
-        gridError = error;
+        console.log('No grid provided, skipping grid progress update');
       }
 
-      console.log('Grid update result:', gridResult, 'Grid error:', gridError);
-
-      if (gridError) {
-        console.error('Error updating grid:', gridError);
-        throw gridError;
-      }
-    } else {
-      console.log('No grid provided, skipping grid progress update');
+      return NextResponse.json({ success: true });
+    } catch (dbError) {
+      console.error('Database operation error:', dbError);
+      return NextResponse.json({ 
+        error: 'Database operation failed',
+        details: dbError
+      }, { status: 500 });
     }
-
-    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in game state POST:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Internal server error',
-      details: error
+      error: 'Request processing failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
