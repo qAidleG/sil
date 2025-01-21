@@ -26,13 +26,26 @@ CREATE TABLE IF NOT EXISTS "public"."Battle" (
 );
 
 -- Create PlayerStats table
-CREATE TABLE IF NOT EXISTS "public"."PlayerStats" (
-    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS "public"."playerstats" (
+    user_id TEXT PRIMARY KEY,
     wins INTEGER NOT NULL DEFAULT 0,
     losses INTEGER NOT NULL DEFAULT 0,
     cards_collected INTEGER NOT NULL DEFAULT 0,
     rank INTEGER NOT NULL DEFAULT 0,
     experience INTEGER NOT NULL DEFAULT 0,
+    moves INTEGER NOT NULL DEFAULT 30,
+    gold INTEGER NOT NULL DEFAULT 0,
+    last_move_refresh TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Create GridProgress table if not exists
+CREATE TABLE IF NOT EXISTS "public"."gridprogress" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    discoveredTiles JSONB NOT NULL DEFAULT '[]',
+    goldCollected INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -40,7 +53,8 @@ CREATE TABLE IF NOT EXISTS "public"."PlayerStats" (
 -- Enable RLS on new tables
 ALTER TABLE "public"."Deck" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."Battle" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "public"."PlayerStats" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."playerstats" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."gridprogress" ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 
@@ -91,18 +105,41 @@ CREATE POLICY "Users can update battles they participate in"
     WITH CHECK (auth.uid() = player1_id OR auth.uid() = player2_id);
 
 -- PlayerStats policies
-CREATE POLICY "Users can view any player stats"
-    ON "public"."PlayerStats"
+CREATE POLICY "Allow users to read their own stats"
+    ON "public"."playerstats"
     FOR SELECT
-    TO authenticated
-    USING (true);
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
 
-CREATE POLICY "Users can only update their own stats"
-    ON "public"."PlayerStats"
+CREATE POLICY "Allow users to update their own stats"
+    ON "public"."playerstats"
     FOR UPDATE
-    TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
+
+CREATE POLICY "Allow users to insert their own stats"
+    ON "public"."playerstats"
+    FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id OR user_id = 'default-user');
+
+-- GridProgress policies
+CREATE POLICY "Allow users to read their own progress"
+    ON "public"."gridprogress"
+    FOR SELECT
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
+
+CREATE POLICY "Allow users to update their own progress"
+    ON "public"."gridprogress"
+    FOR UPDATE
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
+
+CREATE POLICY "Allow users to insert their own progress"
+    ON "public"."gridprogress"
+    FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id OR user_id = 'default-user');
+
+CREATE POLICY "Allow users to delete their own progress"
+    ON "public"."gridprogress"
+    FOR DELETE
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS deck_user_id_idx ON "public"."Deck" (user_id);
@@ -125,6 +162,6 @@ CREATE TRIGGER update_deck_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_player_stats_updated_at
-    BEFORE UPDATE ON "public"."PlayerStats"
+    BEFORE UPDATE ON "public"."playerstats"
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column(); 
