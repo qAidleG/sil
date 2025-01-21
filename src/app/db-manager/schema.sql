@@ -166,7 +166,10 @@ CREATE TRIGGER update_player_stats_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Allow anyone to read characters
+-- Enable RLS on Character table with correct case
+ALTER TABLE public."Character" ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone to read characters with correct case
 CREATE POLICY "Allow anyone to read characters"
 ON public."Character"
 FOR SELECT
