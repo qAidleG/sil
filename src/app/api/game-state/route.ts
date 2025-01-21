@@ -132,6 +132,8 @@ export async function POST(request: Request) {
         console.error('Error updating grid:', gridError);
         throw gridError;
       }
+    } else {
+      console.log('No grid provided, skipping grid progress update');
     }
 
     return NextResponse.json({ success: true });
