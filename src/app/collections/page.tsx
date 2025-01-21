@@ -6,7 +6,7 @@ import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
 import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords } from 'lucide-react'
-import { giveStarterPack, getCharacters } from '@/lib/database'
+import { getCharacters } from '@/lib/database'
 
 interface Series {
   id: number
@@ -59,7 +59,6 @@ export default function CollectionsPage() {
     dialogs: [],
     currentDialog: ''
   })
-  const [claimingStarter, setClaimingStarter] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [user, setUser] = useState<any>(null)
 
@@ -294,63 +293,6 @@ export default function CollectionsPage() {
     }
   }
 
-  const handleClaimStarter = async () => {
-    try {
-      if (!user) {
-        throw new Error('Please sign in to claim starter pack')
-      }
-
-      setClaimingStarter(true)
-      setError(null)
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        throw new Error('Please sign in to claim starter pack')
-      }
-      
-      const response = await fetch('/api/starter-pack', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`
-        },
-        credentials: 'include'
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        try {
-          const data = JSON.parse(text)
-          throw new Error(data.error || 'Failed to claim starter pack')
-        } catch {
-          throw new Error(text)
-        }
-      }
-
-      // Refresh characters list
-      fetchCharacters()
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setClaimingStarter(false)
-    }
-  }
-
-  // Add login function
-  const handleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/collections`
-        }
-      })
-      if (error) throw error
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
-
   // Modify the return statement to show login button when not authenticated
   if (!user) {
     return (
@@ -360,7 +302,9 @@ export default function CollectionsPage() {
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <h1 className="text-2xl font-bold mb-4">Please sign in to view your collection</h1>
             <button
-              onClick={handleLogin}
+              onClick={() => {
+                // Implement login functionality
+              }}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               Sign in with Google
@@ -503,17 +447,6 @@ export default function CollectionsPage() {
         ) : filteredCharacters.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-400 text-lg mb-4">No characters found matching your criteria.</p>
-            {characters.length === 0 && (
-              <button
-                onClick={handleClaimStarter}
-                disabled={claimingStarter}
-                className={`px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors ${
-                  claimingStarter ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {claimingStarter ? 'Claiming...' : 'Claim Starter Pack'}
-              </button>
-            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-6">

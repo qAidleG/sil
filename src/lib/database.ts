@@ -27,7 +27,8 @@ export const getCharacters = async (userId: string, showAll: boolean = false) =>
     const data = await response.json();
     console.log('Character query result:', { data });
     
-    return data as Character[];
+    // Always return all characters, no filtering
+    return data.filter((char: Character) => Array.isArray(char.GeneratedImage) && char.GeneratedImage.length > 0);
   } catch (error) {
     console.error('Error in getCharacters:', error);
     return [];
@@ -231,42 +232,5 @@ export const handleDatabaseError = (error: any) => {
   } else {
     console.error('Database error:', error)
     throw new Error('An unexpected database error occurred.')
-  }
-}
-
-export const giveStarterPack = async (userId: string) => {
-  try {
-    // Check if user is authenticated and matches provided userId
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    if (user.id !== userId) throw new Error('User ID mismatch');
-
-    // Fetch characters with regular client
-    const { data: characters, error: fetchError } = await supabase
-      .from('Character')
-      .select('id');
-
-    if (fetchError) throw fetchError;
-    if (!characters || characters.length === 0) throw new Error('No starter characters available');
-
-    // Select 3 random characters
-    const selectedCharacters = characters
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
-
-    // Create the collections using regular client
-    const { error: insertError } = await supabase
-      .from('UserCollection')
-      .insert(selectedCharacters.map(char => ({
-        userId: userId,
-        characterId: char.id
-      })));
-
-    if (insertError) throw insertError;
-    return true;
-  } catch (error) {
-    console.error('Error giving starter pack:', error);
-    handleDatabaseError(error);
-    return false;
   }
 } 
