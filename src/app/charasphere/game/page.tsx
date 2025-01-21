@@ -280,6 +280,7 @@ function GameContent() {
   // Update saveGridProgress to use API route
   const saveGridProgress = useCallback(async (newGrid: CardState[][], newGold: number) => {
     try {
+      // Convert grid to JSONB format
       const discoveredTiles = newGrid.flatMap((row, y) => 
         row.map((cell, x) => ({
           x,
@@ -287,9 +288,17 @@ function GameContent() {
           revealed: cell.revealed,
           tileType: cell.tileType,
           value: cell.value,
-          eventSeen: cell.eventSeen
+          eventSeen: cell.eventSeen || false
         }))
       ).filter(tile => tile.revealed);
+
+      console.log('Saving game state:', {
+        userId: user?.id,
+        moves,
+        gold: newGold,
+        lastMoveRefresh: lastMoveRefresh.toISOString(),
+        gridLength: discoveredTiles.length
+      });
 
       const response = await fetch('/api/game-state', {
         method: 'POST',
@@ -306,9 +315,12 @@ function GameContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save game state');
+        const errorData = await response.json();
+        console.error('Save error details:', errorData);
+        throw new Error(errorData.error || 'Failed to save game state');
       }
     } catch (err) {
+      console.error('Save error:', err);
       handleError(err, 'save');
     }
   }, [moves, lastMoveRefresh, user?.id]);
