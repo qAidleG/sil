@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
     try {
       // First check if stats exist
-      const { data: existingStats } = await supabaseAdmin
+      const { data: existingStats, error: checkError } = await supabaseAdmin
         .from('playerstats')
         .select()
         .eq('user_id', userId)
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
       let statsResult;
       if (existingStats) {
-        // Update existing stats
+        // Update only necessary fields for existing stats
         const { data, error: updateError } = await supabaseAdmin
           .from('playerstats')
           .update({
@@ -92,10 +92,10 @@ export async function POST(request: Request) {
         }
         statsResult = data;
       } else {
-        // Insert new stats
+        // Create new stats with minimal required fields
         const { data, error: insertError } = await supabaseAdmin
           .from('playerstats')
-          .insert([{
+          .upsert({
             user_id: userId,
             moves: moves ?? 30,
             gold: gold ?? 0,
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
             experience: 0,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }])
+          })
           .select()
           .single();
 
