@@ -213,8 +213,10 @@ function GameContent() {
 
   // Load user stats
   useEffect(() => {
-    loadUserStats()
-  }, [])
+    if (user?.id) {
+      loadUserStats()
+    }
+  }, [user?.id])
 
   // Update move refresh timer
   useEffect(() => {
