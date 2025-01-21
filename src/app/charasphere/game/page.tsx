@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense, useCallback } from 'react'
 import { Character } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { soundManager } from '@/lib/sounds'
@@ -99,45 +98,19 @@ function GameContent() {
 
   const loadUserStats = async () => {
     try {
-      const { data: playerStats, error } = await supabase
-        .from('PlayerStats')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Create initial stats
-          const { data: newStats, error: createError } = await supabase
-            .from('PlayerStats')
-            .insert([{
-              user_id: user?.id,
-              moves: 30,
-              gold: 0,
-              last_move_refresh: new Date().toISOString()
-            }])
-            .select()
-            .single()
-
-          if (createError) throw createError
-          if (newStats) {
-            setMoves(newStats.moves)
-            setGold(newStats.gold)
-            setLastMoveRefresh(new Date(newStats.last_move_refresh))
-          }
-        } else {
-          throw error
-        }
-      } else if (playerStats) {
-        // Use existing stats
-        setMoves(playerStats.moves)
-        setGold(playerStats.gold)
-        setLastMoveRefresh(new Date(playerStats.last_move_refresh))
+      const response = await fetch(`/api/game-state?userId=${user?.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to load game state');
       }
+      
+      const stats = await response.json();
+      setMoves(stats.moves);
+      setGold(stats.gold);
+      setLastMoveRefresh(new Date(stats.last_move_refresh));
     } catch (err) {
-      handleError(err, 'network')
+      handleError(err, 'network');
     }
-  }
+  };
 
   const handleError = (err: any, type: 'load' | 'save' | 'network') => {
     console.error(`Error (${type}):`, err)
@@ -254,14 +227,22 @@ function GameContent() {
       if (timeSinceRefresh >= 60000 && moves < 30) {
         const newMoves = Math.min(moves + 10, 30)
         try {
-          const { error } = await supabase
-            .from('PlayerStats')
-            .update({
+          const response = await fetch('/api/game-state', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              userId: user?.id,
               moves: newMoves,
-              last_move_refresh: now.toISOString()
+              gold,
+              lastMoveRefresh: now.toISOString()
             })
+          });
 
-          if (error) throw error
+          if (!response.ok) {
+            throw new Error('Failed to refresh moves');
+          }
 
           setMoves(newMoves)
           setLastMoveRefresh(now)
@@ -272,9 +253,9 @@ function GameContent() {
       }
     }
 
-    const timer = setInterval(checkMoveRefresh, 1000) // Update progress more frequently
+    const timer = setInterval(checkMoveRefresh, 1000)
     return () => clearInterval(timer)
-  }, [moves, lastMoveRefresh])
+  }, [moves, lastMoveRefresh, gold, user?.id])
 
   const retryOperation = async () => {
     setError(null)
@@ -296,7 +277,7 @@ function GameContent() {
     }
   }
 
-  // Update saveGridProgress to use user_id instead of characterId
+  // Update saveGridProgress to use API route
   const saveGridProgress = useCallback(async (newGrid: CardState[][], newGold: number) => {
     try {
       const discoveredTiles = newGrid.flatMap((row, y) => 
@@ -308,33 +289,29 @@ function GameContent() {
           value: cell.value,
           eventSeen: cell.eventSeen
         }))
-      ).filter(tile => tile.revealed)
+      ).filter(tile => tile.revealed);
 
-      const { error } = await supabase
-        .from('GridProgress')
-        .upsert({
-          user_id: user?.id,  // Use user_id instead of characterId
-          discoveredTiles: JSON.stringify(discoveredTiles),
-          goldCollected: newGold
-        })
-
-      if (error) throw error
-
-      // Update PlayerStats
-      const { error: statsError } = await supabase
-        .from('PlayerStats')
-        .update({ 
+      const response = await fetch('/api/game-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user?.id,
           moves,
           gold: newGold,
-          last_move_refresh: lastMoveRefresh.toISOString()
+          lastMoveRefresh: lastMoveRefresh.toISOString(),
+          grid: discoveredTiles
         })
-        .eq('user_id', user?.id)
+      });
 
-      if (statsError) throw statsError
+      if (!response.ok) {
+        throw new Error('Failed to save game state');
+      }
     } catch (err) {
-      handleError(err, 'save')
+      handleError(err, 'save');
     }
-  }, [moves, lastMoveRefresh, user?.id])
+  }, [moves, lastMoveRefresh, user?.id]);
 
   // Function to generate random grid with events and rewards
   const generateGameGrid = (character: Character): CardState[][] => {
@@ -501,28 +478,28 @@ function GameContent() {
     }
   }
 
-  // Update handleReset to reset progress by user
+  // Update handleReset to use API route
   const handleReset = async () => {
-    soundManager.play('reset')
+    soundManager.play('reset');
     if (selectedCharacter) {
-      const newGrid = generateGameGrid(selectedCharacter)
-      setGrid(newGrid)
-      setPlayerPosition({ x: 2, y: 2 })
-      setUndiscoveredCount(24)
-      setGold(0)
-      setMoves(30)
+      const newGrid = generateGameGrid(selectedCharacter);
+      setGrid(newGrid);
+      setPlayerPosition({ x: 2, y: 2 });
+      setUndiscoveredCount(24);
+      setGold(0);
+      setMoves(30);
 
       try {
-        // Reset grid progress for user
-        const { error: gridError } = await supabase
-          .from('GridProgress')
-          .delete()
-          .eq('user_id', user?.id)  // Use user_id instead of characterId
+        const response = await fetch(`/api/game-state?userId=${user?.id}`, {
+          method: 'DELETE'
+        });
 
-        if (gridError) throw gridError
+        if (!response.ok) {
+          throw new Error('Failed to reset game state');
+        }
       } catch (err) {
-        console.error('Error resetting progress:', err)
-        setError('Failed to reset progress')
+        console.error('Error resetting progress:', err);
+        setError('Failed to reset progress');
       }
     }
   }
@@ -542,32 +519,21 @@ function GameContent() {
     }
   }
 
-  // Add loadAvailableCharacters function
+  // Update loadAvailableCharacters to use API route
   const loadAvailableCharacters = async () => {
     try {
-      const { data, error } = await supabase
-        .from('Character')
-        .select(`
-          *,
-          Series (
-            name,
-            universe
-          ),
-          GeneratedImage (
-            url
-          )
-        `)
-        .order('name')
-
-      if (error) throw error
-      if (data) {
-        // Only show characters with images
-        setAvailableCharacters(data.filter(char => char.GeneratedImage?.length > 0))
+      const response = await fetch('/api/characters');
+      if (!response.ok) {
+        throw new Error('Failed to load characters');
       }
+      
+      const data = await response.json();
+      // Only show characters with images
+      setAvailableCharacters(data.filter((char: Character) => Array.isArray(char.GeneratedImage) && char.GeneratedImage.length > 0));
     } catch (err) {
-      console.error('Error loading characters:', err)
+      console.error('Error loading characters:', err);
     }
-  }
+  };
 
   // Update user effect to not require authentication
   useEffect(() => {
