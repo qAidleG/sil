@@ -55,7 +55,14 @@ export async function POST(request: Request) {
       moves: moves ?? 30,
       gold: gold ?? 0,
       last_move_refresh: lastMoveRefresh ?? new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      // Add required fields with defaults
+      wins: 0,
+      losses: 0,
+      cards_collected: 0,
+      rank: 0,
+      experience: 0,
+      created_at: new Date().toISOString()
     };
 
     console.log('Stats data to save:', statsData);
