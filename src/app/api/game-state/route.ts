@@ -107,8 +107,9 @@ export async function POST(request: Request) {
           user_id: userId,
           discoveredTiles: grid,
           goldCollected: gold
-        })
-        .eq('user_id', userId);
+        }, {
+          onConflict: 'user_id'
+        });
 
       if (gridError) {
         console.error('Error updating grid:', gridError);
