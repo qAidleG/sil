@@ -49,41 +49,68 @@ export async function POST(request: Request) {
 
     console.log('POST request body:', JSON.stringify(body, null, 2));
 
-    // Create stats data
-    const statsData = {
-      user_id: userId,
-      moves: moves ?? 30,
-      gold: gold ?? 0,
-      last_move_refresh: lastMoveRefresh ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      // Add required fields with defaults
-      wins: 0,
-      losses: 0,
-      cards_collected: 0,
-      rank: 0,
-      experience: 0,
-      created_at: new Date().toISOString()
-    };
-
-    console.log('Stats data to save:', JSON.stringify(statsData, null, 2));
-
     try {
-      // Upsert stats
-      const { data: statsResult, error: statsError } = await supabaseAdmin
+      // First check if stats exist
+      const { data: existingStats } = await supabaseAdmin
         .from('playerstats')
-        .upsert([statsData])
         .select()
+        .eq('user_id', userId)
         .single();
 
-      console.log('Stats result:', statsResult, 'Stats error:', statsError);
+      let statsResult;
+      if (existingStats) {
+        // Update existing stats
+        const { data, error: updateError } = await supabaseAdmin
+          .from('playerstats')
+          .update({
+            moves: moves ?? existingStats.moves,
+            gold: gold ?? existingStats.gold,
+            last_move_refresh: lastMoveRefresh ?? existingStats.last_move_refresh,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
 
-      if (statsError) {
-        console.error('Error updating stats:', statsError);
-        return NextResponse.json({ 
-          error: 'Failed to update stats',
-          details: statsError
-        }, { status: 500 });
+        if (updateError) {
+          console.error('Error updating stats:', updateError);
+          return NextResponse.json({ 
+            error: 'Failed to update stats',
+            details: updateError
+          }, { status: 500 });
+        }
+        statsResult = data;
+      } else {
+        // Insert new stats
+        const { data, error: insertError } = await supabaseAdmin
+          .from('playerstats')
+          .insert([{
+            user_id: userId,
+            moves: moves ?? 30,
+            gold: gold ?? 0,
+            last_move_refresh: lastMoveRefresh ?? new Date().toISOString(),
+            wins: 0,
+            losses: 0,
+            cards_collected: 0,
+            rank: 0,
+            experience: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error inserting stats:', insertError);
+          return NextResponse.json({ 
+            error: 'Failed to insert stats',
+            details: insertError
+          }, { status: 500 });
+        }
+        statsResult = data;
       }
+
+      console.log('Stats operation result:', statsResult);
 
       // Only update grid progress if grid is provided
       if (grid) {
