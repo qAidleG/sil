@@ -42,9 +42,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
+    console.log('Saving game state for user:', userId);
+
     // Update player stats
     const { error: statsError } = await supabaseAdmin
-      .from('PlayerStats')
+      .from('playerstats')  // lowercase
       .upsert({
         user_id: userId,
         moves,
@@ -53,13 +55,15 @@ export async function POST(request: Request) {
       });
 
     if (statsError) {
+      console.error('Error saving player stats:', statsError);
       throw statsError;
     }
 
     // Update grid progress if provided
     if (grid) {
+      console.log('Saving grid progress:', grid.length, 'tiles');
       const { error: gridError } = await supabaseAdmin
-        .from('GridProgress')
+        .from('gridprogress')  // lowercase
         .upsert({
           user_id: userId,
           discoveredTiles: JSON.stringify(grid),
@@ -67,6 +71,7 @@ export async function POST(request: Request) {
         });
 
       if (gridError) {
+        console.error('Error saving grid progress:', gridError);
         throw gridError;
       }
     }
@@ -74,7 +79,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in game state route:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Internal server error'
+    }, { status: 500 });
   }
 }
 
