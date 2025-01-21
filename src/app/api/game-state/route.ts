@@ -47,58 +47,81 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    console.log('Saving game state for user:', userId, {
+    console.log('POST request body:', {
+      userId,
       moves,
       gold,
       lastMoveRefresh,
-      gridTiles: grid?.length
+      gridLength: grid?.length
     });
 
-    // Update player stats
-    const { data: statsData, error: statsError } = await supabaseAdmin
+    // For default user, first check if stats exist
+    const { data: existingStats, error: checkError } = await supabaseAdmin
       .from('playerstats')
-      .upsert({
-        user_id: userId,
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    console.log('Existing stats:', existingStats, 'Check error:', checkError);
+
+    // If no stats exist for default user, create them
+    if (!existingStats) {
+      console.log('Creating initial stats for user');
+      const { error: insertError } = await supabaseAdmin
+        .from('playerstats')
+        .insert({
+          user_id: userId,
+          moves: moves || 30,
+          gold: gold || 0,
+          last_move_refresh: lastMoveRefresh || new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error creating initial stats:', insertError);
+        throw insertError;
+      }
+    }
+
+    // Now update the stats
+    console.log('Updating stats with:', { moves, gold, lastMoveRefresh });
+    const { error: updateError } = await supabaseAdmin
+      .from('playerstats')
+      .update({
         moves,
         gold,
         last_move_refresh: lastMoveRefresh
       })
-      .select()
-      .single();
+      .eq('user_id', userId);
 
-    if (statsError) {
-      console.error('Error saving player stats:', statsError);
-      throw statsError;
+    if (updateError) {
+      console.error('Error updating stats:', updateError);
+      throw updateError;
     }
-
-    console.log('Successfully saved player stats:', statsData);
 
     // Update grid progress if provided
     if (grid) {
-      console.log('Saving grid progress:', grid.length, 'tiles');
-      const { data: gridData, error: gridError } = await supabaseAdmin
+      console.log('Updating grid progress');
+      const { error: gridError } = await supabaseAdmin
         .from('gridprogress')
         .upsert({
           user_id: userId,
-          discoveredTiles: grid,  // Don't stringify, Supabase handles JSONB
+          discoveredTiles: grid,
           goldCollected: gold
         })
-        .select()
-        .single();
+        .eq('user_id', userId);
 
       if (gridError) {
-        console.error('Error saving grid progress:', gridError);
+        console.error('Error updating grid:', gridError);
         throw gridError;
       }
-
-      console.log('Successfully saved grid progress:', gridData);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in game state POST:', error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error',
+      details: error
     }, { status: 500 });
   }
 }

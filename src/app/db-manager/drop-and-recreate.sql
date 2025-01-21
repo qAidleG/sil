@@ -66,4 +66,10 @@ CREATE POLICY "Allow users to insert their own progress"
 CREATE POLICY "Allow users to delete their own progress"
     ON "public"."gridprogress"
     FOR DELETE
-    USING (auth.uid()::text = user_id OR user_id = 'default-user'); 
+    USING (auth.uid()::text = user_id OR user_id = 'default-user');
+
+-- Create updated_at trigger for gridprogress
+CREATE TRIGGER update_gridprogress_updated_at
+    BEFORE UPDATE ON "public"."gridprogress"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column(); 
