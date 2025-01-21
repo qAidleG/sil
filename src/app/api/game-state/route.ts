@@ -48,17 +48,6 @@ export async function POST(request: Request) {
     }
 
     console.log('POST request body:', JSON.stringify(body, null, 2));
-    console.log('Stats data to save:', {
-      user_id: userId,
-      moves: moves ?? 30,
-      gold: gold ?? 0,
-      last_move_refresh: lastMoveRefresh ?? new Date().toISOString(),
-      wins: 0,
-      losses: 0,
-      cards_collected: 0,
-      rank: 0,
-      experience: 0
-    });
 
     try {
       // First check if stats exist
@@ -79,8 +68,7 @@ export async function POST(request: Request) {
             last_move_refresh: lastMoveRefresh ?? existingStats.last_move_refresh
           })
           .eq('user_id', userId)
-          .select()
-          .single();
+          .select();
 
         if (updateError) {
           console.error('Error updating stats:', updateError);
@@ -94,7 +82,7 @@ export async function POST(request: Request) {
         // Create new stats with minimal required fields
         const { data, error: insertError } = await supabaseAdmin
           .from('playerstats')
-          .upsert({
+          .insert({
             user_id: userId,
             moves: moves ?? 30,
             gold: gold ?? 0,
@@ -105,8 +93,7 @@ export async function POST(request: Request) {
             rank: 0,
             experience: 0
           })
-          .select()
-          .single();
+          .select();
 
         if (insertError) {
           console.error('Error inserting stats:', insertError);
@@ -126,72 +113,23 @@ export async function POST(request: Request) {
         const gridPayload = {
           user_id: userId,
           discoveredTiles: grid,
-          goldCollected: gold,
-          updated_at: new Date().toISOString()
+          goldCollected: gold
         };
 
-        console.log('Grid data to save:', JSON.stringify(gridPayload, null, 2));
+        const { data: gridResult, error: gridError } = await supabaseAdmin
+          .from('gridprogress')
+          .upsert(gridPayload)
+          .eq('user_id', userId);
 
-        try {
-          // First try to find existing record
-          const { data: existingGrid, error: findError } = await supabaseAdmin
-            .from('gridprogress')
-            .select()
-            .eq('user_id', userId)
-            .single();
-
-          if (findError && findError.code !== 'PGRST116') { // Ignore "no rows returned" error
-            console.error('Error finding grid:', findError);
-            return NextResponse.json({ 
-              error: 'Failed to find grid progress',
-              details: findError
-            }, { status: 500 });
-          }
-
-          let result;
-          if (existingGrid) {
-            // Update existing record
-            const { data, error } = await supabaseAdmin
-              .from('gridprogress')
-              .update(gridPayload)
-              .eq('user_id', userId)
-              .select()
-              .single();
-
-            if (error) {
-              console.error('Error updating grid:', error);
-              return NextResponse.json({ 
-                error: 'Failed to update grid progress',
-                details: error
-              }, { status: 500 });
-            }
-            result = data;
-          } else {
-            // Insert new record
-            const { data, error } = await supabaseAdmin
-              .from('gridprogress')
-              .insert([gridPayload])
-              .select()
-              .single();
-
-            if (error) {
-              console.error('Error inserting grid:', error);
-              return NextResponse.json({ 
-                error: 'Failed to insert grid progress',
-                details: error
-              }, { status: 500 });
-            }
-            result = data;
-          }
-
-          console.log('Grid operation result:', result);
-        } catch (gridError) {
-          console.error('Error in grid operations:', gridError);
+        if (gridError) {
+          console.error('Error updating grid:', gridError);
           return NextResponse.json({ 
-            error: 'Grid operation failed',
+            error: 'Failed to update grid progress',
             details: gridError
           }, { status: 500 });
         }
+
+        console.log('Grid operation result:', gridResult);
       } else {
         console.log('No grid provided, skipping grid progress update');
       }
