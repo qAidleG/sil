@@ -80,25 +80,25 @@ export async function POST(request: Request) {
         console.error('Error creating initial stats:', insertError);
         throw insertError;
       }
+    } else {
+      // Update the stats
+      console.log('Updating stats with:', { moves, gold, lastMoveRefresh });
+      const { error: updateError } = await supabaseAdmin
+        .from('playerstats')
+        .update({
+          moves,
+          gold,
+          last_move_refresh: lastMoveRefresh
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Error updating stats:', updateError);
+        throw updateError;
+      }
     }
 
-    // Now update the stats
-    console.log('Updating stats with:', { moves, gold, lastMoveRefresh });
-    const { error: updateError } = await supabaseAdmin
-      .from('playerstats')
-      .update({
-        moves,
-        gold,
-        last_move_refresh: lastMoveRefresh
-      })
-      .eq('user_id', userId);
-
-    if (updateError) {
-      console.error('Error updating stats:', updateError);
-      throw updateError;
-    }
-
-    // Update grid progress if provided
+    // Only update grid progress if grid is provided
     if (grid) {
       console.log('Updating grid progress');
       const { error: gridError } = await supabaseAdmin
