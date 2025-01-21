@@ -76,8 +76,7 @@ export async function POST(request: Request) {
           .update({
             moves: moves ?? existingStats.moves,
             gold: gold ?? existingStats.gold,
-            last_move_refresh: lastMoveRefresh ?? existingStats.last_move_refresh,
-            updated_at: new Date().toISOString()
+            last_move_refresh: lastMoveRefresh ?? existingStats.last_move_refresh
           })
           .eq('user_id', userId)
           .select()
@@ -104,9 +103,7 @@ export async function POST(request: Request) {
             losses: 0,
             cards_collected: 0,
             rank: 0,
-            experience: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            experience: 0
           })
           .select()
           .single();
