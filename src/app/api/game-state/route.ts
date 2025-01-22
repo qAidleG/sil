@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
     const { data: grid, error: gridError } = await supabaseAdmin
       .from('gridprogress')
-      .select('*')
+      .select('discoveredTiles')
       .eq('user_id', userId)
       .single()
 
@@ -32,9 +32,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Failed to fetch grid' }, { status: 500 })
     }
 
+    // Return combined state
     return NextResponse.json({
-      stats: stats || { moves: 30, gold: 0, last_move_refresh: new Date().toISOString() },
-      grid: grid?.discoveredTiles || []
+      moves: stats?.moves ?? 30,
+      gold: stats?.gold ?? 0,
+      last_move_refresh: stats?.last_move_refresh ?? new Date().toISOString(),
+      grid: grid?.discoveredTiles ?? []
     })
   } catch (error) {
     console.error('Error in game-state GET:', error)
@@ -84,8 +87,6 @@ export async function POST(req: Request) {
         console.error('Error upserting grid:', gridError)
         return NextResponse.json({ error: 'Failed to save grid' }, { status: 500 })
       }
-    } else {
-      console.log('No grid provided, skipping grid progress update')
     }
 
     return NextResponse.json({ success: true })
@@ -104,6 +105,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
+    // Delete grid progress
     const { error: gridError } = await supabaseAdmin
       .from('gridprogress')
       .delete()
@@ -112,6 +114,21 @@ export async function DELETE(req: Request) {
     if (gridError) {
       console.error('Error deleting grid:', gridError)
       return NextResponse.json({ error: 'Failed to delete grid' }, { status: 500 })
+    }
+
+    // Reset player stats
+    const { error: statsError } = await supabaseAdmin
+      .from('playerstats')
+      .upsert({
+        user_id: userId,
+        moves: 30,
+        gold: 0,
+        last_move_refresh: new Date().toISOString()
+      })
+
+    if (statsError) {
+      console.error('Error resetting stats:', statsError)
+      return NextResponse.json({ error: 'Failed to reset stats' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

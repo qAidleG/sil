@@ -107,6 +107,32 @@ function GameContent() {
       setMoves(stats.moves);
       setGold(stats.gold);
       setLastMoveRefresh(new Date(stats.last_move_refresh));
+
+      // Load or initialize grid
+      if (stats.grid && stats.grid.length > 0) {
+        // Convert flat grid back to 2D array
+        const newGrid = createEmptyGrid();
+        stats.grid.forEach((tile: any) => {
+          newGrid[tile.y][tile.x] = {
+            revealed: tile.revealed,
+            tileType: tile.tileType,
+            value: tile.value,
+            eventSeen: tile.eventSeen,
+            character: null
+          };
+        });
+        setGrid(newGrid);
+        
+        // Count undiscovered tiles
+        const discoveredCount = stats.grid.filter((tile: any) => tile.revealed).length;
+        setUndiscoveredCount(25 - discoveredCount);
+      } else {
+        // Initialize new grid if none exists
+        const newGrid = generateGameGrid();
+        setGrid(newGrid);
+        setUndiscoveredCount(24);
+        await saveGridProgress(newGrid, 0);
+      }
     } catch (err) {
       handleError(err, 'network');
     }
@@ -327,60 +353,58 @@ function GameContent() {
     }
   }, [moves, lastMoveRefresh, user?.id]);
 
-  // Function to generate random grid with events and rewards
-  const generateGameGrid = (character: Character): CardState[][] => {
-    const newGrid = createEmptyGrid()
-    const positions: GridPosition[] = []
+  // Update generateGameGrid to not require character
+  const generateGameGrid = (): CardState[][] => {
+    const newGrid = createEmptyGrid();
+    const positions: GridPosition[] = [];
     
     // Generate all possible positions
     for(let y = 0; y < 5; y++) {
       for(let x = 0; x < 5; x++) {
         if(!(x === 2 && y === 2)) { // Exclude center starting position
-          positions.push({ x, y })
+          positions.push({ x, y });
         }
       }
     }
 
     // Shuffle positions
     for(let i = positions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[positions[i], positions[j]] = [positions[j], positions[i]]
+      const j = Math.floor(Math.random() * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
     }
 
     // Place 3 events
     for(let i = 0; i < 3; i++) {
-      const pos = positions[i]
-      newGrid[pos.y][pos.x].tileType = 'event'
-      newGrid[pos.y][pos.x].value = Math.floor(Math.random() * 6) // 0-5 gold (d6 roll)
+      const pos = positions[i];
+      newGrid[pos.y][pos.x].tileType = 'event';
+      newGrid[pos.y][pos.x].value = Math.floor(Math.random() * 6); // 0-5 gold (d6 roll)
     }
 
     // Place 7 high-value rewards
     for(let i = 3; i < 10; i++) {
-      const pos = positions[i]
-      newGrid[pos.y][pos.x].tileType = 'high-value'
-      newGrid[pos.y][pos.x].value = 3
+      const pos = positions[i];
+      newGrid[pos.y][pos.x].tileType = 'high-value';
+      newGrid[pos.y][pos.x].value = 3;
     }
 
-    // Rest are already low-value (1g) from createEmptyGrid
-
-    // Place character at center
+    // Center tile is always revealed
     newGrid[2][2] = {
       revealed: true,
-      character: character,
+      character: null,
       tileType: 'low-value',
       value: 0
-    }
+    };
 
-    return newGrid
-  }
+    return newGrid;
+  };
 
-  // Update fetchCharacter to use API route
+  // Update fetchCharacter to only update the character
   const fetchCharacter = async (id: number) => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
       
-      console.log('Fetching character:', id)
+      console.log('Fetching character:', id);
       
       const response = await fetch('/api/characters');
       if (!response.ok) {
@@ -394,18 +418,25 @@ function GameContent() {
         throw new Error('Character not found');
       }
 
+      // Only update the character and its position in the grid
       setSelectedCharacter(character);
-      const newGrid = generateGameGrid(character);
-      setGrid(newGrid);
-      setUndiscoveredCount(24);
+      setGrid(prevGrid => {
+        const newGrid = prevGrid.map(row => row.map(cell => ({ ...cell })));
+        // Place character at current position
+        newGrid[playerPosition.y][playerPosition.x] = {
+          ...newGrid[playerPosition.y][playerPosition.x],
+          character: character
+        };
+        return newGrid;
+      });
 
     } catch (err) {
-      console.error('Fetch error:', err)
-      handleError(err, 'load')
+      console.error('Fetch error:', err);
+      handleError(err, 'load');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const canMoveTo = (x: number, y: number): boolean => {
     // Check if position is within grid bounds
@@ -496,7 +527,7 @@ function GameContent() {
   const handleReset = async () => {
     soundManager.play('reset');
     if (selectedCharacter) {
-      const newGrid = generateGameGrid(selectedCharacter);
+      const newGrid = generateGameGrid();
       setGrid(newGrid);
       setPlayerPosition({ x: 2, y: 2 });
       setUndiscoveredCount(24);
