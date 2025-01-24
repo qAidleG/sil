@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { PullResult } from '@/types/database'
+import { PullResult } from '@/types/game'
 
 const PULL_COST = 100 // Gold cost per pull
 

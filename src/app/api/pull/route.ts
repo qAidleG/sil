@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { PullResult } from '@/types/game'
 
+const PULL_COST = 100 // Gold cost per pull
+
 // Helper function to perform a single gacha pull
 async function performPull(userId: string): Promise<PullResult> {
   try {
-    // First check if user has enough gold (cost is 50)
+    // First check if user has enough gold
     const { data: playerStats, error: statsError } = await supabaseAdmin
       .from('playerstats')
       .select('gold, cards_collected')
@@ -19,10 +21,10 @@ async function performPull(userId: string): Promise<PullResult> {
       }
     }
 
-    if (playerStats.gold < 50) {
+    if (playerStats.gold < PULL_COST) {
       return {
         success: false,
-        error: 'Not enough gold (requires 50)'
+        error: `Not enough gold (requires ${PULL_COST})`
       }
     }
 
@@ -75,7 +77,7 @@ async function performPull(userId: string): Promise<PullResult> {
     const { error: statsUpdateError } = await supabaseAdmin
       .from('playerstats')
       .update({ 
-        gold: playerStats.gold - 50,
+        gold: playerStats.gold - PULL_COST,
         cards_collected: playerStats.cards_collected + 1
       })
       .eq('userid', userId)

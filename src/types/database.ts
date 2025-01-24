@@ -56,6 +56,27 @@ export interface GridProgress {
   updated_at: string
 }
 
+export interface Roster {
+  characterid: number
+  name: string
+  bio: string
+  rarity: number
+  dialogs: string[] | null
+  image1url: string | null
+  image2url: string | null
+  image3url: string | null
+  image4url: string | null
+  image5url: string | null
+  image6url: string | null
+  claimed: boolean
+  Series: {
+    seriesid: number
+    name: string
+    universe: string
+    seriesability: string | null
+  } | null
+}
+
 // Type for updates
 export type UpdateCharacter = Partial<Character>
 export type UpdateSeries = Partial<Series>
