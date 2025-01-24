@@ -1,139 +1,154 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { INITIAL_GRID_LAYOUT, GameState, GridTile } from '@/types/game'
+
+// Check if board is completed
+function isBoardCompleted(tilemap: GridTile[]) {
+  return tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
+}
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId')
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+  }
+
   try {
-    const url = new URL(req.url)
-    const userId = url.searchParams.get('userId')
+    // Get player stats and grid progress
+    const [statsResult, gridResult] = await Promise.all([
+      supabaseAdmin
+        .from('playerstats')
+        .select('*')
+        .eq('userid', userId)
+        .single(),
+      supabaseAdmin
+        .from('gridprogress')
+        .select('tilemap, goldCollected')
+        .eq('user_id', userId)
+        .single()
+    ])
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    if (statsResult.error) throw statsResult.error
+
+    // If no grid exists or the existing grid is completed, initialize a new one
+    if (gridResult.error || (gridResult.data && isBoardCompleted(gridResult.data.tilemap))) {
+      // Get unclaimed characters for P1-P4 tiles
+      const { data: characters, error: charactersError } = await supabaseAdmin
+        .from('Roster')
+        .select('characterid')
+        .eq('claimed', false)
+        .limit(4)
+
+      if (charactersError) throw charactersError
+
+      // Assign characters to P1-P4 tiles
+      const initialGrid = INITIAL_GRID_LAYOUT.map((tile: GridTile) => {
+        if (tile.type.startsWith('P') && tile.type !== 'P') {
+          const index = parseInt(tile.type.charAt(1)) - 1
+          return {
+            ...tile,
+            characterId: characters[index]?.characterid
+          }
+        }
+        return tile
+      })
+
+      // Create new grid progress
+      const { error: createError } = await supabaseAdmin
+        .from('gridprogress')
+        .upsert({
+          user_id: userId,
+          tilemap: initialGrid,
+          goldCollected: 0
+        })
+
+      if (createError) throw createError
+
+      return NextResponse.json({
+        stats: statsResult.data,
+        gameState: {
+          tilemap: initialGrid,
+          goldCollected: 0,
+          playerPosition: 13  // Starting position
+        }
+      })
     }
 
-    const { data: stats, error: statsError } = await supabaseAdmin
-      .from('playerstats')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-
-    if (statsError && statsError.code !== 'PGRST116') {
-      console.error('Error fetching stats:', statsError)
-      return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
-    }
-
-    const { data: grid, error: gridError } = await supabaseAdmin
-      .from('gridprogress')
-      .select('discoveredTiles')
-      .eq('user_id', userId)
-      .single()
-
-    if (gridError && gridError.code !== 'PGRST116') {
-      console.error('Error fetching grid:', gridError)
-      return NextResponse.json({ error: 'Failed to fetch grid' }, { status: 500 })
-    }
-
-    // Return combined state
     return NextResponse.json({
-      moves: stats?.moves ?? 30,
-      gold: stats?.gold ?? 0,
-      last_move_refresh: stats?.last_move_refresh ?? new Date().toISOString(),
-      grid: grid?.discoveredTiles ?? []
+      stats: statsResult.data,
+      gameState: {
+        tilemap: gridResult.data.tilemap,
+        goldCollected: gridResult.data.goldCollected,
+        playerPosition: gridResult.data.tilemap.findIndex((tile: GridTile) => tile.type === 'P')
+      }
     })
+
   } catch (error) {
-    console.error('Error in game-state GET:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error getting game state:', error)
+    return NextResponse.json({ error: 'Failed to get game state' }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
-    const { userId, moves, gold, lastMoveRefresh, grid } = body
-    console.log('POST /api/game-state body:', body)
+    const { userId, gameState }: { userId: string, gameState: GameState } = await req.json()
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    if (!userId || !gameState) {
+      return NextResponse.json({ error: 'User ID and game state are required' }, { status: 400 })
     }
 
-    // Create or update player stats
-    const statsData = {
-      user_id: userId,
-      moves: moves ?? 30,
-      gold: gold ?? 0,
-      last_move_refresh: lastMoveRefresh ?? new Date().toISOString()
-    }
-
-    console.log('Upserting stats:', statsData)
-    const { error: statsError } = await supabaseAdmin
-      .from('playerstats')
-      .upsert(statsData)
-
-    if (statsError) {
-      console.error('Error upserting stats:', statsError)
-      return NextResponse.json({ error: 'Failed to save stats' }, { status: 500 })
-    }
-
-    // Update grid progress if provided
-    if (grid) {
-      console.log('Upserting grid progress:', { user_id: userId, grid })
-      const { error: gridError } = await supabaseAdmin
+    // If board is completed, clear the grid
+    if (isBoardCompleted(gameState.tilemap)) {
+      await supabaseAdmin
         .from('gridprogress')
-        .upsert({
-          user_id: userId,
-          discoveredTiles: grid
-        })
+        .delete()
+        .eq('user_id', userId)
 
-      if (gridError) {
-        console.error('Error upserting grid:', gridError)
-        return NextResponse.json({ error: 'Failed to save grid' }, { status: 500 })
-      }
+      return NextResponse.json({ success: true, completed: true })
+    }
+
+    // Update grid progress
+    const { error: gridError } = await supabaseAdmin
+      .from('gridprogress')
+      .upsert({
+        user_id: userId,
+        tilemap: gameState.tilemap,
+        goldCollected: gameState.goldCollected
+      })
+
+    if (gridError) {
+      throw gridError
     }
 
     return NextResponse.json({ success: true })
+
   } catch (error) {
-    console.error('Error in game-state POST:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error saving game state:', error)
+    return NextResponse.json({ error: 'Failed to save game state' }, { status: 500 })
   }
 }
 
 export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const userId = searchParams.get('userId')
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+  }
+
   try {
-    const url = new URL(req.url)
-    const userId = url.searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
-    }
-
     // Delete grid progress
-    const { error: gridError } = await supabaseAdmin
+    await supabaseAdmin
       .from('gridprogress')
       .delete()
       .eq('user_id', userId)
 
-    if (gridError) {
-      console.error('Error deleting grid:', gridError)
-      return NextResponse.json({ error: 'Failed to delete grid' }, { status: 500 })
-    }
-
-    // Reset player stats
-    const { error: statsError } = await supabaseAdmin
-      .from('playerstats')
-      .upsert({
-        user_id: userId,
-        moves: 30,
-        gold: 0,
-        last_move_refresh: new Date().toISOString()
-      })
-
-    if (statsError) {
-      console.error('Error resetting stats:', statsError)
-      return NextResponse.json({ error: 'Failed to reset stats' }, { status: 500 })
-    }
-
     return NextResponse.json({ success: true })
+
   } catch (error) {
-    console.error('Error in game-state DELETE:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error resetting game:', error)
+    return NextResponse.json({ error: 'Failed to reset game' }, { status: 500 })
   }
 } 

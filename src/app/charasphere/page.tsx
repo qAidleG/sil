@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { StarField } from '../components/StarField'
 import { Home, LayoutGrid, Swords, Trophy, User, X } from 'lucide-react'
@@ -9,15 +9,21 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Character } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
+import { useUser } from '@/hooks/useUser'
+import { Button } from '@/components/ui/button'
+import { PlayerStats } from '@/components/PlayerStats'
+import { GameState } from '@/types/game'
 
 export default function CharaSpherePage() {
+  const { user } = useUser()
   const router = useRouter()
   const [showPlayModal, setShowPlayModal] = useState(false)
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
   const [characters, setCharacters] = useState<Character[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMessage, setLoadingMessage] = useState('')
+  const [gameState, setGameState] = useState<GameState | null>(null)
 
   const loadCharacters = async () => {
     setLoading(true)
@@ -62,6 +68,54 @@ export default function CharaSpherePage() {
   const handlePlay = () => {
     if (selectedCharacter?.GeneratedImage?.length) {
       router.push(`/charasphere/game?character=${selectedCharacter.id}`)
+    }
+  }
+
+  // Check if there's a game in progress
+  useEffect(() => {
+    const checkGameState = async () => {
+      if (!user?.id) return
+
+      try {
+        const response = await fetch(`/api/game-state?userId=${user.id}`)
+        if (!response.ok) throw new Error('Failed to check game state')
+        
+        const data = await response.json()
+        setGameState(data.gameState)
+      } catch (error) {
+        console.error('Error checking game state:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkGameState()
+  }, [user?.id])
+
+  // Check if board is completed
+  const isBoardCompleted = (state: GameState) => {
+    return state.tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
+  }
+
+  const handleGameStart = async () => {
+    if (!user?.id) return
+
+    if (gameState && !isBoardCompleted(gameState)) {
+      // Continue existing game
+      router.push('/charasphere/game')
+    } else {
+      // Start new game
+      try {
+        // Delete any existing completed game
+        await fetch(`/api/game-state?userId=${user.id}`, {
+          method: 'DELETE'
+        })
+        
+        // Navigate to game page (it will initialize a new game)
+        router.push('/charasphere/game')
+      } catch (error) {
+        console.error('Error starting new game:', error)
+      }
     }
   }
 
@@ -274,6 +328,24 @@ export default function CharaSpherePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <PlayerStats className="mb-8" />
+        
+        <div className="flex flex-col items-center gap-4">
+          {loading ? (
+            <div>Loading...</div>
+          ) : (
+            <Button
+              onClick={handleGameStart}
+              size="lg"
+              className="w-48"
+            >
+              {gameState && !isBoardCompleted(gameState)
+                ? 'Continue Game'
+                : 'New Game'}
+            </Button>
+          )}
+        </div>
       </div>
     </main>
   )

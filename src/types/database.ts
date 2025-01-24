@@ -1,62 +1,72 @@
-export interface Character {
-  id: number
-  name: string
-  bio: string | null
-  rarity: number
-  seriesId: number | null
-  dialogs: string[]
-  Series?: {
-    id: number
-    name: string
-    universe: string
-  }
-  GeneratedImage?: {
-    id: number
-    characterId: number
-    url: string
-    prompt: string
-    style: string
-    createdAt: string
-  }[]
-  createdAt: string
-  updatedAt: string
-}
-
 export interface Series {
-  id: number
+  seriesid: number
   name: string
   universe: string
-  createdAt: string
-  updatedAt: string
-  Character?: Character[]
+  seriesability: string | null
 }
 
-export interface GeneratedImage {
-  id: number
-  characterId: number | null
-  collectionId: number | null
-  seed: number
-  prompt: string
-  style: string
-  url: string
-  createdAt: string
-  updatedAt: string
-  Character?: Character
+export interface Roster {
+  characterid: number
+  name: string
+  seriesId: number
+  bio: string
+  rarity: number
+  dialogs: string[] | null
+  image1url: string | null
+  image2url: string | null
+  image3url: string | null
+  image4url: string | null
+  image5url: string | null
+  image6url: string | null
+  claimed: boolean
+  Series?: Series
 }
 
 export interface UserCollection {
   id: number
-  userId: string
-  characterId: number
-  createdAt: string
-  Character?: Character
+  userid: string
+  characterid: number
+  customName: string | null
+  favorite: boolean
+  selectedImageId: number | null
+  Character?: Roster
 }
 
-export type NewCharacter = Omit<Character, 'id' | 'createdAt' | 'updatedAt'>
-export type NewSeries = Omit<Series, 'id' | 'createdAt' | 'updatedAt'>
-export type NewGeneratedImage = Omit<GeneratedImage, 'id' | 'createdAt' | 'updatedAt'>
-export type NewUserCollection = Omit<UserCollection, 'id' | 'createdAt'>
+export interface PlayerStats {
+  userid: string
+  email: string
+  cards_collected: number
+  gold: number
+  wins: number
+  losses: number
+  rank: number
+  experience: number
+  moves: number
+  last_move_refresh: string
+  created_at: string
+  updated_at: string
+}
 
-export type UpdateCharacter = Partial<NewCharacter>
-export type UpdateSeries = Partial<NewSeries>
-export type UpdateGeneratedImage = Partial<NewGeneratedImage> 
+export interface GridProgress {
+  id: number
+  userid: string
+  discoveredTiles: any // JSONB type
+  goldCollected: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Character {
+  id: number
+  name: string
+  description: string
+  imageUrl: string
+  rarity: number
+}
+
+// Type for updates
+export type UpdateRoster = Partial<Roster>
+export type UpdateSeries = Partial<Series>
+export type UpdateUserCollection = Partial<UserCollection>
+export type UpdatePlayerStats = Partial<PlayerStats>
+export type UpdateGridProgress = Partial<GridProgress> 

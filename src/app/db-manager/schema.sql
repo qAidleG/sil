@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS "public"."playerstats" (
     gold INTEGER NOT NULL DEFAULT 0,
     last_move_refresh TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    email TEXT NOT NULL
 );
 
 -- Create GridProgress table if not exists

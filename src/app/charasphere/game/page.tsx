@@ -4,9 +4,12 @@ import React, { useState, useEffect, Suspense, useCallback } from 'react'
 import { Character } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight, Save, Trophy } from 'lucide-react'
 import { soundManager } from '@/lib/sounds'
 import { ErrorBoundary } from '@/app/components/ErrorBoundary'
+import { useGameState } from '@/hooks/useGameState'
+import { PlayerStats } from '@/components/PlayerStats'
+import { Button } from '@/components/ui/button'
 
 interface GridPosition {
   x: number
@@ -95,6 +98,8 @@ function GameContent() {
 
   // Add development mode check
   const isDevelopment = process.env.NODE_ENV === 'development'
+
+  const { gameState, playerStats, loading: gameLoading, error: gameError, movePlayer, saveAndExit } = useGameState()
 
   const loadUserStats = async () => {
     try {
@@ -777,7 +782,7 @@ function GameContent() {
     )
   }
 
-  if (loading) {
+  if (gameLoading) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
@@ -786,11 +791,11 @@ function GameContent() {
     )
   }
 
-  if (error) {
+  if (gameError) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center p-6">
         <div className="text-center space-y-4 max-w-md">
-          <p className="text-red-400 text-lg font-semibold">{error}</p>
+          <p className="text-red-400 text-lg font-semibold">{gameError}</p>
           
           {errorType === 'network' && (
             <p className="text-gray-400 text-sm">
@@ -846,327 +851,66 @@ function GameContent() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-900 text-white overflow-hidden">
-      {/* Game Header */}
-      <div className="mb-8 text-center relative">
-        <button
-          onClick={toggleMute}
-          className="absolute right-0 top-0 p-2 text-gray-400 hover:text-white transition-colors"
-          aria-label={isMuted ? "Unmute" : "Mute"}
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <PlayerStats />
+        <Button
+          onClick={saveAndExit}
+          className="flex items-center gap-2"
         >
-          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-        </button>
-        <h2 className="text-2xl font-bold text-blue-400">
-          Playing as {selectedCharacter?.name}
-        </h2>
-        
-        {/* Game Stats */}
-        <div className="mt-4 flex justify-center space-x-8">
-          <div className="text-center relative">
-            <p className="text-sm text-gray-400">Moves</p>
-            <p className="text-xl font-bold text-white">{moves}</p>
-            {moves < 30 && (
-              <div className="mt-1 w-full h-1 bg-gray-700 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-blue-500"
-                  animate={{
-                    width: `${moveRefreshProgress}%`
-                  }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-            )}
-            {moves < 30 && moveRefreshProgress > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                +10 in {Math.ceil(60 - (moveRefreshProgress * 0.6))}s
-              </p>
-            )}
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-400">Gold</p>
-            <p className="text-xl font-bold text-yellow-400">{gold}g</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-400">Undiscovered</p>
-            <p className="text-xl font-bold text-purple-400">{undiscoveredCount}</p>
-          </div>
-        </div>
-
-        <div className="text-gray-400 mt-4 space-y-2">
-          <p>Click adjacent cards or use arrow keys to move</p>
-          <div className="text-sm opacity-60">
-            <p>Keyboard Controls:</p>
-            <p>Arrow Keys - Move • R - Reset • M - Mute • Esc - Exit</p>
-          </div>
-        </div>
+          <Save className="w-4 h-4" />
+          Save & Exit
+        </Button>
       </div>
 
-      {/* Game Grid */}
-      <div 
-        className="grid grid-cols-5 gap-4 p-4 bg-gray-800/50 rounded-xl border border-gray-700 touch-none"
-        role="grid"
-        aria-label="Game Grid"
-      >
-        <AnimatePresence>
-          {grid.map((row, y) => (
-            <React.Fragment key={y}>
-              {row.map((cell, x) => (
-                <motion.button
-                  key={`${x}-${y}`}
-                  onClick={() => handleMove(x, y)}
-                  disabled={!canMoveTo(x, y) || moves <= 0}
-                  whileHover={canMoveTo(x, y) && moves > 0 ? { 
-                    scale: 1.05,
-                    transition: { duration: soundManager.durations.hover }
-                  } : {}}
-                  onHoverStart={() => canMoveTo(x, y) && moves > 0 && soundManager.play('hover')}
-                  animate={{
-                    rotateY: cell.revealed ? 0 : 180,
-                    transition: { 
-                      duration: soundManager.durations.flip,
-                      type: "spring",
-                      stiffness: 100
-                    }
-                  }}
-                  onAnimationComplete={() => {
-                    if (cell.revealed) soundManager.play('flip')
-                  }}
-                  className={`
-                    aspect-[2.5/3.5] rounded-lg border transition-all
-                    ${canMoveTo(x, y) && moves > 0
-                      ? 'border-blue-500/50 hover:border-blue-400 cursor-pointer shadow-lg hover:shadow-blue-500/20' 
-                      : 'border-gray-700 cursor-not-allowed'}
-                    ${playerPosition.x === x && playerPosition.y === y
-                      ? 'bg-blue-500/20 shadow-lg shadow-blue-500/20'
-                      : cell.revealed 
-                        ? cell.tileType === 'event'
-                          ? 'bg-purple-900/50'
-                          : cell.tileType === 'high-value'
-                            ? 'bg-yellow-900/50'
-                            : 'bg-gray-800/50'
-                        : 'bg-gradient-to-br from-gray-700/50 to-gray-900/50'}
-                    ${!cell.revealed && 'hover:border-gray-600'}
-                    perspective-1000
-                  `}
-                >
-                  <motion.div 
-                    className="w-full h-full"
-                    animate={{
-                      rotateY: cell.revealed ? 0 : 180,
-                      transition: { 
-                        duration: soundManager.durations.flip,
-                        type: "spring",
-                        stiffness: 100
-                      }
-                    }}
-                  >
-                    {cell.character ? (
-                      <motion.div 
-                        className="w-full h-full p-2 relative group"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: soundManager.durations.flip / 2, delay: soundManager.durations.flip / 2 }}
-                      >
-                        {cell.character.GeneratedImage?.[currentImageIndex]?.url ? (
-                          <>
-                            <img
-                              src={cell.character.GeneratedImage[currentImageIndex].url}
-                              alt={cell.character.name}
-                              className="w-full h-full object-cover rounded-md"
-                              onClick={cycleCharacterImage}
-                            />
-                            {cell.character.GeneratedImage.length > 1 && (
-                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 px-2 py-1 rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                Click to cycle images ({currentImageIndex + 1}/{cell.character.GeneratedImage.length})
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            No Image
-                          </div>
-                        )}
-                      </motion.div>
-                    ) : cell.revealed ? (
-                      <motion.div 
-                        className="w-full h-full flex items-center justify-center"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: soundManager.durations.flip / 2 }}
-                      >
-                        {cell.tileType === 'event' ? (
-                          <div className="text-purple-400 font-bold">{cell.value}g</div>
-                        ) : cell.tileType === 'high-value' ? (
-                          <div className="text-yellow-400 font-bold">{cell.value}g</div>
-                        ) : (
-                          <div className="text-gray-400 font-bold">{cell.value}g</div>
-                        )}
-                      </motion.div>
-                    ) : (
-                      <motion.div 
-                        className="w-full h-full flex items-center justify-center"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: soundManager.durations.flip / 2 }}
-                      >
-                        <div className={`w-12 h-12 rounded-full bg-blue-500/20 animate-pulse`} />
-                      </motion.div>
-                    )}
-                  </motion.div>
-                </motion.button>
-              ))}
-            </React.Fragment>
-          ))}
-        </AnimatePresence>
+      {/* Game grid here */}
+      <div className="grid grid-cols-5 gap-2">
+        {gameState.tilemap.map((tile) => (
+          <div
+            key={tile.id}
+            className="aspect-square bg-gray-800 rounded-lg"
+            onClick={() => movePlayer(tile.id)}
+          >
+            {/* Tile content */}
+          </div>
+        ))}
       </div>
 
-      {/* Game Controls */}
-      <motion.div 
-        className="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4"
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: soundManager.durations.reset }}
-      >
-        <button
-          onClick={() => router.push('/charasphere')}
-          className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 text-gray-300"
-        >
-          Exit Game
-        </button>
-        <button
-          onClick={handleReset}
-          className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
-        >
-          Reset Game
-        </button>
-      </motion.div>
-
-      {/* Event Dialog Modal */}
+      {/* Completion Animation */}
       <AnimatePresence>
-        {eventDialog.isOpen && (
+        {gameState.isCompleting && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setEventDialog(prev => ({ ...prev, isOpen: false }))}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/50"
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gray-800/90 rounded-xl p-6 max-w-lg w-full space-y-4"
-              onClick={e => e.stopPropagation()}
+              initial={{ y: 50 }}
+              animate={{ y: 0 }}
+              className="bg-white rounded-lg p-8 text-center"
             >
-              <div className="flex justify-between items-start">
-                <h3 className="text-xl font-bold text-blue-400">
-                  Event Encounter!
-                </h3>
-                <button
-                  onClick={() => setEventDialog(prev => ({ ...prev, isOpen: false }))}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {selectedCharacter?.GeneratedImage?.[0]?.url && (
-                  <img
-                    src={selectedCharacter.GeneratedImage[0].url}
-                    alt={selectedCharacter.name}
-                    className="w-24 h-24 object-cover rounded-lg"
-                  />
-                )}
-                <div>
-                  <p className="text-lg font-semibold text-white">
-                    {selectedCharacter?.name}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {selectedCharacter?.Series?.name}
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-gray-300 italic">
-                "{eventDialog.dialog}"
-              </p>
-
-              <div className="pt-4 border-t border-gray-700">
-                <p className="text-yellow-400 font-bold">
-                  Received {eventDialog.reward} gold!
-                </p>
-              </div>
+              <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
+              <h2 className="text-2xl font-bold mb-2">Board Complete!</h2>
+              <p className="text-gray-600">Returning to CharaSphere...</p>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Character Switch Panel */}
-      <div className="fixed right-0 top-1/2 -translate-y-1/2">
-        <button
-          onClick={() => setShowSwitchPanel(prev => !prev)}
-          className="bg-gray-800 p-2 rounded-l-lg text-gray-400 hover:text-white transition-colors"
-        >
-          {showSwitchPanel ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
-        </button>
-        
-        <AnimatePresence>
-          {showSwitchPanel && (
-            <motion.div
-              initial={{ x: '100%', opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '100%', opacity: 0 }}
-              className="absolute right-0 top-1/2 -translate-y-1/2 w-64 bg-gray-800/95 backdrop-blur-sm rounded-l-xl p-4 border-l border-t border-b border-gray-700"
-            >
-              <h3 className="text-lg font-bold text-blue-400 mb-4">Switch Character</h3>
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-                {availableCharacters.map(character => (
-                  <button
-                    key={character.id}
-                    onClick={() => handleCharacterSwitch(character)}
-                    disabled={moves < 10 || switchLoading || character.id === selectedCharacter?.id}
-                    className={`
-                      w-full flex items-center space-x-3 p-2 rounded-lg transition-colors
-                      ${character.id === selectedCharacter?.id
-                        ? 'bg-blue-500/20 border border-blue-500/50'
-                        : moves >= 10 && !switchLoading
-                          ? 'hover:bg-gray-700/50 border border-gray-700 hover:border-blue-500'
-                          : 'opacity-50 cursor-not-allowed border border-gray-700'}
-                    `}
-                  >
-                    {character.GeneratedImage?.[0]?.url && (
-                      <img
-                        src={character.GeneratedImage[0].url}
-                        alt={character.name}
-                        className="w-12 h-12 rounded-md object-cover"
-                      />
-                    )}
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-semibold truncate">{character.name}</p>
-                      <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 text-center text-sm text-gray-400">
-                Switching costs 10 moves
-                {moves < 10 && (
-                  <p className="text-red-400 mt-1">Not enough moves</p>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Add Switch Dialog */}
-      {renderSwitchDialog()}
-
-      {/* Add Ability Button */}
-      <div className="mt-4 flex justify-center">
-        {renderAbilityButton()}
-      </div>
+      {/* Error Toast */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
