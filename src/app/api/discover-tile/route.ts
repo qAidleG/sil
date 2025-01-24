@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { calculateGoldReward, GridTile, TileType } from '@/types/game'
+import { Character, DatabaseCharacter } from '@/types/database'
 
-async function generateEventContent(character: any) {
+async function generateEventContent(character: DatabaseCharacter) {
   // TODO: Replace with actual Grok API call
   const prompt = `You are ${character.name} from ${character.Series?.name}. Generate 3 unique, in-character reactions to finding 10 gold pieces. Each reaction should be a single sentence that reflects your personality and background. Respond in JSON format with keys E1, E2, and E3.`
 
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
         if (tile.characterId) {
           // Get character details
           const { data: char, error: charError } = await supabaseAdmin
-            .from('Roster')
+            .from('Character')
             .select('*, Series(*)')
             .eq('characterid', tile.characterId)
             .single()
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
 
           // Mark character as claimed
           await supabaseAdmin
-            .from('Roster')
+            .from('Character')
             .update({ claimed: true })
             .eq('characterid', tile.characterId)
 
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
             .update({ cards_collected: playerStats.cards_collected + 1 })
             .eq('userid', userId)
 
-          character = char
+          character = char as DatabaseCharacter
         }
         break
 
@@ -101,27 +102,33 @@ export async function POST(req: Request) {
       case 'E2':
       case 'E3':
         // Get player's current character
-        const { data: currentChar, error: currentCharError } = await supabaseAdmin
+        const { data: userCollection, error: currentCharError } = await supabaseAdmin
           .from('UserCollection')
-          .select('characterid, selectedImageId')
+          .select(`
+            characterid,
+            Character:characterid (
+              characterid,
+              name,
+              bio,
+              rarity,
+              dialogs,
+              Series (
+                seriesid,
+                name,
+                universe,
+                seriesability
+              )
+            )
+          `)
           .eq('userid', userId)
           .eq('favorite', true)
           .single()
 
         if (currentCharError) throw currentCharError
 
-        if (currentChar) {
-          // Get character details
-          const { data: eventChar, error: eventCharError } = await supabaseAdmin
-            .from('Roster')
-            .select('*, Series(*)')
-            .eq('characterid', currentChar.characterid)
-            .single()
-
-          if (eventCharError) throw eventCharError
-
+        if (userCollection?.Character) {
           // Generate event content
-          const content = await generateEventContent(eventChar)
+          const content = await generateEventContent(userCollection.Character as DatabaseCharacter)
           eventContent = content[tile.type as 'E1' | 'E2' | 'E3']  // Type-safe access
           reward = 10  // Fixed 10 gold for event tiles
 

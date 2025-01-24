@@ -5,7 +5,7 @@ export interface Series {
   seriesability: string | null
 }
 
-export interface Roster {
+export interface Character {
   characterid: number
   name: string
   seriesId: number
@@ -29,7 +29,7 @@ export interface UserCollection {
   customName: string | null
   favorite: boolean
   selectedImageId: number | null
-  Character?: Roster
+  Character?: Character
 }
 
 export interface PlayerStats {
@@ -56,17 +56,14 @@ export interface GridProgress {
   updated_at: string
 }
 
-export interface Character {
-  id: number
-  name: string
-  description: string
-  imageUrl: string
-  rarity: number
-}
-
 // Type for updates
-export type UpdateRoster = Partial<Roster>
+export type UpdateCharacter = Partial<Character>
 export type UpdateSeries = Partial<Series>
 export type UpdateUserCollection = Partial<UserCollection>
 export type UpdatePlayerStats = Partial<PlayerStats>
-export type UpdateGridProgress = Partial<GridProgress> 
+export type UpdateGridProgress = Partial<GridProgress>
+
+// Database response types
+export interface DatabaseCharacter extends Omit<Character, 'Series'> {
+  Series: Series | null
+} 
