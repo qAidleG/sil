@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { calculateGoldReward, GridTile, TileType } from '@/types/game'
-import { Character, DatabaseCharacter } from '@/types/database'
+import { DatabaseCharacter, isDatabaseCharacter } from '@/types/database'
 
 async function generateEventContent(character: DatabaseCharacter) {
   // TODO: Replace with actual Grok API call
@@ -70,6 +70,9 @@ export async function POST(req: Request) {
             .single()
 
           if (charError) throw charError
+          if (!isDatabaseCharacter(char)) {
+            throw new Error('Invalid character data received')
+          }
 
           // Add to user's collection
           const { error: collectionError } = await supabaseAdmin
@@ -94,7 +97,7 @@ export async function POST(req: Request) {
             .update({ cards_collected: playerStats.cards_collected + 1 })
             .eq('userid', userId)
 
-          character = char as DatabaseCharacter
+          character = char
         }
         break
 
@@ -112,7 +115,14 @@ export async function POST(req: Request) {
               bio,
               rarity,
               dialogs,
-              Series (
+              claimed,
+              image1url,
+              image2url,
+              image3url,
+              image4url,
+              image5url,
+              image6url,
+              Series:seriesId (
                 seriesid,
                 name,
                 universe,
@@ -127,18 +137,58 @@ export async function POST(req: Request) {
         if (currentCharError) throw currentCharError
 
         if (userCollection?.Character) {
-          // Generate event content
-          const content = await generateEventContent(userCollection.Character as DatabaseCharacter)
-          eventContent = content[tile.type as 'E1' | 'E2' | 'E3']  // Type-safe access
-          reward = 10  // Fixed 10 gold for event tiles
+          // Convert the Supabase response to our DatabaseCharacter type
+          const char = userCollection.Character as unknown as {
+            characterid: number
+            name: string
+            bio: string
+            rarity: number
+            dialogs: string[] | null
+            claimed: boolean
+            image1url: string | null
+            image2url: string | null
+            image3url: string | null
+            image4url: string | null
+            image5url: string | null
+            image6url: string | null
+            Series: {
+              seriesid: number
+              name: string
+              universe: string
+              seriesability: string | null
+            } | null
+          }
 
-          // Update player gold
-          const { error: eventGoldError } = await supabaseAdmin
-            .from('playerstats')
-            .update({ gold: playerStats.gold + reward })
-            .eq('userid', userId)
+          const characterData: DatabaseCharacter = {
+            characterid: char.characterid,
+            name: char.name,
+            bio: char.bio,
+            rarity: char.rarity,
+            dialogs: char.dialogs,
+            claimed: char.claimed,
+            image1url: char.image1url,
+            image2url: char.image2url,
+            image3url: char.image3url,
+            image4url: char.image4url,
+            image5url: char.image5url,
+            image6url: char.image6url,
+            Series: char.Series
+          }
 
-          if (eventGoldError) throw eventGoldError
+          if (isDatabaseCharacter(characterData)) {
+            // Generate event content
+            const content = await generateEventContent(characterData)
+            eventContent = content[tile.type as 'E1' | 'E2' | 'E3']  // Type-safe access
+            reward = 10  // Fixed 10 gold for event tiles
+
+            // Update player gold
+            const { error: eventGoldError } = await supabaseAdmin
+              .from('playerstats')
+              .update({ gold: playerStats.gold + reward })
+              .eq('userid', userId)
+
+            if (eventGoldError) throw eventGoldError
+          }
         }
         break
     }

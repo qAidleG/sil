@@ -64,6 +64,43 @@ export type UpdatePlayerStats = Partial<PlayerStats>
 export type UpdateGridProgress = Partial<GridProgress>
 
 // Database response types
-export interface DatabaseCharacter extends Omit<Character, 'Series'> {
-  Series: Series | null
+export interface DatabaseCharacter {
+  characterid: number
+  name: string
+  bio: string
+  rarity: number
+  dialogs: string[] | null
+  image1url: string | null
+  image2url: string | null
+  image3url: string | null
+  image4url: string | null
+  image5url: string | null
+  image6url: string | null
+  claimed: boolean
+  Series: {
+    seriesid: number
+    name: string
+    universe: string
+    seriesability: string | null
+  } | null
+}
+
+// Type guard for DatabaseCharacter
+export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.characterid === 'number' &&
+    typeof obj.name === 'string' &&
+    typeof obj.bio === 'string' &&
+    typeof obj.rarity === 'number' &&
+    (obj.dialogs === null || Array.isArray(obj.dialogs)) &&
+    typeof obj.claimed === 'boolean' &&
+    (obj.Series === null ||
+      (typeof obj.Series === 'object' &&
+        obj.Series !== null &&
+        typeof obj.Series.seriesid === 'number' &&
+        typeof obj.Series.name === 'string' &&
+        typeof obj.Series.universe === 'string'))
+  )
 } 
