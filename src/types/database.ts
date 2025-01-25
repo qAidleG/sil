@@ -20,6 +20,7 @@ export interface Character {
   image5url?: string
   image6url?: string
   claimed: boolean
+  selectedImageId?: number
   Series?: {
     id?: number
     seriesid: number
@@ -120,4 +121,11 @@ export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
         typeof obj.Series.name === 'string' &&
         typeof obj.Series.universe === 'string'))
   )
+}
+
+// Enriched character type that includes user collection data
+export interface EnrichedCharacter extends Character {
+  selectedImageId: number
+  favorite: boolean
+  customName?: string
 } 

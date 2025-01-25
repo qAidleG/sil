@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Character } from '@/types/database'
+import { Character, EnrichedCharacter } from '@/types/database'
 import { ImageIcon, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getImageUrl, hasImages } from '@/utils/character'
+import { useUser } from '@supabase/auth-helpers-react'
+import Image from 'next/image'
 
 interface ImageGenerationForm {
   pose: 'portrait' | 'action' | 'dramatic'
@@ -13,11 +16,12 @@ interface ImageGenerationForm {
 }
 
 interface CharacterDetailsProps {
-  character: Character
-  onUpdate: (character: Character) => void
+  character: Character | EnrichedCharacter
+  onUpdate: (character: Character | EnrichedCharacter) => void
+  selectedImageId?: number
 }
 
-export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps) {
+export function CharacterDetails({ character, onUpdate, selectedImageId }: CharacterDetailsProps) {
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imageForm, setImageForm] = useState<ImageGenerationForm>({
     pose: 'portrait',
@@ -25,6 +29,8 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
     mood: 'neutral',
     background: 'card'
   })
+  const { user } = useUser()
+  const [loading, setLoading] = useState(false)
 
   // Get rarity color based on rarity level
   const getRarityColor = (rarity: number) => {
@@ -189,60 +195,120 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
     }
   }
 
+  const handleImageSelect = async (imageNumber: number) => {
+    if (!user) return
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('UserCollection')
+        .update({ selectedImageId: imageNumber })
+        .eq('userid', user.id)
+        .eq('characterid', character.characterid)
+
+      if (error) throw error
+      
+      if (onUpdate) {
+        onUpdate({
+          ...character,
+          selectedImageId: imageNumber
+        })
+      }
+    } catch (error) {
+      console.error('Error updating selected image:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="flex justify-between items-start">
-          <h2 className="text-2xl font-bold text-white">
-            {character.name}
-          </h2>
-          <span className={`${getRarityColor(character.rarity)} text-sm font-semibold`}>
-            ★{character.rarity}
-          </span>
+      <div className="flex items-start space-x-6">
+        {/* Main character image */}
+        <div className="w-1/3">
+          {character.image1url ? (
+            <img
+              src={character.image1url}
+              alt={character.name}
+              className="w-full rounded-lg shadow-lg"
+            />
+          ) : (
+            <div className="w-full aspect-square bg-gray-800 rounded-lg flex items-center justify-center">
+              <p className="text-gray-500">No image available</p>
+            </div>
+          )}
         </div>
-        {character.Series && (
-          <p className="text-sm text-gray-400">
-            Series: {character.Series.name} | Universe: {character.Series.universe}
-          </p>
-        )}
-        <p className="text-gray-300">
-          {character.bio || 'No biography available'}
-        </p>
-      </div>
-      
-      {character.dialogs && character.dialogs.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-blue-400 mb-3">Dialogs</h3>
-          <div className="space-y-2">
-            {character.dialogs.map((dialog, index) => (
-              <div 
-                key={index}
-                className="p-3 bg-gray-800/50 rounded-lg border border-gray-700"
-              >
-                {dialog}
+
+        {/* Character info */}
+        <div className="flex-1">
+          <h2 className="text-2xl font-bold mb-2">{character.name}</h2>
+          <p className="text-gray-400 mb-4">{character.Series?.name}</p>
+          <p className="text-gray-300 mb-4">{character.bio}</p>
+          
+          <div className="flex items-center space-x-4">
+            <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">
+              Rarity: {character.rarity}
+            </div>
+            {character.Series?.universe && (
+              <div className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-sm">
+                {character.Series.universe}
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Additional character images */}
+      {hasImages(character) && (
+        <div>
+          <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((imageNumber) => {
+              const imageUrl = getImageUrl(character, imageNumber)
+              if (!imageUrl) return null
+
+              const isSelected = character.selectedImageId === imageNumber
+
+              return (
+                <div key={imageNumber} className="relative">
+                  <button
+                    onClick={() => handleImageSelect(imageNumber)}
+                    disabled={loading}
+                    className={`
+                      relative w-full aspect-square rounded-lg overflow-hidden
+                      ${isSelected ? 'ring-4 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'}
+                    `}
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={`${character.name} - Image ${imageNumber}`}
+                      fill
+                      className="object-cover"
+                    />
+                    {isSelected && (
+                      <div className="absolute bottom-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                        Selected
+                      </div>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {character.GeneratedImage && character.GeneratedImage.length > 0 && (
+      {/* Character dialogs */}
+      {character.dialogs && character.dialogs.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {character.GeneratedImage.map((image) => (
-              image.url && (
-                <div 
-                  key={image.id}
-                  className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 group"
-                >
-                  <img
-                    src={image.url}
-                    alt={`Card art for ${character.name}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )
+          <h3 className="text-lg font-semibold text-blue-400 mb-3">Character Dialogs</h3>
+          <div className="space-y-2">
+            {character.dialogs.map((dialog, index) => (
+              <div
+                key={index}
+                className="p-3 bg-gray-800 rounded-lg text-gray-300"
+              >
+                "{dialog}"
+              </div>
             ))}
           </div>
         </div>
