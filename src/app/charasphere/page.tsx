@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { StarField } from '../components/StarField'
-import { Home, LayoutGrid, Swords, Trophy, User, X } from 'lucide-react'
+import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Character } from '@/types/database'
@@ -32,15 +32,16 @@ export default function CharaSpherePage() {
         .from('Character')
         .select(`
           *,
+          id,
+          characterid,
           Series (
+            id,
+            seriesid,
             name,
             universe
-          ),
-          GeneratedImage (
-            url
           )
         `)
-        .order('createdAt', { ascending: false })
+        .order('name')
 
       if (error) throw error
       if (data) setCharacters(data)
@@ -66,8 +67,8 @@ export default function CharaSpherePage() {
   }
 
   const handlePlay = () => {
-    if (selectedCharacter?.GeneratedImage?.length) {
-      router.push(`/charasphere/game?character=${selectedCharacter.id}`)
+    if (selectedCharacter?.image1url) {
+      router.push(`/charasphere/game?character=${selectedCharacter.characterid}`)
     }
   }
 
@@ -118,6 +119,58 @@ export default function CharaSpherePage() {
       }
     }
   }
+
+  // Update character filtering and sorting
+  const filteredCharacters = characters
+    .filter(char => char.characterid)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Update character grid
+  const renderCharacterCard = (character: Character) => (
+    <div 
+      key={character.id || character.characterid}
+      onClick={() => handleCharacterClick(character)}
+      className={`
+        relative p-4 rounded-lg border-2 transition-all cursor-pointer
+        ${selectedCharacter?.characterid === character.characterid
+          ? 'border-blue-500 bg-gray-800'
+          : 'border-gray-700 bg-gray-900 hover:border-gray-500'}
+      `}
+    >
+      {character.image1url ? (
+        <img
+          src={character.image1url}
+          alt={character.name}
+          className="w-full h-48 object-cover rounded-lg mb-4"
+        />
+      ) : (
+        <div className="w-full h-48 bg-gray-800 rounded-lg mb-4 flex items-center justify-center">
+          <p className="text-gray-500">No image available</p>
+        </div>
+      )}
+      
+      <h3 className="text-lg font-semibold mb-2">{character.name}</h3>
+      <p className="text-sm text-gray-400 mb-4">{character.Series?.name}</p>
+      
+      {selectedCharacter?.characterid === character.characterid && (
+        <div className="mt-4 space-y-4">
+          <button
+            onClick={handlePlay}
+            disabled={!character.image1url}
+            className={`
+              w-full px-6 py-3 rounded-lg font-semibold
+              ${character.image1url
+                ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
+              transition-colors
+            `}
+          >
+            {character.image1url ? 'Play Game' : 'No Image Available'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
@@ -249,7 +302,7 @@ export default function CharaSpherePage() {
                       character={selectedCharacter}
                       onUpdate={(updatedChar: Character) => {
                         setCharacters(chars => 
-                          chars.map(c => c.id === updatedChar.id ? updatedChar : c)
+                          chars.map(c => c.characterid === updatedChar.characterid ? updatedChar : c)
                         )
                         setSelectedCharacter(updatedChar)
                       }}
@@ -257,16 +310,16 @@ export default function CharaSpherePage() {
                     <div className="mt-6 flex justify-end">
                       <button
                         onClick={handlePlay}
-                        disabled={!selectedCharacter.GeneratedImage?.length}
+                        disabled={!selectedCharacter.image1url}
                         className={`
                           px-6 py-3 rounded-lg font-semibold
-                          ${selectedCharacter.GeneratedImage?.length
+                          ${selectedCharacter.image1url
                             ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
                             : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
                           transition-colors
                         `}
                       >
-                        {selectedCharacter.GeneratedImage?.length
+                        {selectedCharacter.image1url
                           ? 'Play Game'
                           : 'Generate Image to Play'}
                       </button>
@@ -297,29 +350,7 @@ export default function CharaSpherePage() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {characters.map(character => (
-                          <button
-                            key={character.id}
-                            onClick={() => handleCharacterClick(character)}
-                            className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 hover:border-blue-500 cursor-pointer"
-                          >
-                            {character.GeneratedImage?.[0]?.url ? (
-                              <img
-                                src={character.GeneratedImage[0].url}
-                                alt={character.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
-                                <p className="text-gray-400 text-sm">No image</p>
-                              </div>
-                            )}
-                            <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                              <p className="text-sm font-semibold truncate">{character.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{character.Series?.name}</p>
-                            </div>
-                          </button>
-                        ))}
+                        {filteredCharacters.map(renderCharacterCard)}
                       </div>
                     )}
                   </>

@@ -1,59 +1,55 @@
 export interface Series {
+  id?: number
   seriesid: number
   name: string
   universe: string
-  seriesability: string | null
+  seriesability?: string
 }
 
 export interface Character {
+  id?: number
   characterid: number
   name: string
-  seriesId: number
   bio: string
   rarity: number
-  dialogs: string[] | null
-  image1url: string | null
-  image2url: string | null
-  image3url: string | null
-  image4url: string | null
-  image5url: string | null
-  image6url: string | null
+  dialogs: string[]
+  image1url?: string
+  image2url?: string
+  image3url?: string
+  image4url?: string
+  image5url?: string
+  image6url?: string
   claimed: boolean
-  Series?: Series
+  Series?: {
+    id?: number
+    seriesid: number
+    name: string
+    universe: string
+    seriesability?: string
+  }
 }
 
 export interface UserCollection {
-  id: number
+  id?: number
   userid: string
   characterid: number
-  customName: string | null
+  customName?: string
   favorite: boolean
-  selectedImageId: number | null
-  Character?: Character
+  selectedImageId?: number
 }
 
 export interface PlayerStats {
   userid: string
-  email: string
-  cards_collected: number
+  turns: number
   gold: number
-  wins: number
-  losses: number
-  rank: number
-  experience: number
-  moves: number
-  last_move_refresh: string
-  created_at: string
-  updated_at: string
+  email?: string
 }
 
 export interface GridProgress {
-  id: number
+  id?: number
   userid: string
-  discoveredTiles: any // JSONB type
-  goldCollected: number
-  created_at: string
-  updated_at: string
+  tilemap: any
+  clearreward?: any
 }
 
 export interface Roster {
