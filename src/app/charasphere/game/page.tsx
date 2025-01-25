@@ -10,18 +10,19 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary'
 import { useGameState } from '@/hooks/useGameState'
 import { PlayerStats } from '@/components/PlayerStats'
 import { Button } from '@/components/ui/button'
+import { BaseTileType, TileType as GameTileType, GameState } from '@/types/game'
 
 interface GridPosition {
   x: number
   y: number
 }
 
-type TileType = 'event' | 'high-value' | 'low-value'
+type LocalTileType = BaseTileType | 'event' | 'high-value' | 'low-value'
 
 interface CardState {
   revealed: boolean
   character: Character | null
-  tileType: TileType
+  tileType: LocalTileType
   value: number
   eventSeen?: boolean
 }
@@ -52,6 +53,14 @@ const DEFAULT_ABILITY: SeriesAbility = {
   name: 'Special Move',
   description: 'Gain 1-3 bonus gold (costs 5 moves)',
   cost: 5
+}
+
+// Update GridTile interface to use GameTileType
+interface LocalGridTile {
+  type: GameTileType;
+  value: number;
+  revealed: boolean;
+  eventSeen?: boolean;
 }
 
 const createEmptyGrid = (): CardState[][] => 
@@ -417,7 +426,7 @@ function GameContent() {
       }
       
       const characters = await response.json();
-      const character = characters.find((c: Character) => c.id === id);
+      const character = characters.find((c: Character) => c.characterid === id);
       
       if (!character) {
         throw new Error('Character not found');
@@ -490,15 +499,14 @@ function GameContent() {
         setGold(newGold)
         setUndiscoveredCount(prev => prev - 1)
         
-        if (targetCell.tileType === 'event' && selectedCharacter.dialogs?.length > 0) {
+        if (targetCell.tileType === 'event' && selectedCharacter.dialogs && selectedCharacter.dialogs.length > 0) {
           targetCell.eventSeen = true
           // Pick random dialog
-          const randomDialog = selectedCharacter.dialogs[
-            Math.floor(Math.random() * selectedCharacter.dialogs.length)
-          ]
+          const randomIndex = Math.floor(Math.random() * selectedCharacter.dialogs.length);
+          const dialog = selectedCharacter.dialogs[randomIndex];
           setEventDialog({
             isOpen: true,
-            dialog: randomDialog,
+            dialog,
             reward: targetCell.value
           })
         }
@@ -559,29 +567,27 @@ function GameContent() {
     setIsMuted(newMuted)
   }
 
-  // Add image cycling function
+  // Update character filtering to use image1url
   const cycleCharacterImage = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent triggering move
-    const images = selectedCharacter?.GeneratedImage
-    if (images && images.length > 1) {
-      setCurrentImageIndex((prev) => (prev + 1) % images.length)
-      soundManager.play('flip')
+    e.stopPropagation(); // Prevent triggering move
+    const image = selectedCharacter?.image1url;
+    if (image) {
+      setCurrentImageIndex((prev) => (prev + 1) % 4);
+      soundManager.play('flip');
     }
-  }
+  };
 
-  // Update loadAvailableCharacters to use API route
+  // Update available characters filtering
   const loadAvailableCharacters = async () => {
     try {
       const response = await fetch('/api/characters');
-      if (!response.ok) {
-        throw new Error('Failed to load characters');
-      }
-      
+      if (!response.ok) throw new Error('Failed to load characters');
       const data = await response.json();
-      // Only show characters with images
-      setAvailableCharacters(data.filter((char: Character) => Array.isArray(char.GeneratedImage) && char.GeneratedImage.length > 0));
+      setAvailableCharacters(data.filter((char: Character) => char.image1url !== null));
     } catch (err) {
       console.error('Error loading characters:', err);
+      setError('Failed to load available characters');
+      setErrorType('load');
     }
   };
 
@@ -643,46 +649,40 @@ function GameContent() {
   }
 
   // Update handleCharacterSwitch
-  const handleCharacterSwitch = async (newCharacter: Character) => {
-    if (moves < 10) return
-    if (newCharacter.id === selectedCharacter?.id) return
+  const handleCharacterSwitch = async (switchToCharacter: Character) => {
+    if (!selectedCharacter || moves < 10) return;
+    if (switchToCharacter.characterid === selectedCharacter.characterid) return;
     
-    setSwitchLoading(true)
+    setSwitchLoading(true);
     try {
-      if (selectedCharacter) {
-        // Generate dialog between characters
-        const dialogs = await generateSwitchDialog(selectedCharacter, newCharacter)
-        
-        // Show switch dialog
-        setSwitchDialog({
-          isOpen: true,
-          outgoingDialog: dialogs.outgoing,
-          incomingDialog: dialogs.incoming,
-          outgoingCharacter: selectedCharacter,
-          incomingCharacter: newCharacter
-        })
+      setSwitchDialog({
+        isOpen: true,
+        outgoingDialog: selectedCharacter.dialogs?.[0] || '',
+        incomingDialog: switchToCharacter.dialogs?.[0] || '',
+        outgoingCharacter: selectedCharacter,
+        incomingCharacter: switchToCharacter
+      });
 
-        // Update URL without reload
-        const url = new URL(window.location.href)
-        url.searchParams.set('character', newCharacter.id.toString())
-        window.history.pushState({}, '', url.toString())
+      // Update URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.set('character', switchToCharacter.characterid.toString());
+      window.history.pushState({}, '', url.toString());
 
-        // Animate character switch after dialog
-        setTimeout(() => {
-          setSelectedCharacter(newCharacter)
-          setMoves(prev => prev - 10)
-          soundManager.play('move')
-          setSwitchDialog(prev => ({ ...prev, isOpen: false }))
-        }, 3000) // Show dialog for 3 seconds
-      }
+      // Animate character switch after dialog
+      setTimeout(() => {
+        setSelectedCharacter(switchToCharacter);
+        setMoves(prev => prev - 10);
+        soundManager.play('move');
+        setSwitchDialog(prev => ({ ...prev, isOpen: false }));
+      }, 3000);
     } catch (err) {
-      console.error('Error switching character:', err)
-      setError('Failed to switch character. Please try again.')
-      setErrorType('network')
+      console.error('Error switching character:', err);
+      setError('Failed to switch character. Please try again.');
+      setErrorType('network');
     } finally {
-      setSwitchLoading(false)
+      setSwitchLoading(false);
     }
-  }
+  };
 
   // Add Character Switch Dialog Modal
   const renderSwitchDialog = () => (
@@ -708,15 +708,15 @@ function GameContent() {
                 transition={{ duration: 0.5 }}
                 className="flex-1 text-center"
               >
-                {switchDialog.outgoingCharacter?.GeneratedImage?.[0]?.url && (
+                {selectedCharacter?.image1url && (
                   <img
-                    src={switchDialog.outgoingCharacter.GeneratedImage[0].url}
-                    alt={switchDialog.outgoingCharacter.name}
+                    src={selectedCharacter.image1url}
+                    alt={selectedCharacter.name}
                     className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
                   />
                 )}
                 <p className="text-blue-400 font-bold">
-                  {switchDialog.outgoingCharacter?.name}
+                  {selectedCharacter?.name}
                 </p>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -724,36 +724,19 @@ function GameContent() {
                   transition={{ delay: 0.3 }}
                   className="mt-2 p-3 bg-gray-700/50 rounded-lg"
                 >
-                  <p className="text-gray-300 italic">"{switchDialog.outgoingDialog}"</p>
+                  <p className="text-gray-300 italic">"{eventDialog.dialog}"</p>
                 </motion.div>
               </motion.div>
 
               {/* Incoming Character */}
-              <motion.div
-                initial={{ x: 0 }}
-                animate={{ x: 20 }}
-                transition={{ duration: 0.5 }}
-                className="flex-1 text-center"
-              >
-                {switchDialog.incomingCharacter?.GeneratedImage?.[0]?.url && (
-                  <img
-                    src={switchDialog.incomingCharacter.GeneratedImage[0].url}
-                    alt={switchDialog.incomingCharacter.name}
-                    className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
-                  />
-                )}
-                <p className="text-green-400 font-bold">
-                  {switchDialog.incomingCharacter?.name}
-                </p>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.8 }}
-                  className="mt-2 p-3 bg-gray-700/50 rounded-lg"
-                >
-                  <p className="text-gray-300 italic">"{switchDialog.incomingDialog}"</p>
-                </motion.div>
-              </motion.div>
+              {switchDialog.isOpen && switchDialog.incomingCharacter && (
+                <div className="flex-1 text-center">
+                  <CharacterImage character={switchDialog.incomingCharacter} />
+                  <p className="text-green-400 font-bold">
+                    {switchDialog.incomingCharacter.name}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -781,6 +764,79 @@ function GameContent() {
       </button>
     )
   }
+
+  // Convert game tile type to local tile type
+  const convertTileType = (type: GameTileType): LocalTileType => {
+    if (type.startsWith('G')) return 'high-value';
+    if (type.startsWith('E')) return 'event';
+    return 'low-value';
+  };
+
+  // Type guard for GameState
+  const isValidGameState = (state: GameState | null): state is GameState => {
+    return state !== null && 
+      Array.isArray(state.tilemap) && 
+      typeof state.goldCollected === 'number' &&
+      typeof state.playerPosition === 'number';
+  };
+
+  // Game state handling with proper type checking
+  const handleGameStateUpdate = useCallback((state: GameState | null) => {
+    if (!state) return;
+    if (!Array.isArray(state.tilemap)) return;
+    
+    const newGrid = createEmptyGrid();
+    state.tilemap.forEach((tile, index) => {
+      if (!tile) return;
+      
+      const x = index % 5;
+      const y = Math.floor(index / 5);
+      newGrid[y][x] = {
+        revealed: true,
+        character: null,
+        tileType: convertTileType(tile.type),
+        value: calculateTileValue(tile.type),
+        eventSeen: false
+      };
+    });
+    
+    setGrid(newGrid);
+    setGold(state.goldCollected || 0);
+    if (typeof state.playerPosition === 'number') {
+      setPlayerPosition({ 
+        x: state.playerPosition % 5, 
+        y: Math.floor(state.playerPosition / 5) 
+      });
+    }
+  }, []);
+
+  // Helper function to calculate tile value
+  const calculateTileValue = (type: GameTileType): number => {
+    switch (type) {
+      case 'G1': return 4;
+      case 'G2': return 6;
+      case 'G3': return 8;
+      default: return 0;
+    }
+  };
+
+  // Character UI components
+  const CharacterImage = ({ character }: { character: Character }) => {
+    if (!character.image1url) return null;
+    return (
+      <img
+        src={character.image1url}
+        alt={character.name}
+        className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+      />
+    );
+  };
+
+  // Update game state when it changes
+  useEffect(() => {
+    if (!gameState) return;
+    handleGameStateUpdate(gameState);
+  }, [gameState, handleGameStateUpdate]);
 
   if (gameLoading) {
     return (
@@ -865,11 +921,11 @@ function GameContent() {
 
       {/* Game grid here */}
       <div className="grid grid-cols-5 gap-2">
-        {gameState.tilemap.map((tile) => (
+        {gameState?.tilemap?.map((tile, index) => (
           <div
-            key={tile.id}
+            key={index}
             className="aspect-square bg-gray-800 rounded-lg"
-            onClick={() => movePlayer(tile.id)}
+            onClick={() => tile && movePlayer(tile.id)}
           >
             {/* Tile content */}
           </div>
@@ -878,7 +934,7 @@ function GameContent() {
 
       {/* Completion Animation */}
       <AnimatePresence>
-        {gameState.isCompleting && (
+        {gameState?.isCompleting && (
           <motion.div
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -890,9 +946,9 @@ function GameContent() {
               animate={{ y: 0 }}
               className="bg-white rounded-lg p-8 text-center"
             >
-              <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
+              <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
               <h2 className="text-2xl font-bold mb-2">Board Complete!</h2>
-              <p className="text-gray-600">Returning to CharaSphere...</p>
+              <p className="text-gray-600 mb-4">You've discovered all the tiles!</p>
             </motion.div>
           </motion.div>
         )}
