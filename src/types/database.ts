@@ -9,17 +9,25 @@ export interface Series {
 }
 
 export interface Character {
-  id: number
+  characterid: number
   name: string
   bio: string
   rarity: number
   seriesId: number
   dialogs: string[]
-  createdAt: string
-  updatedAt: string
-  Series?: Series
-  selected_image_id: number | null
-  GeneratedImage?: GeneratedImage[]
+  image1url: string | null
+  image2url: string | null
+  image3url: string | null
+  image4url: string | null
+  image5url: string | null
+  image6url: string | null
+  claimed: boolean
+  Series?: {
+    seriesid: number
+    name: string
+    universe: string
+    seriesability: string | null
+  }
 }
 
 export interface GeneratedImage {
@@ -34,7 +42,7 @@ export interface GeneratedImage {
 }
 
 export interface UserCollection {
-  id?: number
+  id: number
   userid: string
   characterid: number
   customName?: string

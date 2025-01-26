@@ -570,9 +570,17 @@ function GameContent() {
   // Update character filtering to use image1url
   const cycleCharacterImage = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering move
-    const image = selectedCharacter?.image1url;
-    if (image) {
-      setCurrentImageIndex((prev) => (prev + 1) % 4);
+    const images = [
+      selectedCharacter?.image1url,
+      selectedCharacter?.image2url,
+      selectedCharacter?.image3url,
+      selectedCharacter?.image4url,
+      selectedCharacter?.image5url,
+      selectedCharacter?.image6url,
+    ].filter(Boolean);
+    
+    if (images.length) {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
       soundManager.play('flip');
     }
   };
@@ -823,9 +831,18 @@ function GameContent() {
   // Character UI components
   const CharacterImage = ({ character }: { character: Character }) => {
     if (!character.image1url) return null;
+    const images = [
+      character.image1url,
+      character.image2url,
+      character.image3url,
+      character.image4url,
+      character.image5url,
+      character.image6url,
+    ].filter((url): url is string => url !== null);
+    
     return (
       <img
-        src={character.image1url}
+        src={images[currentImageIndex] || images[0]}
         alt={character.name}
         className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
       />
