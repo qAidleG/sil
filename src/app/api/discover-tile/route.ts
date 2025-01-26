@@ -1,129 +1,103 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { calculateGoldReward, GridTile, TileType } from '@/types/game'
-import { DatabaseCharacter, isDatabaseCharacter } from '@/types/database'
+import { Character, isDatabaseCharacter } from '@/types/database'
 
-async function generateEventContent(character: DatabaseCharacter) {
+async function generateEventContent(character: Character) {
   // TODO: Replace with actual Grok API call
-  const prompt = `You are ${character.name} from ${character.Series?.name}. Generate 3 unique, in-character reactions to finding 10 gold pieces. Each reaction should be a single sentence that reflects your personality and background. Respond in JSON format with keys E1, E2, and E3.`
+  const events = {
+    E1: [
+      `${character.name} shares their wisdom with you, granting +10 gold.`,
+      `${character.name} teaches you a valuable lesson about perseverance.`,
+      `${character.name} shows you a secret technique for gathering resources.`
+    ],
+    E2: [
+      `${character.name} helps you discover a hidden treasure, earning +10 gold.`,
+      `${character.name} leads you to a valuable resource cache.`,
+      `${character.name} reveals a shortcut that saves you time and resources.`
+    ],
+    E3: [
+      `${character.name} assists you in a challenging task, rewarding you with +10 gold.`,
+      `${character.name} shares their expertise, helping you earn a reward.`,
+      `${character.name} guides you to complete a difficult challenge successfully.`
+    ]
+  }
 
-  // Temporary mock response until Grok API is integrated
   return {
-    E1: `${character.name}: "What a fortunate discovery!"`,
-    E2: `${character.name}: "This gold will serve me well."`,
-    E3: `${character.name}: "A modest treasure, but welcome nonetheless."`
+    E1: events.E1[Math.floor(Math.random() * events.E1.length)],
+    E2: events.E2[Math.floor(Math.random() * events.E2.length)],
+    E3: events.E3[Math.floor(Math.random() * events.E3.length)]
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const { userId, tileId, currentTilemap } = await req.json()
-
-    if (!userId || !tileId || !currentTilemap) {
-      return NextResponse.json({ error: 'User ID, tile ID, and current tilemap are required' }, { status: 400 })
+    const { userId, tileId } = await req.json()
+    if (!userId || !tileId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Get current tile info
+    // Get current game state
+    const { data: gameState, error: gameError } = await supabaseAdmin
+      .from('gridprogress')
+      .select('tilemap')
+      .eq('userid', userId)
+      .single()
+
+    if (gameError) throw gameError
+    if (!gameState?.tilemap) {
+      return NextResponse.json({ error: 'No game in progress' }, { status: 400 })
+    }
+
+    const currentTilemap = gameState.tilemap
     const tile = currentTilemap.find((t: GridTile) => t.id === tileId)
+
     if (!tile) {
-      return NextResponse.json({ error: 'Invalid tile ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Tile not found' }, { status: 404 })
     }
 
-    // Get player stats
+    if (tile.type === 'C') {
+      return NextResponse.json({ error: 'Tile already claimed' }, { status: 400 })
+    }
+
+    // Get player stats for gold updates
     const { data: playerStats, error: statsError } = await supabaseAdmin
       .from('playerstats')
-      .select('gold, cards_collected')
+      .select('*')
       .eq('userid', userId)
       .single()
 
     if (statsError) throw statsError
 
-    let reward = null
+    let reward = 0
     let character = null
     let eventContent = null
 
-    // Handle different tile types
-    switch (tile.type as TileType) {
-      case 'G1':
-      case 'G2':
-      case 'G3':
-        reward = calculateGoldReward(tile.type)
+    // Process tile based on type
+    switch (tile.type) {
+      case 'G':
+        reward = calculateGoldReward(tile)
         // Update player gold
         const { error: goldError } = await supabaseAdmin
           .from('playerstats')
           .update({ gold: playerStats.gold + reward })
           .eq('userid', userId)
-        
+
         if (goldError) throw goldError
         break
 
-      case 'P1':
-      case 'P2':
-      case 'P3':
-      case 'P4':
-        if (tile.characterId) {
-          // Get character details
-          const { data: char, error: charError } = await supabaseAdmin
-            .from('Character')
-            .select('*, Series(*)')
-            .eq('characterid', tile.characterId)
-            .single()
-
-          if (charError) throw charError
-          if (!isDatabaseCharacter(char)) {
-            throw new Error('Invalid character data received')
-          }
-
-          // Add to user's collection
-          const { error: collectionError } = await supabaseAdmin
-            .from('UserCollection')
-            .insert({
-              userid: userId,
-              characterid: tile.characterId,
-              favorite: false
-            })
-
-          if (collectionError) throw collectionError
-
-          // Mark character as claimed
-          await supabaseAdmin
-            .from('Character')
-            .update({ claimed: true })
-            .eq('characterid', tile.characterId)
-
-          // Update cards collected
-          await supabaseAdmin
-            .from('playerstats')
-            .update({ cards_collected: playerStats.cards_collected + 1 })
-            .eq('userid', userId)
-
-          character = char
-        }
-        break
-
-      case 'E1':
-      case 'E2':
-      case 'E3':
-        // Get player's current character
-        const { data: userCollection, error: currentCharError } = await supabaseAdmin
+      case 'C1':
+      case 'C2':
+      case 'C3':
+      case 'C4':
+      case 'C5':
+        // Get a random unclaimed character
+        const { data: userCollection, error: collectionError } = await supabaseAdmin
           .from('UserCollection')
           .select(`
-            characterid,
-            Character:characterid (
-              characterid,
-              name,
-              bio,
-              rarity,
-              dialogs,
-              claimed,
-              image1url,
-              image2url,
-              image3url,
-              image4url,
-              image5url,
-              image6url,
-              Series:seriesId (
-                seriesid,
+            Roster (
+              *,
+              Series (
                 name,
                 universe,
                 seriesability
@@ -131,65 +105,26 @@ export async function POST(req: Request) {
             )
           `)
           .eq('userid', userId)
-          .eq('favorite', true)
-          .single()
 
-        if (currentCharError) throw currentCharError
+        if (collectionError) throw collectionError
 
-        if (userCollection?.Character) {
-          // Convert the Supabase response to our DatabaseCharacter type
-          const char = userCollection.Character as unknown as {
-            characterid: number
-            name: string
-            bio: string
-            rarity: number
-            dialogs: string[] | null
-            claimed: boolean
-            image1url: string | null
-            image2url: string | null
-            image3url: string | null
-            image4url: string | null
-            image5url: string | null
-            image6url: string | null
-            Series: {
-              seriesid: number
-              name: string
-              universe: string
-              seriesability: string | null
-            } | null
-          }
+        // Convert the Supabase response to our Character type
+        const rosterData = userCollection[0]?.Roster
+        const char = rosterData as unknown as Character
 
-          const characterData: DatabaseCharacter = {
-            characterid: char.characterid,
-            seriesid: char.Series?.seriesid || 0,
-            name: char.name,
-            bio: char.bio,
-            rarity: char.rarity,
-            dialogs: char.dialogs,
-            claimed: char.claimed,
-            image1url: char.image1url,
-            image2url: char.image2url,
-            image3url: char.image3url,
-            image4url: char.image4url,
-            image5url: char.image5url,
-            image6url: char.image6url,
-            Series: char.Series
-          }
+        if (isDatabaseCharacter(char)) {
+          // Generate event content
+          const content = await generateEventContent(char)
+          eventContent = content[tile.type as 'E1' | 'E2' | 'E3']  // Type-safe access
+          reward = 10  // Fixed 10 gold for event tiles
 
-          if (isDatabaseCharacter(characterData)) {
-            // Generate event content
-            const content = await generateEventContent(characterData)
-            eventContent = content[tile.type as 'E1' | 'E2' | 'E3']  // Type-safe access
-            reward = 10  // Fixed 10 gold for event tiles
+          // Update player gold
+          const { error: eventGoldError } = await supabaseAdmin
+            .from('playerstats')
+            .update({ gold: playerStats.gold + reward })
+            .eq('userid', userId)
 
-            // Update player gold
-            const { error: eventGoldError } = await supabaseAdmin
-              .from('playerstats')
-              .update({ gold: playerStats.gold + reward })
-              .eq('userid', userId)
-
-            if (eventGoldError) throw eventGoldError
-          }
+          if (eventGoldError) throw eventGoldError
         }
         break
     }

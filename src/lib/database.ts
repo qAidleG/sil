@@ -108,18 +108,18 @@ export const getSeries = async () => {
   return data as Series[]
 }
 
-export const getSeriesById = async (id: number) => {
+export const getSeriesById = async (seriesid: number) => {
   const { data, error } = await supabase
     .from('Series')
     .select(`
       *,
-      Character (
-        id,
+      Roster (
+        characterid,
         name,
         bio
       )
     `)
-    .eq('id', id)
+    .eq('seriesid', seriesid)
     .single()
   
   if (error) throw error
@@ -187,11 +187,12 @@ export const addToUserCollection = async (collection: NewUserCollection) => {
   return data[0] as UserCollection
 }
 
-export const removeFromUserCollection = async (id: number) => {
+export const removeFromUserCollection = async (userId: string, characterId: number) => {
   const { error } = await supabase
     .from('UserCollection')
     .delete()
-    .eq('id', id)
+    .eq('userid', userId)
+    .eq('characterid', characterId)
   
   if (error) throw error
 }
