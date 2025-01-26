@@ -40,7 +40,7 @@ export const getCharacter = async (id: number) => {
   return data as Character
 }
 
-export const getCharacters = async () => {
+export async function getCharacters(userId: string, showAll: boolean = false) {
   const { data, error } = await supabase
     .from('Character')
     .select(`

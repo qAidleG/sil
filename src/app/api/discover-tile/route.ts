@@ -161,6 +161,7 @@ export async function POST(req: Request) {
 
           const characterData: DatabaseCharacter = {
             characterid: char.characterid,
+            seriesid: char.Series?.seriesid || 0,
             name: char.name,
             bio: char.bio,
             rarity: char.rarity,

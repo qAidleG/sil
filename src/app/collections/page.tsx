@@ -50,15 +50,6 @@ export default function CollectionsPage() {
   const [selectedUniverse, setSelectedUniverse] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'rarity'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createForm, setCreateForm] = useState<CreateCharacterForm>({
-    name: '',
-    bio: '',
-    rarity: 3,
-    seriesId: null,
-    dialogs: [],
-    currentDialog: ''
-  })
   const [showAll, setShowAll] = useState(false)
   const [user, setUser] = useState<any>(null)
 
@@ -148,71 +139,6 @@ export default function CollectionsPage() {
     console.log('CollectionsPage: Fetching initial characters');
     fetchCharacters();
   }, [showAll]);
-
-  const handleCreateCharacter = async () => {
-    try {
-      setError(null)
-      if (!createForm.name.trim()) {
-        setError('Character name is required')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('Character')
-        .insert([{
-          name: createForm.name,
-          bio: createForm.bio,
-          seriesId: createForm.seriesId,
-          rarity: createForm.rarity,
-          dialogs: createForm.dialogs
-        }])
-        .select()
-
-      if (error) {
-        console.error('Error creating character:', error)
-        if (error.code === '42501') {
-          setError('Permission denied. Please check your database permissions.')
-        } else if (error.code === '401') {
-          setError('Authentication error. Please check your API credentials.')
-        } else {
-          setError('Failed to create character. Please try again later.')
-        }
-        return
-      }
-      
-      console.log('Created character:', data)
-      fetchCharacters() // Refresh the list
-      setShowCreateModal(false)
-      setCreateForm({
-        name: '',
-        bio: '',
-        rarity: 3,
-        seriesId: null,
-        dialogs: [],
-        currentDialog: ''
-      })
-    } catch (error) {
-      console.error('Error creating character:', error)
-      setError('Failed to create character. Please check console for details.')
-    }
-  }
-
-  const addDialog = () => {
-    if (createForm.currentDialog.trim()) {
-      setCreateForm(prev => ({
-        ...prev,
-        dialogs: [...prev.dialogs, prev.currentDialog.trim()],
-        currentDialog: ''
-      }))
-    }
-  }
-
-  const removeDialog = (index: number) => {
-    setCreateForm(prev => ({
-      ...prev,
-      dialogs: prev.dialogs.filter((_, i) => i !== index)
-    }))
-  }
 
   const handleQuickGenerate = async (character: Character) => {
     if (!character) return
@@ -336,27 +262,11 @@ export default function CollectionsPage() {
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
             Character Collection
           </h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <Plus size={20} />
-            <span>Create Character</span>
-          </button>
         </div>
 
         {error && (
           <div className="mb-8 p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200">
             <p>{error}</p>
-            {(error.includes('Authentication') || error.includes('Permission')) && (
-              <p className="mt-2 text-sm">
-                Make sure your environment variables are properly set in Vercel:
-                <br />
-                - NEXT_PUBLIC_SUPABASE_URL
-                <br />
-                - NEXT_PUBLIC_SUPABASE_ANON_KEY
-              </p>
-            )}
           </div>
         )}
 
@@ -460,114 +370,6 @@ export default function CollectionsPage() {
                 fetchCharacters={fetchCharacters}
               />
             ))}
-          </div>
-        )}
-
-        {/* Create Character Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="relative max-w-2xl w-full bg-gray-800/90 rounded-xl p-6 animate-float">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white"
-              >
-                <X size={24} />
-              </button>
-              
-              <h2 className="text-2xl font-bold mb-6 text-blue-400">Create New Character</h2>
-              
-              <div className="space-y-4">
-                {/* Name Input */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={createForm.name}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                    placeholder="Character name"
-                  />
-                </div>
-
-                {/* Bio Input */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Biography</label>
-                  <textarea
-                    value={createForm.bio}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, bio: e.target.value }))}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none h-32"
-                    placeholder="Character biography"
-                  />
-                </div>
-
-                {/* Rarity Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Rarity</label>
-                  <select
-                    value={createForm.rarity}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, rarity: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                  >
-                    {[5, 4, 3, 2, 1].map((rarity) => (
-                      <option key={rarity} value={rarity}>
-                        {'★'.repeat(rarity)} ({rarity} Star)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Dialogs */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Dialogs</label>
-                  <div className="space-y-2">
-                    {createForm.dialogs.map((dialog, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <div className="flex-1 p-2 bg-gray-900/50 border border-gray-700 rounded-lg">
-                          {dialog}
-                        </div>
-                        <button
-                          onClick={() => removeDialog(index)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <X size={20} />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={createForm.currentDialog}
-                        onChange={(e) => setCreateForm(prev => ({ ...prev, currentDialog: e.target.value }))}
-                        onKeyDown={(e) => e.key === 'Enter' && addDialog()}
-                        className="flex-1 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                        placeholder="Add a dialog line (press Enter)"
-                      />
-                      <button
-                        onClick={addDialog}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 border border-gray-700 rounded-lg hover:border-gray-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateCharacter}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg"
-                  >
-                    Create Character
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -749,36 +551,29 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
           </div>
         </div>
 
-        {isExpanded && character.GeneratedImage && character.GeneratedImage.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
-            <div className="grid grid-cols-2 gap-4">
-              {character.GeneratedImage.map((image) => (
-                image.url && (
-                  <div 
-                    key={image.id}
-                    className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-700 group"
-                  >
-                    <img
-                      src={image.url}
-                      alt={`Card art for ${character.name}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await onDeleteImage(image.id);
-                      }}
-                      className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )
+        {/* Character Images Grid */}
+        {isExpanded && (
+          <div>
+            <h3 className="text-lg font-semibold text-blue-400 mb-3">Character Images</h3>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                character.image1url,
+                character.image2url,
+                character.image3url,
+                character.image4url,
+                character.image5url,
+                character.image6url
+              ].filter((url): url is string => url !== null).map((url, index) => (
+                <div
+                  key={index}
+                  className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={url}
+                    alt={`${character.name} art ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -845,9 +640,10 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
             <div className="flex justify-end space-x-3">
               <Link
                 href={`/charasphere/game?character=${character.characterid}`}
-                className="text-blue-400 hover:text-blue-300 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
               >
-                Play Game
+                <Swords size={18} />
+                <span>Play Game</span>
               </Link>
               <button
                 onClick={() => onQuickGenerate(character)}
