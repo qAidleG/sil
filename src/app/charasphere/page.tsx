@@ -6,44 +6,34 @@ import { StarField } from '../components/StarField'
 import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Character, EnrichedCharacter } from '@/types/database'
+import { Character } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
 import { useUser } from '@/hooks/useUser'
 import { Button } from '@/components/ui/button'
 import { PlayerStats } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
-import { getImageUrl } from '@/utils/character'
 
 export default function CharaSpherePage() {
   const { user } = useUser()
   const router = useRouter()
   const [showPlayModal, setShowPlayModal] = useState(false)
-  const [selectedCharacter, setSelectedCharacter] = useState<EnrichedCharacter | null>(null)
-  const [characters, setCharacters] = useState<EnrichedCharacter[]>([])
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
+  const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [gameState, setGameState] = useState<GameState | null>(null)
 
   const loadCharacters = async () => {
-    if (!user?.id) return;
-    
     setLoading(true)
     try {
-      // First get the user's collection
-      const { data: userCollection, error: collectionError } = await supabase
-        .from('UserCollection')
-        .select('*')
-        .eq('userid', user.id)
-
-      if (collectionError) throw collectionError
-
-      // Then get all characters with their details
-      const { data: chars, error: charsError } = await supabase
+      const { data, error } = await supabase
         .from('Character')
         .select(`
           *,
+          id,
+          characterid,
           Series (
             id,
             seriesid,
@@ -53,21 +43,10 @@ export default function CharaSpherePage() {
         `)
         .order('name')
 
-      if (charsError) throw charsError
-
-      // Combine character data with user collection data
-      const enrichedCharacters = chars.map(char => {
-        const userChar = userCollection.find(uc => uc.characterid === char.characterid)
-        return {
-          ...char,
-          selectedImageId: userChar?.selectedImageId || 1
-        }
-      })
-
-      setCharacters(enrichedCharacters)
+      if (error) throw error
+      if (data) setCharacters(data)
     } catch (err) {
       console.error('Error loading characters:', err)
-      setError('Failed to load characters')
     } finally {
       setLoading(false)
     }
@@ -79,7 +58,7 @@ export default function CharaSpherePage() {
     setShowPlayModal(true)
   }
 
-  const handleCharacterClick = (character: EnrichedCharacter) => {
+  const handleCharacterClick = (character: Character) => {
     setSelectedCharacter(character)
   }
 
@@ -146,56 +125,52 @@ export default function CharaSpherePage() {
     .filter(char => char.characterid)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Update character card rendering
-  const renderCharacterCard = (character: EnrichedCharacter) => {
-    const selectedImage = getImageUrl(character, character.selectedImageId);
-    
-    return (
-      <div 
-        key={character.id || character.characterid}
-        onClick={() => handleCharacterClick(character)}
-        className={`
-          relative p-4 rounded-lg border-2 transition-all cursor-pointer
-          ${selectedCharacter?.characterid === character.characterid
-            ? 'border-blue-500 bg-gray-800'
-            : 'border-gray-700 bg-gray-900 hover:border-gray-500'}
-        `}
-      >
-        {selectedImage ? (
-          <img
-            src={selectedImage}
-            alt={character.name}
-            className="w-full h-48 object-cover rounded-lg mb-4"
-          />
-        ) : (
-          <div className="w-full h-48 bg-gray-800 rounded-lg mb-4 flex items-center justify-center">
-            <p className="text-gray-500">No image available</p>
-          </div>
-        )}
-        
-        <h3 className="text-lg font-semibold mb-2">{character.name}</h3>
-        <p className="text-sm text-gray-400 mb-4">{character.Series?.name}</p>
-        
-        {selectedCharacter?.characterid === character.characterid && (
-          <div className="mt-4 space-y-4">
-            <button
-              onClick={handlePlay}
-              disabled={!selectedImage}
-              className={`
-                w-full px-6 py-3 rounded-lg font-semibold
-                ${selectedImage
-                  ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
-                transition-colors
-              `}
-            >
-              {selectedImage ? 'Play Game' : 'No Image Available'}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // Update character grid
+  const renderCharacterCard = (character: Character) => (
+    <div 
+      key={character.id || character.characterid}
+      onClick={() => handleCharacterClick(character)}
+      className={`
+        relative p-4 rounded-lg border-2 transition-all cursor-pointer
+        ${selectedCharacter?.characterid === character.characterid
+          ? 'border-blue-500 bg-gray-800'
+          : 'border-gray-700 bg-gray-900 hover:border-gray-500'}
+      `}
+    >
+      {character.image1url ? (
+        <img
+          src={character.image1url}
+          alt={character.name}
+          className="w-full h-48 object-cover rounded-lg mb-4"
+        />
+      ) : (
+        <div className="w-full h-48 bg-gray-800 rounded-lg mb-4 flex items-center justify-center">
+          <p className="text-gray-500">No image available</p>
+        </div>
+      )}
+      
+      <h3 className="text-lg font-semibold mb-2">{character.name}</h3>
+      <p className="text-sm text-gray-400 mb-4">{character.Series?.name}</p>
+      
+      {selectedCharacter?.characterid === character.characterid && (
+        <div className="mt-4 space-y-4">
+          <button
+            onClick={handlePlay}
+            disabled={!character.image1url}
+            className={`
+              w-full px-6 py-3 rounded-lg font-semibold
+              ${character.image1url
+                ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
+              transition-colors
+            `}
+          >
+            {character.image1url ? 'Play Game' : 'No Image Available'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
@@ -325,36 +300,28 @@ export default function CharaSpherePage() {
                     </button>
                     <CharacterDetails 
                       character={selectedCharacter}
-                      selectedImageId={selectedCharacter.selectedImageId}
-                      onUpdate={(updatedChar) => {
-                        const enrichedChar = {
-                          ...updatedChar,
-                          selectedImageId: selectedCharacter.selectedImageId,
-                          favorite: 'favorite' in selectedCharacter ? selectedCharacter.favorite : false,
-                          customName: 'customName' in selectedCharacter ? selectedCharacter.customName : undefined
-                        } as EnrichedCharacter;
-                        
+                      onUpdate={(updatedChar: Character) => {
                         setCharacters(chars => 
-                          chars.map(c => c.characterid === enrichedChar.characterid ? enrichedChar : c)
-                        );
-                        setSelectedCharacter(enrichedChar);
+                          chars.map(c => c.characterid === updatedChar.characterid ? updatedChar : c)
+                        )
+                        setSelectedCharacter(updatedChar)
                       }}
                     />
                     <div className="mt-6 flex justify-end">
                       <button
                         onClick={handlePlay}
-                        disabled={!getImageUrl(selectedCharacter, selectedCharacter.selectedImageId)}
+                        disabled={!selectedCharacter.image1url}
                         className={`
                           px-6 py-3 rounded-lg font-semibold
-                          ${getImageUrl(selectedCharacter, selectedCharacter.selectedImageId)
+                          ${selectedCharacter.image1url
                             ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
                             : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
                           transition-colors
                         `}
                       >
-                        {getImageUrl(selectedCharacter, selectedCharacter.selectedImageId)
+                        {selectedCharacter.image1url
                           ? 'Play Game'
-                          : 'No Image Available'}
+                          : 'Generate Image to Play'}
                       </button>
                     </div>
                   </div>

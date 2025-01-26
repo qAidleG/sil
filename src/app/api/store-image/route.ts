@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     // Store the record with our stored image URL using admin client
     const now = new Date().toISOString()
-    const { data, error } = await supabaseAdmin
+    const { data: imageData, error: imageError } = await supabaseAdmin
       .from('GeneratedImage')
       .insert([{
         characterId,
@@ -61,12 +61,25 @@ export async function POST(req: Request) {
       }])
       .select()
 
-    if (error) {
-      console.error('Database error:', error)
-      throw error
+    if (imageError) {
+      console.error('Database error:', imageError)
+      throw imageError
     }
 
-    return NextResponse.json(data[0])
+    // Update character's selected_image_id if it's not set
+    const { data: charData, error: charError } = await supabaseAdmin
+      .from('Character')
+      .update({ selected_image_id: imageData[0].id })
+      .eq('id', characterId)
+      .is('selected_image_id', null)
+      .select()
+
+    if (charError) {
+      console.error('Error updating character:', charError)
+      // Don't throw, as the image was still created successfully
+    }
+
+    return NextResponse.json(imageData[0])
   } catch (error) {
     console.error('Error in store-image:', error)
     return NextResponse.json(

@@ -14,36 +14,23 @@ import type {
 } from '@/types/database'
 
 // Character Operations
-export const getCharacters = async (userId: string, showAll: boolean = false) => {
-  try {
-    console.log('Fetching all characters');
-    
-    const response = await fetch('/api/characters');
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error);
-    }
-    
-    const data = await response.json();
-    console.log('Character query result:', { data });
-    
-    // Always return all characters, no filtering
-    return data.filter((char: Character) => Array.isArray(char.GeneratedImage) && char.GeneratedImage.length > 0);
-  } catch (error) {
-    console.error('Error in getCharacters:', error);
-    return [];
-  }
-}
-
-export const getCharacterById = async (id: number) => {
+export const getCharacter = async (id: number) => {
   const { data, error } = await supabase
     .from('Character')
     .select(`
       *,
       Series (
-        id,
         name,
-        description
+        universe
+      ),
+      GeneratedImage (
+        id,
+        url,
+        prompt,
+        style,
+        seed,
+        createdAt,
+        updatedAt
       )
     `)
     .eq('id', id)
@@ -51,6 +38,31 @@ export const getCharacterById = async (id: number) => {
   
   if (error) throw error
   return data as Character
+}
+
+export const getCharacters = async () => {
+  const { data, error } = await supabase
+    .from('Character')
+    .select(`
+      *,
+      Series (
+        name,
+        universe
+      ),
+      GeneratedImage (
+        id,
+        url,
+        prompt,
+        style,
+        seed,
+        createdAt,
+        updatedAt
+      )
+    `)
+    .order('name')
+  
+  if (error) throw error
+  return data as Character[]
 }
 
 export const createCharacter = async (character: NewCharacter) => {

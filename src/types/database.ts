@@ -4,30 +4,33 @@ export interface Series {
   name: string
   universe: string
   seriesability?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Character {
-  id?: number
-  characterid: number
+  id: number
   name: string
   bio: string
   rarity: number
+  seriesId: number
   dialogs: string[]
-  image1url?: string
-  image2url?: string
-  image3url?: string
-  image4url?: string
-  image5url?: string
-  image6url?: string
-  claimed: boolean
-  selectedImageId?: number
-  Series?: {
-    id?: number
-    seriesid: number
-    name: string
-    universe: string
-    seriesability?: string
-  }
+  createdAt: string
+  updatedAt: string
+  Series?: Series
+  selected_image_id: number | null
+  GeneratedImage?: GeneratedImage[]
+}
+
+export interface GeneratedImage {
+  id: number
+  characterId: number
+  url: string
+  prompt: string
+  style: string
+  seed: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface UserCollection {
@@ -123,9 +126,23 @@ export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
   )
 }
 
-// Enriched character type that includes user collection data
-export interface EnrichedCharacter extends Character {
-  selectedImageId: number
-  favorite: boolean
-  customName?: string
+export interface NewCharacter {
+  name: string
+  bio: string
+  rarity: number
+  seriesId: number
+  dialogs: string[]
+}
+
+export interface NewSeries {
+  name: string
+  universe: string
+}
+
+export interface NewGeneratedImage {
+  characterId: number
+  url: string
+  prompt: string
+  style: string
+  seed: number
 } 

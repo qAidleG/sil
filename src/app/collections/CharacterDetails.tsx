@@ -1,12 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Character, EnrichedCharacter } from '@/types/database'
+import { Character } from '@/types/database'
 import { ImageIcon, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getImageUrl, hasImages } from '@/utils/character'
-import { useUser } from '@supabase/auth-helpers-react'
-import Image from 'next/image'
 
 interface ImageGenerationForm {
   pose: 'portrait' | 'action' | 'dramatic'
@@ -16,21 +13,19 @@ interface ImageGenerationForm {
 }
 
 interface CharacterDetailsProps {
-  character: Character | EnrichedCharacter
-  onUpdate: (character: Character | EnrichedCharacter) => void
-  selectedImageId?: number
+  character: Character
+  onUpdate: (character: Character) => void
 }
 
-export function CharacterDetails({ character, onUpdate, selectedImageId }: CharacterDetailsProps) {
+export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps) {
   const [generatingImage, setGeneratingImage] = useState(false)
+  const [selectedImageId, setSelectedImageId] = useState<number | null>(character.selected_image_id)
   const [imageForm, setImageForm] = useState<ImageGenerationForm>({
     pose: 'portrait',
     style: 'anime',
     mood: 'neutral',
     background: 'card'
   })
-  const { user } = useUser()
-  const [loading, setLoading] = useState(false)
 
   // Get rarity color based on rarity level
   const getRarityColor = (rarity: number) => {
@@ -195,45 +190,50 @@ export function CharacterDetails({ character, onUpdate, selectedImageId }: Chara
     }
   }
 
-  const handleImageSelect = async (imageNumber: number) => {
-    if (!user) return
-    setLoading(true)
+  const handleImageSelect = async (imageId: number) => {
     try {
-      const { error } = await supabase
-        .from('UserCollection')
-        .update({ selectedImageId: imageNumber })
-        .eq('userid', user.id)
-        .eq('characterid', character.characterid)
+      const { data, error } = await supabase
+        .from('Character')
+        .update({ selected_image_id: imageId })
+        .eq('id', character.id)
+        .select(`
+          *,
+          Series (
+            name,
+            universe
+          ),
+          GeneratedImage (
+            url
+          )
+        `)
+        .single()
 
       if (error) throw error
-      
-      if (onUpdate) {
-        onUpdate({
-          ...character,
-          selectedImageId: imageNumber
-        })
-      }
+      setSelectedImageId(imageId)
+      onUpdate(data)
     } catch (error) {
-      console.error('Error updating selected image:', error)
-    } finally {
-      setLoading(false)
+      console.error('Error selecting image:', error)
     }
   }
 
+  // Update image rendering
+  const hasImages = character.image1url || character.image2url || character.image3url || 
+                   character.image4url || character.image5url || character.image6url;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-start space-x-6">
         {/* Main character image */}
         <div className="w-1/3">
-          {character.image1url ? (
+          {character.selected_image_id ? (
             <img
-              src={character.image1url}
+              src={character.GeneratedImage?.url}
               alt={character.name}
               className="w-full rounded-lg shadow-lg"
             />
           ) : (
             <div className="w-full aspect-square bg-gray-800 rounded-lg flex items-center justify-center">
-              <p className="text-gray-500">No image available</p>
+              <p className="text-gray-500">No image selected</p>
             </div>
           )}
         </div>
@@ -245,7 +245,7 @@ export function CharacterDetails({ character, onUpdate, selectedImageId }: Chara
           <p className="text-gray-300 mb-4">{character.bio}</p>
           
           <div className="flex items-center space-x-4">
-            <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">
+            <div className={`px-3 py-1 bg-opacity-20 rounded-full text-sm ${getRarityColor(character.rarity)}`}>
               Rarity: {character.rarity}
             </div>
             {character.Series?.universe && (
@@ -257,42 +257,27 @@ export function CharacterDetails({ character, onUpdate, selectedImageId }: Chara
         </div>
       </div>
 
-      {/* Additional character images */}
-      {hasImages(character) && (
+      {/* Generated Images Grid */}
+      {character.GeneratedImage && character.GeneratedImage.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-blue-400 mb-3">Card Art</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((imageNumber) => {
-              const imageUrl = getImageUrl(character, imageNumber)
-              if (!imageUrl) return null
-
-              const isSelected = character.selectedImageId === imageNumber
-
-              return (
-                <div key={imageNumber} className="relative">
-                  <button
-                    onClick={() => handleImageSelect(imageNumber)}
-                    disabled={loading}
-                    className={`
-                      relative w-full aspect-square rounded-lg overflow-hidden
-                      ${isSelected ? 'ring-4 ring-blue-500' : 'hover:ring-2 hover:ring-gray-400'}
-                    `}
-                  >
-                    <Image
-                      src={imageUrl}
-                      alt={`${character.name} - Image ${imageNumber}`}
-                      fill
-                      className="object-cover"
-                    />
-                    {isSelected && (
-                      <div className="absolute bottom-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                        Selected
-                      </div>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
+          <h3 className="text-lg font-semibold text-blue-400 mb-3">Generated Images</h3>
+          <div className="grid grid-cols-3 gap-4">
+            {character.GeneratedImage.map((image) => (
+              <div
+                key={image.id}
+                className={`
+                  relative aspect-square rounded-lg overflow-hidden cursor-pointer
+                  ${image.id === selectedImageId ? 'ring-2 ring-blue-500' : ''}
+                `}
+                onClick={() => handleImageSelect(image.id)}
+              >
+                <img
+                  src={image.url}
+                  alt={`${character.name} generated art`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}

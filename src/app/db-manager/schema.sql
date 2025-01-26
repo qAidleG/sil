@@ -175,4 +175,7 @@ CREATE POLICY "Allow anyone to read characters"
 ON public."Character"
 FOR SELECT
 TO public
-USING (true); 
+USING (true);
+
+-- Add selected_image_id column to Character table
+ALTER TABLE public."Character" ADD COLUMN IF NOT EXISTS selected_image_id INTEGER REFERENCES public."GeneratedImage"(id); 
