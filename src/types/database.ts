@@ -1,11 +1,8 @@
 export interface Series {
-  id?: number
   seriesid: number
   name: string
   universe: string
-  seriesability?: string
-  createdAt: string
-  updatedAt: string
+  seriesability?: string | null
 }
 
 export interface Character {
@@ -22,28 +19,24 @@ export interface Character {
   image5url: string | null
   image6url: string | null
   claimed: boolean
-  Series?: {
-    seriesid: number
-    name: string
-    universe: string
-    seriesability: string | null
-  } | null
+  Series?: Series | null
 }
 
 export interface UserCollection {
   id: number
   userid: string
   characterid: number
-  customName?: string
+  customName?: string | null
   favorite: boolean
-  selectedImageId?: number
+  selectedImageId?: number | null
+  Character?: Character
 }
 
 export interface PlayerStats {
   userid: string
   turns: number
   gold: number
-  email?: string
+  email?: string | null
 }
 
 export interface GridProgress {
@@ -60,11 +53,8 @@ export type UpdateUserCollection = Partial<UserCollection>
 export type UpdatePlayerStats = Partial<PlayerStats>
 export type UpdateGridProgress = Partial<GridProgress>
 
-// Database response types
-export interface DatabaseCharacter extends Character {}
-
-// Type guard for DatabaseCharacter
-export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
+// Type guard for Character
+export function isDatabaseCharacter(obj: any): obj is Character {
   return (
     typeof obj === 'object' &&
     obj !== null &&
@@ -72,6 +62,7 @@ export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
     typeof obj.name === 'string' &&
     typeof obj.bio === 'string' &&
     typeof obj.rarity === 'number' &&
+    typeof obj.seriesid === 'number' &&
     (obj.dialogs === null || Array.isArray(obj.dialogs)) &&
     typeof obj.claimed === 'boolean' &&
     (obj.Series === null ||
@@ -94,6 +85,7 @@ export interface NewCharacter {
 export interface NewSeries {
   name: string
   universe: string
+  seriesability?: string
 }
 
 export interface NewUserCollection {

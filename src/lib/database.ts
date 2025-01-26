@@ -3,37 +3,27 @@ import { supabaseAdmin } from './supabase-admin'
 import type {
   Character,
   Series,
-  GeneratedImage,
   UserCollection,
   NewCharacter,
   NewSeries,
-  NewGeneratedImage,
   NewUserCollection,
   UpdateCharacter,
   UpdateSeries,
 } from '@/types/database'
 
 // Character Operations
-export const getCharacter = async (id: number) => {
+export const getCharacter = async (characterid: number) => {
   const { data, error } = await supabase
-    .from('Character')
+    .from('Roster')
     .select(`
       *,
       Series (
         name,
-        universe
-      ),
-      GeneratedImage (
-        id,
-        url,
-        prompt,
-        style,
-        seed,
-        createdAt,
-        updatedAt
+        universe,
+        seriesability
       )
     `)
-    .eq('id', id)
+    .eq('characterid', characterid)
     .single()
   
   if (error) throw error
@@ -41,26 +31,32 @@ export const getCharacter = async (id: number) => {
 }
 
 export async function getCharacters(userId: string, showAll: boolean = false) {
-  const { data, error } = await supabase
-    .from('Character')
+  let query = supabase
+    .from('Roster')
     .select(`
       *,
       Series (
         name,
-        universe
-      ),
-      GeneratedImage (
-        id,
-        url,
-        prompt,
-        style,
-        seed,
-        createdAt,
-        updatedAt
+        universe,
+        seriesability
       )
     `)
     .order('name')
-  
+
+  if (!showAll) {
+    // Only show claimed characters for the user
+    const { data: userCollection } = await supabase
+      .from('UserCollection')
+      .select('characterid')
+      .eq('userid', userId)
+
+    if (userCollection) {
+      const characterIds = userCollection.map(uc => uc.characterid)
+      query = query.in('characterid', characterIds)
+    }
+  }
+
+  const { data, error } = await query
   if (error) throw error
   return data as Character[]
 }
@@ -101,8 +97,8 @@ export const getSeries = async () => {
     .from('Series')
     .select(`
       *,
-      Character (
-        id,
+      Roster (
+        characterid,
         name
       )
     `)
@@ -160,55 +156,22 @@ export const deleteSeries = async (id: number) => {
   if (error) throw error
 }
 
-// Generated Image Operations
-export const getGeneratedImages = async (limit = 50) => {
-  const { data, error } = await supabase
-    .from('GeneratedImage')
-    .select('*')
-    .order('createdAt', { ascending: false })
-    .limit(limit)
-  
-  if (error) throw error
-  return data as GeneratedImage[]
-}
-
-export const createGeneratedImage = async (image: NewGeneratedImage) => {
-  const { data, error } = await supabase
-    .from('GeneratedImage')
-    .insert([image])
-    .select()
-  
-  if (error) throw error
-  return data[0] as GeneratedImage
-}
-
-export const deleteGeneratedImage = async (id: number) => {
-  const { error } = await supabase
-    .from('GeneratedImage')
-    .delete()
-    .eq('id', id)
-  
-  if (error) throw error
-}
-
 // User Collection Operations
-export const getUserCollections = async (userId: string) => {
+export const getUserCollection = async (userId: string) => {
   const { data, error } = await supabase
     .from('UserCollection')
     .select(`
       *,
-      Character (
-        id,
-        name,
-        bio,
+      Roster (
+        *,
         Series (
-          id,
-          name
+          name,
+          universe,
+          seriesability
         )
       )
     `)
-    .eq('userId', userId)
-    .order('createdAt', { ascending: false })
+    .eq('userid', userId)
   
   if (error) throw error
   return data as UserCollection[]
@@ -231,6 +194,18 @@ export const removeFromUserCollection = async (id: number) => {
     .eq('id', id)
   
   if (error) throw error
+}
+
+export const updateUserCollection = async (userId: string, characterId: number, updates: Partial<UserCollection>) => {
+  const { data, error } = await supabase
+    .from('UserCollection')
+    .update(updates)
+    .eq('userid', userId)
+    .eq('characterid', characterId)
+    .select()
+  
+  if (error) throw error
+  return data[0] as UserCollection
 }
 
 // Error Handling Wrapper
