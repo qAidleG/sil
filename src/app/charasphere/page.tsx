@@ -60,6 +60,7 @@ export default function CharaSpherePage() {
 
   const handleCharacterClick = (character: Character) => {
     setSelectedCharacter(character)
+    router.push(`/charasphere/game?character=${character.characterid}`)
   }
 
   const handleCloseDetails = () => {
@@ -127,14 +128,15 @@ export default function CharaSpherePage() {
 
   // Update character grid
   const renderCharacterCard = (character: Character) => (
-    <div 
-      key={character.id || character.characterid}
+    <div
+      key={character.characterid}
       onClick={() => handleCharacterClick(character)}
       className={`
         relative p-4 rounded-lg border-2 transition-all cursor-pointer
         ${selectedCharacter?.characterid === character.characterid
-          ? 'border-blue-500 bg-gray-800'
-          : 'border-gray-700 bg-gray-900 hover:border-gray-500'}
+          ? 'border-blue-500 bg-blue-500/10'
+          : 'border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/5'
+        }
       `}
     >
       {character.image1url ? (

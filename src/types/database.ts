@@ -13,8 +13,8 @@ export interface Character {
   name: string
   bio: string
   rarity: number
-  seriesId: number
-  dialogs: string[]
+  seriesid: number
+  dialogs: string[] | null
   image1url: string | null
   image2url: string | null
   image3url: string | null
@@ -27,18 +27,7 @@ export interface Character {
     name: string
     universe: string
     seriesability: string | null
-  }
-}
-
-export interface GeneratedImage {
-  id: number
-  characterId: number
-  url: string
-  prompt: string
-  style: string
-  seed: number
-  createdAt: string
-  updatedAt: string
+  } | null
 }
 
 export interface UserCollection {
@@ -64,27 +53,6 @@ export interface GridProgress {
   clearreward?: any
 }
 
-export interface Roster {
-  characterid: number
-  name: string
-  bio: string
-  rarity: number
-  dialogs: string[] | null
-  image1url: string | null
-  image2url: string | null
-  image3url: string | null
-  image4url: string | null
-  image5url: string | null
-  image6url: string | null
-  claimed: boolean
-  Series: {
-    seriesid: number
-    name: string
-    universe: string
-    seriesability: string | null
-  } | null
-}
-
 // Type for updates
 export type UpdateCharacter = Partial<Character>
 export type UpdateSeries = Partial<Series>
@@ -93,26 +61,7 @@ export type UpdatePlayerStats = Partial<PlayerStats>
 export type UpdateGridProgress = Partial<GridProgress>
 
 // Database response types
-export interface DatabaseCharacter {
-  characterid: number
-  name: string
-  bio: string
-  rarity: number
-  dialogs: string[] | null
-  image1url: string | null
-  image2url: string | null
-  image3url: string | null
-  image4url: string | null
-  image5url: string | null
-  image6url: string | null
-  claimed: boolean
-  Series: {
-    seriesid: number
-    name: string
-    universe: string
-    seriesability: string | null
-  } | null
-}
+export interface DatabaseCharacter extends Character {}
 
 // Type guard for DatabaseCharacter
 export function isDatabaseCharacter(obj: any): obj is DatabaseCharacter {
@@ -138,7 +87,7 @@ export interface NewCharacter {
   name: string
   bio: string
   rarity: number
-  seriesId: number
+  seriesid: number
   dialogs: string[]
 }
 
@@ -147,10 +96,10 @@ export interface NewSeries {
   universe: string
 }
 
-export interface NewGeneratedImage {
-  characterId: number
-  url: string
-  prompt: string
-  style: string
-  seed: number
+export interface NewUserCollection {
+  userid: string
+  characterid: number
+  customName?: string | null
+  favorite: boolean
+  selectedImageId?: number | null
 } 

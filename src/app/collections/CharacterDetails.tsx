@@ -19,7 +19,6 @@ interface CharacterDetailsProps {
 
 export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps) {
   const [generatingImage, setGeneratingImage] = useState(false)
-  const [selectedImageId, setSelectedImageId] = useState<number | null>(character.selected_image_id)
   const [imageForm, setImageForm] = useState<ImageGenerationForm>({
     pose: 'portrait',
     style: 'anime',
@@ -62,7 +61,7 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characterId: character.id,
+          characterId: character.characterid,
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
@@ -82,12 +81,9 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
           Series (
             name,
             universe
-          ),
-          GeneratedImage (
-            url
           )
         `)
-        .eq('id', character.id)
+        .eq('characterid', character.characterid)
         .single()
 
       if (refreshError) throw refreshError
@@ -153,7 +149,7 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characterId: character.id,
+          characterId: character.characterid,
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
@@ -173,12 +169,9 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
           Series (
             name,
             universe
-          ),
-          GeneratedImage (
-            url
           )
         `)
-        .eq('id', character.id)
+        .eq('characterid', character.characterid)
         .single()
 
       if (refreshError) throw refreshError
@@ -195,21 +188,17 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
       const { data, error } = await supabase
         .from('Character')
         .update({ selected_image_id: imageId })
-        .eq('id', character.id)
+        .eq('characterid', character.characterid)
         .select(`
           *,
           Series (
             name,
             universe
-          ),
-          GeneratedImage (
-            url
           )
         `)
         .single()
 
       if (error) throw error
-      setSelectedImageId(imageId)
       onUpdate(data)
     } catch (error) {
       console.error('Error selecting image:', error)
@@ -225,15 +214,15 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
       <div className="flex items-start space-x-6">
         {/* Main character image */}
         <div className="w-1/3">
-          {character.selected_image_id ? (
+          {character.image1url ? (
             <img
-              src={character.GeneratedImage?.url}
+              src={character.image1url}
               alt={character.name}
               className="w-full rounded-lg shadow-lg"
             />
           ) : (
             <div className="w-full aspect-square bg-gray-800 rounded-lg flex items-center justify-center">
-              <p className="text-gray-500">No image selected</p>
+              <p className="text-gray-500">No image available</p>
             </div>
           )}
         </div>
@@ -257,23 +246,26 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
         </div>
       </div>
 
-      {/* Generated Images Grid */}
-      {character.GeneratedImage && character.GeneratedImage.length > 0 && (
+      {/* Character Images Grid */}
+      {hasImages && (
         <div>
-          <h3 className="text-lg font-semibold text-blue-400 mb-3">Generated Images</h3>
+          <h3 className="text-lg font-semibold text-blue-400 mb-3">Character Images</h3>
           <div className="grid grid-cols-3 gap-4">
-            {character.GeneratedImage.map((image) => (
+            {[
+              character.image1url,
+              character.image2url,
+              character.image3url,
+              character.image4url,
+              character.image5url,
+              character.image6url,
+            ].filter((url): url is string => url !== null).map((url, index) => (
               <div
-                key={image.id}
-                className={`
-                  relative aspect-square rounded-lg overflow-hidden cursor-pointer
-                  ${image.id === selectedImageId ? 'ring-2 ring-blue-500' : ''}
-                `}
-                onClick={() => handleImageSelect(image.id)}
+                key={index}
+                className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
               >
                 <img
-                  src={image.url}
-                  alt={`${character.name} generated art`}
+                  src={url}
+                  alt={`${character.name} art ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
               </div>

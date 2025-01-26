@@ -251,7 +251,7 @@ export default function CollectionsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characterId: character.id,
+          characterId: character.characterid,
           url: data.image_url,
           prompt: basePrompt,
           style: 'anime',
@@ -452,7 +452,7 @@ export default function CollectionsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-min gap-6">
             {filteredCharacters.map((character) => (
               <CharacterCard 
-                key={character.id} 
+                key={character.characterid} 
                 character={character}
                 onQuickGenerate={handleQuickGenerate}
                 onDeleteImage={handleDeleteImage}
@@ -669,7 +669,7 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          characterId: character.id,
+          characterId: character.characterid,
           url: data.image_url,
           prompt: fullPrompt,
           style: imageForm.style,
@@ -844,11 +844,10 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
 
             <div className="flex justify-end space-x-3">
               <Link
-                href={`/charasphere/game?character=${character.id}`}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors"
+                href={`/charasphere/game?character=${character.characterid}`}
+                className="text-blue-400 hover:text-blue-300 transition-colors"
               >
-                <Swords size={18} />
-                <span>Play</span>
+                Play Game
               </Link>
               <button
                 onClick={() => onQuickGenerate(character)}
