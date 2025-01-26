@@ -1,90 +1,47 @@
-import { supabaseAdmin } from '@/lib/supabase-admin'
 import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(req: Request) {
   try {
-    if (!supabaseAdmin) {
-      throw new Error('Supabase admin client not initialized')
-    }
-
-    const { characterId, url, prompt, style, seed } = await req.json()
-
-    if (!characterId || !url) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    // Fetch the image from the Flux API URL
-    const imageResponse = await fetch(url)
-    if (!imageResponse.ok) {
-      throw new Error('Failed to fetch image from Flux API')
-    }
-    const imageBlob = await imageResponse.blob()
-
-    // Convert blob to jpg if it isn't already
-    const jpgBlob = new Blob([imageBlob], { type: 'image/jpeg' })
-
-    // Generate a unique filename in the public folder
-    const filename = `public/${Date.now()}-${seed}.jpg`
+    const { characterId, url } = await req.json()
     
-    // Upload to Supabase Storage using admin client
-    const { data: storageData, error: storageError } = await supabaseAdmin
-      .storage
-      .from('character-images')
-      .upload(filename, jpgBlob, {
-        contentType: 'image/jpeg',
-        cacheControl: '3600'
-      })
-
-    if (storageError) {
-      console.error('Storage error:', storageError)
-      throw new Error('Failed to upload image to storage')
+    if (!characterId || !url) {
+      return NextResponse.json({ error: 'Character ID and URL are required' }, { status: 400 })
     }
 
-    // Get the public URL using admin client
-    const { data: { publicUrl } } = supabaseAdmin
-      .storage
-      .from('character-images')
-      .getPublicUrl(filename)
+    // Get the character's current image URLs
+    const { data: character, error: getError } = await supabaseAdmin
+      .from('Roster')
+      .select('image1url, image2url, image3url, image4url, image5url, image6url')
+      .eq('characterid', characterId)
+      .single()
 
-    // Store the record with our stored image URL using admin client
-    const now = new Date().toISOString()
-    const { data: imageData, error: imageError } = await supabaseAdmin
-      .from('GeneratedImage')
-      .insert([{
-        characterId,
-        url: publicUrl,
-        prompt,
-        style,
-        seed,
-        createdAt: now,
-        updatedAt: now
-      }])
-      .select()
+    if (getError) throw getError
 
-    if (imageError) {
-      console.error('Database error:', imageError)
-      throw imageError
+    // Find the first empty slot
+    let updateField = null
+    if (!character.image1url) updateField = 'image1url'
+    else if (!character.image2url) updateField = 'image2url'
+    else if (!character.image3url) updateField = 'image3url'
+    else if (!character.image4url) updateField = 'image4url'
+    else if (!character.image5url) updateField = 'image5url'
+    else if (!character.image6url) updateField = 'image6url'
+
+    if (!updateField) {
+      return NextResponse.json({ error: 'Maximum of 6 images allowed' }, { status: 400 })
     }
 
-    // Update character's selected_image_id if it's not set
-    const { data: charData, error: charError } = await supabaseAdmin
-      .from('Character')
-      .update({ selected_image_id: imageData[0].id })
-      .eq('id', characterId)
-      .is('selected_image_id', null)
-      .select()
+    // Update the character with the new image URL
+    const { error: updateError } = await supabaseAdmin
+      .from('Roster')
+      .update({ [updateField]: url })
+      .eq('characterid', characterId)
 
-    if (charError) {
-      console.error('Error updating character:', charError)
-      // Don't throw, as the image was still created successfully
-    }
+    if (updateError) throw updateError
 
-    return NextResponse.json(imageData[0])
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error in store-image:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to store image' },
-      { status: 500 }
-    )
+    console.error('Error storing image:', error)
+    return NextResponse.json({ error: 'Failed to store image' }, { status: 500 })
   }
 } 

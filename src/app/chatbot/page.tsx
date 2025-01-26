@@ -141,6 +141,7 @@ export default function ChatbotPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
   const [selectedChatImage, setSelectedChatImage] = useState<{url: string, prompt?: string} | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -367,6 +368,25 @@ export default function ChatbotPage() {
       t.id === threadId ? { ...t, name: editingThreadName } : t
     ))
     setEditingThreadId(null)
+  }
+
+  const handleDeleteImage = async (characterId: number, imageField: string) => {
+    try {
+      const response = await fetch(`/api/delete-image?characterid=${characterId}&field=${imageField}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete image');
+      }
+
+      // Refresh the character data
+      fetchCharacter();
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      setError('Failed to delete image. Please try again.');
+    }
   }
 
   return (

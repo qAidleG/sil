@@ -4,11 +4,10 @@ import type {
   Character,
   Series,
   UserCollection,
-  NewCharacter,
   NewSeries,
   NewUserCollection,
-  UpdateCharacter,
   UpdateSeries,
+  UpdateUserCollection,
 } from '@/types/database'
 
 // Character Operations
@@ -61,36 +60,6 @@ export async function getCharacters(userId: string, showAll: boolean = false) {
   return data as Character[]
 }
 
-export const createCharacter = async (character: NewCharacter) => {
-  const { data, error } = await supabase
-    .from('Character')
-    .insert([character])
-    .select()
-  
-  if (error) throw error
-  return data[0] as Character
-}
-
-export const updateCharacter = async (id: number, updates: UpdateCharacter) => {
-  const { data, error } = await supabase
-    .from('Character')
-    .update({ ...updates, updatedAt: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-  
-  if (error) throw error
-  return data[0] as Character
-}
-
-export const deleteCharacter = async (id: number) => {
-  const { error } = await supabase
-    .from('Character')
-    .delete()
-    .eq('id', id)
-  
-  if (error) throw error
-}
-
 // Series Operations
 export const getSeries = async () => {
   const { data, error } = await supabase
@@ -124,36 +93,6 @@ export const getSeriesById = async (seriesid: number) => {
   
   if (error) throw error
   return data as Series
-}
-
-export const createSeries = async (series: NewSeries) => {
-  const { data, error } = await supabase
-    .from('Series')
-    .insert([series])
-    .select()
-  
-  if (error) throw error
-  return data[0] as Series
-}
-
-export const updateSeries = async (id: number, updates: UpdateSeries) => {
-  const { data, error } = await supabase
-    .from('Series')
-    .update({ ...updates, updatedAt: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-  
-  if (error) throw error
-  return data[0] as Series
-}
-
-export const deleteSeries = async (id: number) => {
-  const { error } = await supabase
-    .from('Series')
-    .delete()
-    .eq('id', id)
-  
-  if (error) throw error
 }
 
 // User Collection Operations
