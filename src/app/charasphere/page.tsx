@@ -96,7 +96,7 @@ export default function CharaSpherePage() {
 
   // Check if board is completed
   const isBoardCompleted = (state: GameState) => {
-    return state.tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
+    return state.tilemap.every(tile => tile.discovered)
   }
 
   const handleGameStart = async () => {
