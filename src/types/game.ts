@@ -18,6 +18,7 @@ export interface GameState {
   userId: string
   tilemap: GridTile[]
   gold: number
+  goldCollected: number    // Track total gold collected in this game
   turns: number
   unlockedTiers: string[]  // Track which character tiers are unlocked
   gridCleared: boolean     // Track if entire grid is discovered
