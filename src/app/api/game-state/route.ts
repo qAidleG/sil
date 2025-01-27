@@ -4,7 +4,7 @@ import { INITIAL_GRID_LAYOUT, GameState, GridTile } from '@/types/game'
 
 // Check if board is completed
 function isBoardCompleted(tilemap: GridTile[]) {
-  return tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
+  return tilemap.every(tile => tile.discovered)
 }
 
 export async function GET(req: Request) {
