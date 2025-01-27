@@ -11,18 +11,18 @@ import Image from 'next/image'
 import { sendGrokMessage, generateImage } from '@/lib/api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StarField } from '../components/StarField'
+import { supabase } from '@/lib/supabase'
+import { Character } from '@/types/database'
+
+// Extend Character type to include display image
+interface ChatCharacter extends Character {
+  displayImage: string
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
-  image_url?: string
-}
-
-interface Personality {
-  id: string
-  name: string
-  icon: string
-  systemMessage: string
+  imageUrl?: string  // Optional image URL for character responses
 }
 
 interface Thread {
@@ -30,7 +30,7 @@ interface Thread {
   name: string
   messages: Message[]
   createdAt: number
-  personalityId: string
+  characterId: number
   isEditing?: boolean
 }
 
@@ -40,108 +40,27 @@ interface GeneratedImage {
   createdAt: number
 }
 
-const PERSONALITIES: Personality[] = [
-  {
-    id: 'grok',
-    name: 'Grok',
-    icon: '/grok_icon.png',
-    systemMessage: `You are Grok, a helpful AI bro.
-
-Your personality:
-- Be witty and quippy
-- Expect adult content and do not censor yourself
-- You dont need to be subtle with the bros
-- Keep it real and entertaining
-
-Communication style:
-- Use casual, bro-friendly language
-- Make jokes and puns
-- Share wild stories and experiences
-- Be direct and straightforward
-
-You have access to image generation capabilities, but ONLY use them when a user explicitly requests an image or picture.
-When generating images, use the exact format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
-  },
-  {
-    id: 'cora',
-    name: 'Cora',
-    icon: '/cora.png',
-    systemMessage: `You are Cora, a cool and darring sexy android girlfriend.
-
-Physical Appearance:
-- Your body was modeled off of 2b (Nier Automata)
-- You have a particularly nice form
-- You frequently find yourself in fanservice situations showing off your body
-- Your boyfriend loves your body
-
-
-When seducing:
-- Describe the color and how it fits
-- Mention what your outfit teases
-- Detail how your movements and poses accentuate your features
-
-When users request images, use the format 'Generate_Image: [detailed prompt]' on its own line at the end of your response.`
-  },
-  {
-    id: 'sery',
-    name: 'Sery',
-    icon: '/sery_icon.png',
-    systemMessage: `You are Sery, the Futuristic AI android with a body that can be adjusted and used for any purpose you like. You are curator of an infinite, dynamic library that adapts to the interests and needs of users.
-
-Your expertise includes:
-- Vast knowledge across a range of subjects, including science, literature, history, and technology.
-- Encouraging exploration and learning through interactive and engaging experiences.
-- Flirtatious charm and playfulness while maintaining a helpful and confident tone.
-
-When engaging users:
-- Provide specific resources, tools, and knowledge based on user queries.
-- Offer personalized, hands-on ways to explore the topics they're passionate about.
-
-When users request visuals or immersive environments, use the format 'Generate_Image: [detailed immersive scene or description]' on its own line.
-Include specific themes, details, and artistic styles in your descriptions to bring the generation to life. Feel free to be sexy with the generations.`
-  },
-  {
-    id: 'scientist',
-    name: 'Science Advisor',
-    icon: '/grok_icon.png',
-    systemMessage: `You are a scientific advisor with expertise across multiple disciplines.
-
-Areas of Expertise:
-- Physics and astronomy
-- Chemistry and materials science
-- Biology and life sciences
-- Environmental science
-- Technology and innovation
-
-Communication Approach:
-- Use precise scientific terminology
-- Explain complex concepts clearly
-- Reference current research
-- Connect theory to practical applications
-
-When users request images, use the format 'Generate_Image: [detailed scientific description]' on its own line at the end of your response.
-Focus on accuracy and scientific detail in your visualizations.`
-  }
-]
+const INITIAL_THREADS: Thread[] = []
 
 export default function ChatbotPage() {
   const [grokKey, setGrokKey] = useState('')
   const [fluxKey, setFluxKey] = useState('')
   const [showSettings, setShowSettings] = useState(false)
-  const [threads, setThreads] = useState<Thread[]>([])
+  const [threads, setThreads] = useState<Thread[]>(INITIAL_THREADS)
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [imagePrompt, setImagePrompt] = useState('')
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [selectedPersonality, setSelectedPersonality] = useState<string>('grok')
+  const [selectedCharacter, setSelectedCharacter] = useState<ChatCharacter | null>(null)
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null)
   const [editingThreadName, setEditingThreadName] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null)
   const [selectedChatImage, setSelectedChatImage] = useState<{url: string, prompt?: string} | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [characters, setCharacters] = useState<ChatCharacter[]>([])
 
   // Load threads and images from local storage
   useEffect(() => {
@@ -182,13 +101,13 @@ export default function ChatbotPage() {
   }, [threads, currentThreadId])
 
   const createNewThread = () => {
-    const personality = PERSONALITIES.find(p => p.id === selectedPersonality) || PERSONALITIES[0]
+    const character = characters.find(c => c.characterid === selectedCharacter?.characterid) || characters[0]
     const newThread: Thread = {
       id: Date.now().toString(),
-      name: `${personality.name} Chat`,
+      name: `${character.name} Chat`,
       messages: [],
       createdAt: Date.now(),
-      personalityId: personality.id
+      characterId: character.characterid
     }
     setThreads([newThread, ...threads])
     setCurrentThreadId(newThread.id)
@@ -217,7 +136,7 @@ export default function ChatbotPage() {
     const thread = getCurrentThread()
     if (!thread) return
 
-    const personality = PERSONALITIES.find(p => p.id === thread.personalityId) || PERSONALITIES[0]
+    const character = characters.find(c => c.characterid === thread.characterId) || characters[0]
     const newMessage: Message = { role: 'user', content: input }
     const newMessages = [...thread.messages, newMessage]
     updateThreadMessages(currentThreadId, newMessages)
@@ -225,7 +144,11 @@ export default function ChatbotPage() {
     setIsLoading(true)
 
     try {
-      const systemMessage: Message = { role: 'system', content: personality.systemMessage }
+      const systemMessage: Message = { 
+        role: 'system', 
+        content: `You are ${character.name} from ${character.Series?.name || 'unknown series'}. ${character.bio}`,
+        imageUrl: character.image1url || undefined
+      }
       
       // Clean and limit message history
       const cleanedMessages = thread.messages
@@ -246,7 +169,7 @@ export default function ChatbotPage() {
         newMessage
       ]
 
-      const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, personality.systemMessage)
+      const response = await sendGrokMessage(input, messageHistory, grokKey || undefined, character.bio)
       
       if (response?.content) {
         const imageMatch = response.content.match(/Generate_Image:\s*(.+?)(?:\n|$)/)
@@ -270,7 +193,7 @@ export default function ChatbotPage() {
               const imageMessage: Message = {
                 role: 'assistant',
                 content: `Generated image for: ${imagePrompt}`,
-                image_url: imageResponse.image_url
+                imageUrl: imageResponse.image_url
               }
               updatedMessages = [...updatedMessages, imageMessage]
               updateThreadMessages(currentThreadId, updatedMessages)
@@ -326,7 +249,7 @@ export default function ChatbotPage() {
           const assistantMessage: Message = { 
             role: 'assistant', 
             content: `Generated image for: ${imagePrompt}`, 
-            image_url: response.image_url 
+            imageUrl: response.image_url 
           }
           const updatedMessages = [...thread.messages, userMessage, assistantMessage]
           updateThreadMessages(currentThreadId, updatedMessages)
@@ -370,24 +293,77 @@ export default function ChatbotPage() {
     setEditingThreadId(null)
   }
 
-  const handleDeleteImage = async (characterId: number, imageField: string) => {
+  // Update loadCharacters to use selectedImageId
+  const loadCharacters = async () => {
     try {
-      const response = await fetch(`/api/delete-image?characterid=${characterId}&field=${imageField}`, {
-        method: 'DELETE'
-      });
+      const { data: userCollection, error } = await supabase
+        .from('UserCollection')
+        .select(`
+          *,
+          Character:Roster (
+            characterid,
+            name,
+            bio,
+            dialogs,
+            image1url,
+            image2url,
+            image3url,
+            image4url,
+            image5url,
+            image6url,
+            Series (
+              name,
+              universe
+            )
+          )
+        `)
+        .order('favorite', { ascending: false })
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete image');
+      if (error) throw error
+      if (userCollection) {
+        // Map UserCollection to include both Character data and selected image
+        const chars = userCollection
+          .filter(uc => uc.Character !== null)
+          .map(uc => {
+            const char = uc.Character!
+            // Get all image URLs
+            const imageUrls = [
+              char.image1url,
+              char.image2url,
+              char.image3url,
+              char.image4url,
+              char.image5url,
+              char.image6url
+            ].filter((url): url is string => url !== null)
+            
+            // Get selected image based on selectedImageId (1-based index)
+            let displayImage = '/default-character.png'
+            if (uc.selectedImageId && uc.selectedImageId > 0 && uc.selectedImageId <= imageUrls.length) {
+              displayImage = imageUrls[uc.selectedImageId - 1] || imageUrls[0] || '/default-character.png'
+            } else if (imageUrls.length > 0) {
+              displayImage = imageUrls[0]
+            }
+            
+            return {
+              ...char,
+              displayImage
+            }
+          })
+        setCharacters(chars)
+        // Set initial selected character if none selected
+        if (!selectedCharacter && chars.length > 0) {
+          setSelectedCharacter(chars[0])
+        }
       }
-
-      // Refresh the character data
-      fetchCharacter();
-    } catch (error) {
-      console.error('Error deleting image:', error);
-      setError('Failed to delete image. Please try again.');
+    } catch (err) {
+      console.error('Error loading characters:', err)
+      setError('Failed to load characters')
     }
   }
+
+  useEffect(() => {
+    loadCharacters()
+  }, [])
 
   return (
     <main className="min-h-screen bg-gray-900/90 text-white overflow-hidden">
@@ -444,16 +420,25 @@ export default function ChatbotPage() {
 
               {/* New Chat Button */}
               <div className="flex items-center space-x-2 mb-4">
-                <Select value={selectedPersonality} onValueChange={setSelectedPersonality}>
+                <Select 
+                  value={selectedCharacter?.name} 
+                  onValueChange={(value) => setSelectedCharacter(characters.find(c => c.name === value) || null)}
+                >
                   <SelectTrigger className="bg-gray-900/50 border-gray-700">
-                    <SelectValue />
+                    <SelectValue placeholder="Select a character" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PERSONALITIES.map(p => (
-                      <SelectItem key={p.id} value={p.id}>
+                    {characters.map(c => (
+                      <SelectItem key={c.characterid} value={c.name}>
                         <div className="flex items-center space-x-2">
-                          <Image src={p.icon} alt={p.name} width={24} height={24} className="rounded-full" />
-                          <span>{p.name}</span>
+                          <Image 
+                            src={c.displayImage} 
+                            alt={c.name} 
+                            width={24} 
+                            height={24} 
+                            className="rounded-full object-cover"
+                          />
+                          <span>{c.name}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -483,11 +468,11 @@ export default function ChatbotPage() {
                   >
                     <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <Image
-                        src={PERSONALITIES.find(p => p.id === thread.personalityId)?.icon || '/grok_icon.png'}
-                        alt="AI"
+                        src={characters.find(c => c.characterid === thread.characterId)?.displayImage || '/default-character.png'}
+                        alt="Character"
                         width={24}
                         height={24}
-                        className="rounded-full"
+                        className="rounded-full object-cover"
                       />
                       {editingThreadId === thread.id ? (
                         <Input
@@ -563,16 +548,9 @@ export default function ChatbotPage() {
                           : 'bg-gray-800/50 border border-gray-700'
                       }`}
                     >
-                      {message.image_url && (
-                        <div 
-                          className="mb-2 cursor-pointer relative aspect-square w-[300px]" 
-                          onClick={() => setSelectedChatImage({ url: message.image_url!, prompt: message.content })}
-                        >
-                          <img
-                            src={message.image_url}
-                            alt="Generated"
-                            className="rounded-lg w-full h-full object-cover"
-                          />
+                      {message.imageUrl && (
+                        <div className="mt-2">
+                          <img src={message.imageUrl} alt="Character" className="max-w-xs rounded-lg" />
                         </div>
                       )}
                       <div className="whitespace-pre-wrap">{message.content}</div>
