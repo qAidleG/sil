@@ -1,16 +1,19 @@
 import { Character } from './database'
 
 // Grid Types
-export type TileType = 'G' | 'C' | 'C1' | 'C2' | 'C3' | 'C4' | 'P'  // Added P back for player position
+export type GoldTileType = 'G1' | 'G2' | 'G3'  // Different gold values
+export type EventTileType = 'E1' | 'E2' | 'E3'  // Event tiles
+export type CharacterTileType = 'C1' | 'C2' | 'C3' | 'C4'  // Character tiles
+export type TileType = GoldTileType | EventTileType | CharacterTileType | 'P'  // All tile types
 
 export interface GridTile {
   id: number
   type: TileType
   x: number
   y: number
-  characterId?: number
-  character?: Character
-  discovered: boolean  // Track if tile has been visited
+  characterId?: number    // ID of the unclaimed character assigned to this tile
+  character?: Character   // Character data if loaded
+  discovered: boolean     // Track if tile has been visited
 }
 
 // Game State
@@ -20,29 +23,28 @@ export interface GameState {
   gold: number
   goldCollected: number
   turns: number
-  unlockedTiers: string[]  // Track which character tiers are unlocked
   gridCleared: boolean     // Track if entire grid is discovered
 }
 
 // Reward Calculation
 export function calculateGoldReward(tile: GridTile): number {
+  const rollD3 = () => Math.floor(Math.random() * 3) + 1  // 1-3
+  
   switch (tile.type) {
-    case 'G': return 5     // Basic gold tile
-    case 'C': return 15    // Event card
-    case 'C1': return 20   // Tier 1 character
-    case 'C2': return 30   // Tier 2 character
-    case 'C3': return 40   // Tier 3 character
-    case 'C4': return 100  // Special character (requires grid clear)
+    case 'G1': return rollD3() + 3        // 4-6 gold
+    case 'G2': return (rollD3() + rollD3()) + 3  // 5-9 gold
+    case 'G3': return (rollD3() + rollD3() + rollD3()) + 3  // 6-12 gold
+    case 'E1':
+    case 'E2':
+    case 'E3':
+      return 10  // Event tiles give fixed reward
+    case 'C1':
+    case 'C2':
+    case 'C3':
+    case 'C4':
+      return 20  // Character tiles give fixed reward
     default: return 0
   }
-}
-
-// Check if character tier is available
-export function isCharacterTierAvailable(tier: string, gameState: GameState): boolean {
-  if (tier === 'C4') {
-    return gameState.gridCleared
-  }
-  return gameState.unlockedTiers.includes(tier)
 }
 
 // Movement validation
@@ -62,44 +64,67 @@ export function getPlayerPosition(tilemap: GridTile[]): GridTile | undefined {
 export function movePlayer(tilemap: GridTile[], fromId: number, toId: number): GridTile[] {
   return tilemap.map(tile => {
     if (tile.id === fromId) {
-      return { ...tile, type: tile.type === 'P' ? 'G' : tile.type, discovered: true }
+      // When leaving a tile, convert it to the appropriate gold tile based on position
+      const y = Math.floor((tile.y + 1) / 2)  // Convert y position to gold tier
+      return { ...tile, type: `G${y}` as TileType, discovered: true }
     }
     if (tile.id === toId) {
-      return { ...tile, type: 'P', discovered: true }
+      return { ...tile, type: 'P' as TileType, discovered: true }
     }
     return tile
   })
 }
 
-// Initial grid layout - used to initialize new games
-export const INITIAL_GRID_LAYOUT: GridTile[] = [
-  { id: 1, type: 'G', x: 0, y: 0, discovered: false },
-  { id: 2, type: 'G', x: 1, y: 0, discovered: false },
-  { id: 3, type: 'G', x: 2, y: 0, discovered: false },
-  { id: 4, type: 'C', x: 3, y: 0, discovered: false },
-  { id: 5, type: 'C', x: 4, y: 0, discovered: false },
-  { id: 6, type: 'C', x: 5, y: 0, discovered: false },
-  { id: 7, type: 'G', x: 0, y: 1, discovered: false },
-  { id: 8, type: 'G', x: 1, y: 1, discovered: false },
-  { id: 9, type: 'C1', x: 2, y: 1, discovered: false },
-  { id: 10, type: 'G', x: 3, y: 1, discovered: false },
-  { id: 11, type: 'C2', x: 4, y: 1, discovered: false },
-  { id: 12, type: 'G', x: 5, y: 1, discovered: false },
-  { id: 13, type: 'P', x: 0, y: 2, discovered: true },  // Player starting position
-  { id: 14, type: 'G', x: 1, y: 2, discovered: false },
-  { id: 15, type: 'C3', x: 2, y: 2, discovered: false },
-  { id: 16, type: 'G', x: 3, y: 2, discovered: false },
-  { id: 17, type: 'C4', x: 4, y: 2, discovered: false },
-  { id: 18, type: 'G', x: 5, y: 2, discovered: false },
-  { id: 19, type: 'G', x: 0, y: 3, discovered: false },
-  { id: 20, type: 'G', x: 1, y: 3, discovered: false },
-  { id: 21, type: 'C1', x: 2, y: 3, discovered: false },
-  { id: 22, type: 'G', x: 3, y: 3, discovered: false },
-  { id: 23, type: 'C2', x: 4, y: 3, discovered: false },
-  { id: 24, type: 'C3', x: 5, y: 3, discovered: false },
-  { id: 25, type: 'C4', x: 0, y: 4, discovered: false },
-  { id: 26, type: 'G', x: 1, y: 4, discovered: false }
-]
+// Generate randomized grid layout
+function generateRandomGridLayout(): GridTile[] {
+  // Create array of all possible tiles (excluding player position)
+  const tiles: TileType[] = [
+    'G1', 'G1', 'G1', 'G1', 'G1', 'G1',  // 6 G1 tiles
+    'G2', 'G2', 'G2', 'G2', 'G2', 'G2',  // 6 G2 tiles
+    'G3', 'G3', 'G3', 'G3', 'G3', 'G3',  // 6 G3 tiles
+    'E1', 'E2', 'E3',  // 3 event tiles
+    'C1', 'C2', 'C3', 'C4'  // 4 character tiles
+  ]
+
+  // Shuffle the tiles
+  for (let i = tiles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+  }
+
+  // Create the grid with shuffled tiles
+  const grid: GridTile[] = [];
+  let tileIndex = 0;
+  
+  for (let y = 0; y < 5; y++) {
+    for (let x = 0; x < 6; x++) {
+      // Skip middle position (0,2) for player
+      if (x === 0 && y === 2) {
+        grid.push({
+          id: grid.length + 1,
+          type: 'P',
+          x,
+          y,
+          discovered: true
+        });
+      } else if (tileIndex < tiles.length) {
+        grid.push({
+          id: grid.length + 1,
+          type: tiles[tileIndex],
+          x,
+          y,
+          discovered: false
+        });
+        tileIndex++;
+      }
+    }
+  }
+
+  return grid;
+}
+
+// Replace static INITIAL_GRID_LAYOUT with function call
+export const INITIAL_GRID_LAYOUT = generateRandomGridLayout();
 
 export interface NewPlayer {
   userid: string
@@ -113,7 +138,6 @@ export interface PullResult {
   characterId?: number
   character?: Character
   error?: string
-  tier?: string           // Track which tier was pulled
 }
 
 export type NewUserCollection = {
@@ -130,7 +154,6 @@ export interface DiscoverTileResponse {
   character?: Character
   eventContent?: string
   updatedTilemap: GridTile[]
-  unlockedTier?: string    // Indicate if a new tier was unlocked
   gridCleared?: boolean    // Indicate if grid was cleared
 }
 
