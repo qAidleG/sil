@@ -3,7 +3,7 @@ import { Character } from './database'
 // Grid Types
 export type GoldTileType = 'G1' | 'G2' | 'G3'  // Different gold values
 export type EventTileType = 'E1' | 'E2' | 'E3'  // Event tiles
-export type CharacterTileType = 'C1' | 'C2' | 'C3' | 'C4'  // Character tiles
+export type CharacterTileType = 'C1' | 'C2' | 'C3'  // Character tiles (C4 is board completion reward)
 export type TileType = GoldTileType | EventTileType | CharacterTileType | 'P'  // All tile types
 
 export interface GridTile {
@@ -14,9 +14,15 @@ export interface GridTile {
   characterId?: number    // ID of the unclaimed character assigned to this tile
   character?: Character   // Character data if loaded
   discovered: boolean     // Track if tile has been visited
+  eventContent?: string   // Store Grok-generated content for events and encounters
 }
 
 // Game State
+export interface CompletionReward {
+  characterId: number
+  eventContent: string
+}
+
 export interface GameState {
   userId: string
   tilemap: GridTile[]
@@ -26,6 +32,8 @@ export interface GameState {
   gridCleared: boolean     // Track if entire grid is discovered
   playerPosition: number   // Current position of player
   isCompleting?: boolean   // Flag for completion animation
+  unlockedCharacters: number[]  // Track character IDs unlocked in this game
+  completionReward?: CompletionReward  // C4 character and dialog for board completion
 }
 
 // Reward Calculation
@@ -43,7 +51,6 @@ export function calculateGoldReward(tile: GridTile): number {
     case 'C1':
     case 'C2':
     case 'C3':
-    case 'C4':
       return 20  // Character tiles give fixed reward
     default: return 0
   }
@@ -77,15 +84,22 @@ export function movePlayer(tilemap: GridTile[], fromId: number, toId: number): G
   })
 }
 
-// Generate randomized grid layout
+// Generate randomized grid layout with exact tile counts
 function generateRandomGridLayout(): GridTile[] {
   // Create array of all possible tiles (excluding player position)
   const tiles: TileType[] = [
-    'G1', 'G1', 'G1', 'G1', 'G1', 'G1',  // 6 G1 tiles
-    'G2', 'G2', 'G2', 'G2', 'G2', 'G2',  // 6 G2 tiles
-    'G3', 'G3', 'G3', 'G3', 'G3', 'G3',  // 6 G3 tiles
-    'E1', 'E2', 'E3',  // 3 event tiles
-    'C1', 'C2', 'C3', 'C4'  // 4 character tiles
+    // Gold tiles (12 total)
+    'G1', 'G1', 'G1', 'G1',  // 4 G1 tiles
+    'G2', 'G2', 'G2', 'G2',  // 4 G2 tiles
+    'G3', 'G3', 'G3', 'G3',  // 4 G3 tiles
+    
+    // Event tiles (9 total)
+    'E1', 'E1', 'E1',  // 3 E1 tiles
+    'E2', 'E2', 'E2',  // 3 E2 tiles
+    'E3', 'E3', 'E3',  // 3 E3 tiles
+    
+    // Character tiles (3 total)
+    'C1', 'C2', 'C3'  // 1 of each character tile
   ]
 
   // Shuffle the tiles
@@ -99,9 +113,9 @@ function generateRandomGridLayout(): GridTile[] {
   let tileIndex = 0;
   
   for (let y = 0; y < 5; y++) {
-    for (let x = 0; x < 6; x++) {
-      // Skip middle position (0,2) for player
-      if (x === 0 && y === 2) {
+    for (let x = 0; x < 5; x++) {
+      // Skip middle position (2,2) for player
+      if (x === 2 && y === 2) {
         grid.push({
           id: grid.length + 1,
           type: 'P',
@@ -157,6 +171,8 @@ export interface DiscoverTileResponse {
   eventContent?: string
   updatedTilemap: GridTile[]
   gridCleared?: boolean    // Indicate if grid was cleared
+  unlockedCharacter?: Character  // Character unlocked from tile
+  boardCompletionCharacter?: Character  // C4 character unlocked from completing board
 }
 
 export interface NewGameResponse {

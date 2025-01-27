@@ -1,20 +1,39 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { sendGrokMessage } from '@/lib/api'
 
 async function generateEventContent(character: any) {
-  // TODO: Replace with actual Grok API call
-  const prompt = `You are ${character.name} from ${character.Series?.name}. Generate 3 unique, in-character reactions to finding 10 gold pieces. Each reaction should be a single sentence that reflects your personality and background. Respond in JSON format with keys E1, E2, and E3. Example:
-  {
-    "E1": "What a fortunate discovery!",
-    "E2": "This gold will serve me well.",
-    "E3": "A modest treasure, but welcome nonetheless."
-  }`
+  const prompt = `You are ${character.name} from ${character.Series?.name || 'an unknown series'}. ${character.bio || ''}
 
-  // Temporary mock response until Grok API is integrated
-  return {
-    E1: `${character.name}: "What a fortunate discovery!"`,
-    E2: `${character.name}: "This gold will serve me well."`,
-    E3: `${character.name}: "A modest treasure, but welcome nonetheless."`
+Generate 3 unique, in-character reactions to finding treasure during an adventure. Each reaction should be a single sentence that reflects your personality and background. The responses should be varied:
+- E1: A wise or teaching moment
+- E2: A discovery or exploration moment
+- E3: An achievement or challenge moment
+
+Respond in JSON format with keys E1, E2, and E3. Example:
+{
+  "E1": "Let me share with you the wisdom I've gained from my journey.",
+  "E2": "What a fascinating discovery, it reminds me of my adventures in [relevant location].",
+  "E3": "Together we've overcome this challenge, just as I did when [relevant story]."
+}`
+
+  const response = await sendGrokMessage(prompt, [], process.env.GROK_API_KEY, character.bio)
+  
+  try {
+    // Parse the response as JSON
+    const content = response.content.trim()
+    const jsonStart = content.indexOf('{')
+    const jsonEnd = content.lastIndexOf('}') + 1
+    const jsonStr = content.slice(jsonStart, jsonEnd)
+    return JSON.parse(jsonStr)
+  } catch (error) {
+    console.error('Error parsing Grok response:', error)
+    // Fallback to basic responses
+    return {
+      E1: `${character.name}: "Let me share my wisdom with you."`,
+      E2: `${character.name}: "What an interesting discovery!"`,
+      E3: `${character.name}: "We've accomplished something meaningful."` 
+    }
   }
 }
 
@@ -38,7 +57,6 @@ export async function POST(req: Request) {
     }
 
     const eventContent = await generateEventContent(character)
-
     return NextResponse.json(eventContent)
 
   } catch (error) {

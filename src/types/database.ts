@@ -34,9 +34,18 @@ export interface UserCollection {
 
 export interface PlayerStats {
   userid: string
-  turns: number
   gold: number
-  email?: string | null
+  moves: number
+  cards: number  // Number of play cards available
+  last_move_refresh: string
+}
+
+// Initial stats for new players
+export const INITIAL_PLAYER_STATS: Omit<PlayerStats, 'userid'> = {
+  gold: 500,
+  moves: 30,
+  cards: 2,
+  last_move_refresh: new Date().toISOString()
 }
 
 export interface GridProgress {

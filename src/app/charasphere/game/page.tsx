@@ -1,37 +1,35 @@
 'use client'
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react'
-import { Character } from '@/types/database'
+import { Character, PlayerStats as DatabasePlayerStats } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight, Save, Trophy } from 'lucide-react'
+import { Volume2, VolumeX, Loader2, X, ChevronLeft, ChevronRight, Save, Trophy, CreditCard } from 'lucide-react'
 import { soundManager } from '@/lib/sounds'
 import { ErrorBoundary } from '@/app/components/ErrorBoundary'
 import { useGameState } from '@/hooks/useGameState'
 import { PlayerStats } from '@/components/PlayerStats'
 import { Button } from '@/components/ui/button'
-import { TileType as GameTileType, GameState } from '@/types/game'
+import { GridTile, TileType, GameState } from '@/types/game'
+import { Toaster, toast } from 'react-hot-toast'
 
 interface GridPosition {
   x: number
   y: number
 }
 
-// Define local tile types based on our game types
-type LocalTileType = 'event' | 'high-value' | 'low-value'
-
-interface CardState {
-  revealed: boolean
-  character: Character | null
-  tileType: LocalTileType
-  value: number
-  eventSeen?: boolean
+// Use GridTile type from game.ts with local extensions
+interface LocalGridTile extends GridTile {
+  revealed: boolean;
+  value: number;
+  eventSeen?: boolean;
 }
 
 interface EventDialogState {
   isOpen: boolean
   dialog: string | null
   reward: number
+  imageUrl?: string | null
 }
 
 interface SwitchDialogState {
@@ -56,23 +54,23 @@ const DEFAULT_ABILITY: SeriesAbility = {
   cost: 5
 }
 
-// Update GridTile interface to use GameTileType
-interface LocalGridTile {
-  type: GameTileType;
-  value: number;
-  revealed: boolean;
-  eventSeen?: boolean;
-}
-
-const createEmptyGrid = (): CardState[][] => 
-  Array(5).fill(null).map(() => 
-    Array(5).fill(null).map(() => ({ 
-      revealed: false, 
-      character: null,
-      tileType: 'low-value',
-      value: 1
+// Create empty grid with proper typing
+function createEmptyGrid(): LocalGridTile[][] {
+  return Array(5).fill(null).map((_, y) => 
+    Array(5).fill(null).map((_, x) => ({
+      id: y * 5 + x + 1,
+      type: x === 2 && y === 2 ? 'P' : 'G1',
+      x,
+      y,
+      discovered: x === 2 && y === 2,
+      revealed: x === 2 && y === 2,
+      character: undefined,
+      characterId: undefined,
+      eventContent: undefined,
+      value: 0
     }))
-  )
+  );
+}
 
 function GameContent() {
   const router = useRouter()
@@ -80,12 +78,11 @@ function GameContent() {
   const characterId = searchParams.get('character')
   
   const [playerPosition, setPlayerPosition] = useState<GridPosition>({ x: 2, y: 2 })
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
-  const [grid, setGrid] = useState<CardState[][]>(createEmptyGrid())
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | undefined>(undefined)
+  const [grid, setGrid] = useState<LocalGridTile[][]>(createEmptyGrid())
   const [isMuted, setIsMuted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [moves, setMoves] = useState(30)
   const [gold, setGold] = useState(0)
   const [undiscoveredCount, setUndiscoveredCount] = useState(25)
   const [lastMoveRefresh, setLastMoveRefresh] = useState<Date>(new Date())
@@ -95,7 +92,7 @@ function GameContent() {
     reward: 0
   })
   const [moveRefreshProgress, setMoveRefreshProgress] = useState(0)
-  const [errorType, setErrorType] = useState<'load' | 'save' | 'network' | null>(null)
+  const [errorType, setErrorType] = useState<'load' | 'save' | 'network' | 'discover' | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [showSwitchPanel, setShowSwitchPanel] = useState(false)
   const [availableCharacters, setAvailableCharacters] = useState<Character[]>([])
@@ -105,11 +102,43 @@ function GameContent() {
     isOpen: false
   })
   const [selectedAbility, setSelectedAbility] = useState<SeriesAbility | null>(null)
+  const [initializingGame, setInitializingGame] = useState(false)
+  const [c4Background, setC4Background] = useState<string | null>(null)
+  const [showCardAnimation, setShowCardAnimation] = useState(false)
+  const [selectedTile, setSelectedTile] = useState<{x: number, y: number} | null>(null)
+  const [showAnimation, setShowAnimation] = useState(false)
 
   // Add development mode check
   const isDevelopment = process.env.NODE_ENV === 'development'
 
-  const { gameState, playerStats, loading: gameLoading, error: gameError, movePlayer, saveAndExit } = useGameState()
+  const { 
+    gameState, 
+    playerStats, 
+    loading: gameLoading, 
+    error: gameError, 
+    saveGame, 
+    saveAndExit, 
+    resetGame, 
+    discoverTile, 
+    movePlayer, 
+    handleGameStateUpdate
+  } = useGameState()
+
+  const [gameStateState, setGameStateState] = useState<{
+    grid: LocalGridTile[][];
+    stats: DatabasePlayerStats;
+    selectedCharacter: Character | null;
+  }>({
+    grid: [],
+    stats: {
+      userid: user?.id || '',
+      gold: 0,
+      moves: 30,
+      cards: 0,
+      last_move_refresh: new Date().toISOString()
+    },
+    selectedCharacter: null
+  });
 
   const loadUserStats = async () => {
     try {
@@ -133,7 +162,9 @@ function GameContent() {
             tileType: tile.tileType,
             value: tile.value,
             eventSeen: tile.eventSeen,
-            character: null
+            character: null,
+            x: tile.x,
+            y: tile.y
           };
         });
         setGrid(newGrid);
@@ -153,16 +184,10 @@ function GameContent() {
     }
   };
 
-  const handleError = (err: any, type: 'load' | 'save' | 'network') => {
-    console.error(`Error (${type}):`, err)
+  const handleError = (err: any, type: 'load' | 'save' | 'network' | 'discover') => {
+    console.error(`${type} error:`, err)
+    setError(err instanceof Error ? err.message : 'An error occurred')
     setErrorType(type)
-    if (err instanceof Error) {
-      setError(err.message)
-    } else if (typeof err === 'string') {
-      setError(err)
-    } else {
-      setError('An unexpected error occurred')
-    }
   }
 
   // Keyboard controls
@@ -320,28 +345,19 @@ function GameContent() {
     }
   }
 
-  // Update saveGridProgress to use API route
-  const saveGridProgress = useCallback(async (newGrid: CardState[][], newGold: number) => {
+  // Update saveGridProgress
+  const saveGridProgress = useCallback(async (newGrid: LocalGridTile[][], newGold: number) => {
     try {
-      // Convert grid to JSONB format
       const discoveredTiles = newGrid.flatMap((row, y) => 
-        row.map((cell, x) => ({
+        row.map((tile, x) => ({
           x,
           y,
-          revealed: cell.revealed,
-          tileType: cell.tileType,
-          value: cell.value,
-          eventSeen: cell.eventSeen || false
+          revealed: tile.discovered,
+          type: tile.type,
+          value: tile.value,
+          id: tile.id
         }))
-      ).filter(tile => tile.revealed);
-
-      console.log('Saving game state:', {
-        userId: user?.id,
-        moves,
-        gold: newGold,
-        lastMoveRefresh: lastMoveRefresh.toISOString(),
-        gridLength: discoveredTiles.length
-      });
+      ).filter(tile => tile.discovered);
 
       const response = await fetch('/api/game-state', {
         method: 'POST',
@@ -358,9 +374,7 @@ function GameContent() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Save error details:', errorData);
-        throw new Error(errorData.error || 'Failed to save game state');
+        throw new Error('Failed to save game state');
       }
     } catch (err) {
       console.error('Save error:', err);
@@ -369,7 +383,7 @@ function GameContent() {
   }, [moves, lastMoveRefresh, user?.id]);
 
   // Update generateGameGrid to not require character
-  const generateGameGrid = (): CardState[][] => {
+  const generateGameGrid = (): LocalGridTile[][] => {
     const newGrid = createEmptyGrid();
     const positions: GridPosition[] = [];
     
@@ -407,7 +421,9 @@ function GameContent() {
       revealed: true,
       character: null,
       tileType: 'low-value',
-      value: 0
+      value: 0,
+      x: 2,
+      y: 2
     };
 
     return newGrid;
@@ -440,7 +456,9 @@ function GameContent() {
         // Place character at current position
         newGrid[playerPosition.y][playerPosition.x] = {
           ...newGrid[playerPosition.y][playerPosition.x],
-          character: character
+          character: character,
+          x: playerPosition.x,
+          y: playerPosition.y
         };
         return newGrid;
       });
@@ -774,61 +792,6 @@ function GameContent() {
     )
   }
 
-  // Convert game tile type to local tile type
-  const convertTileType = (type: GameTileType): LocalTileType => {
-    if (type.startsWith('G')) return 'high-value';
-    if (type.startsWith('E')) return 'event';
-    return 'low-value';
-  };
-
-  // Type guard for GameState
-  const isValidGameState = (state: GameState | null): state is GameState => {
-    return state !== null && 
-      Array.isArray(state.tilemap) && 
-      typeof state.goldCollected === 'number' &&
-      typeof state.playerPosition === 'number';
-  };
-
-  // Game state handling with proper type checking
-  const handleGameStateUpdate = useCallback((state: GameState | null) => {
-    if (!state) return;
-    if (!Array.isArray(state.tilemap)) return;
-    
-    const newGrid = createEmptyGrid();
-    state.tilemap.forEach((tile, index) => {
-      if (!tile) return;
-      
-      const x = index % 5;
-      const y = Math.floor(index / 5);
-      newGrid[y][x] = {
-        revealed: true,
-        character: null,
-        tileType: convertTileType(tile.type),
-        value: calculateTileValue(tile.type),
-        eventSeen: false
-      };
-    });
-    
-    setGrid(newGrid);
-    setGold(state.goldCollected || 0);
-    if (typeof state.playerPosition === 'number') {
-      setPlayerPosition({ 
-        x: state.playerPosition % 5, 
-        y: Math.floor(state.playerPosition / 5) 
-      });
-    }
-  }, []);
-
-  // Helper function to calculate tile value
-  const calculateTileValue = (type: GameTileType): number => {
-    switch (type) {
-      case 'G1': return 4;
-      case 'G2': return 6;
-      case 'G3': return 8;
-      default: return 0;
-    }
-  };
-
   // Character UI components
   const CharacterImage = ({ character }: { character: Character }) => {
     if (!character.image1url) return null;
@@ -856,15 +819,152 @@ function GameContent() {
     handleGameStateUpdate(gameState);
   }, [gameState, handleGameStateUpdate]);
 
-  if (gameLoading) {
+  // Update useEffect for game initialization
+  useEffect(() => {
+    const initializeGame = async () => {
+      if (!user?.id || !characterId) return
+      
+      setInitializingGame(true)
+      try {
+        // Initialize new game with pre-generated content
+        const response = await fetch('/api/new-game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            characterId: parseInt(characterId)
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to initialize game')
+        }
+
+        const { gameState, c4Image } = await response.json()
+        handleGameStateUpdate(gameState)
+        setC4Background(c4Image) // Store the C4 character image
+      } catch (error) {
+        console.error('Error initializing game:', error)
+        handleError(error, 'network')
+      } finally {
+        setInitializingGame(false)
+      }
+    }
+
+    initializeGame()
+  }, [user?.id, characterId])
+
+  // Handle tile click
+  const handleTileClick = async (x: number, y: number) => {
+    if (gameLoading || !gameState || !playerStats?.moves) return;
+
+    const tileId = y * 5 + x + 1;
+    
+    // Check if tile is adjacent to player position
+    const playerX = (gameState.playerPosition - 1) % 5;
+    const playerY = Math.floor((gameState.playerPosition - 1) / 5);
+    const dx = Math.abs(x - playerX);
+    const dy = Math.abs(y - playerY);
+    
+    if (dx > 1 || dy > 1) {
+      console.log('Can only move to adjacent tiles');
+      return;
+    }
+
+    setSelectedTile({x, y});
+    setShowAnimation(true);
+
+    try {
+      // Move player to new position
+      await movePlayer(tileId);
+      
+      // Discover the tile
+      const result = await discoverTile(tileId);
+      if (result?.success) {
+        handleGameStateUpdate(result.updatedGameState);
+      }
+    } catch (err) {
+      console.error('Error handling tile click:', err);
+    } finally {
+      setShowAnimation(false);
+      setSelectedTile(null);
+    }
+  };
+
+  // Add this component near other UI components
+  const CardPurchaseButton = ({ gold, onPurchase }: { gold: number | undefined, onPurchase: () => void }) => {
+    const CARD_COST = 200
+    const canAfford = gold !== undefined && gold >= CARD_COST
+
+    return (
+      <motion.button
+        whileHover={{ scale: canAfford ? 1.05 : 1 }}
+        whileTap={{ scale: canAfford ? 0.95 : 1 }}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+          canAfford 
+            ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+        }`}
+        onClick={canAfford ? onPurchase : undefined}
+        title={canAfford ? 'Buy a play card' : `Need ${CARD_COST} gold to buy a card`}
+      >
+        <CreditCard className="w-5 h-5" />
+        <span>Buy Card ({CARD_COST}g)</span>
+      </motion.button>
+    )
+  }
+
+  // Update card purchase handler
+  const handleBuyCard = async () => {
+    if (!user?.id || !playerStats) return;
+    
+    try {
+      const response = await fetch('/api/buy-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (playerStats) {
+        const updatedStats = {
+          ...playerStats,
+          gold: data.newGold,
+          cards: data.newCards
+        };
+        // Update local state
+        setPlayerStats(updatedStats);
+      }
+
+      toast.success('Card purchased!');
+      setShowCardAnimation(true);
+      setTimeout(() => setShowCardAnimation(false), 1500);
+
+    } catch (error) {
+      console.error('Error buying card:', error);
+      toast.error('Failed to buy card');
+    }
+  };
+
+  // Render loading state
+  if (gameLoading || initializingGame) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-        <p className="mt-4 text-gray-400">Loading game...</p>
+        <p className="mt-4 text-gray-400">
+          {initializingGame ? 'Initializing game...' : 'Loading game...'}
+        </p>
       </div>
     )
   }
 
+  // Render error state
   if (gameError) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center p-6">
@@ -925,71 +1025,165 @@ function GameContent() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <PlayerStats />
-        <Button
-          onClick={saveAndExit}
-          className="flex items-center gap-2"
-        >
-          <Save className="w-4 h-4" />
-          Save & Exit
-        </Button>
-      </div>
-
-      {/* Game grid here */}
-      <div className="grid grid-cols-5 gap-2">
-        {gameState?.tilemap?.map((tile, index) => (
-          <div
-            key={index}
-            className="aspect-square bg-gray-800 rounded-lg"
-            onClick={() => tile && movePlayer(tile.id)}
+    <div className="container mx-auto p-4 relative">
+      {/* Add animated background */}
+      {c4Background && (
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div 
+            className="absolute inset-0 animate-float"
+            style={{
+              backgroundImage: `url(${c4Background})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(10px) opacity(0.15)',
+              borderRadius: '50px',
+              transform: 'scale(1.1)',
+            }}
+          />
+        </div>
+      )}
+      
+      {/* Rest of the game UI */}
+      <div className="relative z-10">
+        <div className="flex justify-between items-center mb-4">
+          <PlayerStats />
+          <Button
+            onClick={saveAndExit}
+            className="flex items-center gap-2"
           >
-            {/* Tile content */}
-          </div>
-        ))}
-      </div>
+            <Save className="w-4 h-4" />
+            Save & Exit
+          </Button>
+        </div>
 
-      {/* Completion Animation */}
-      <AnimatePresence>
-        {gameState?.isCompleting && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/50"
-          >
+        {/* Game grid here */}
+        <div className="grid grid-cols-5 gap-2">
+          {gameState?.tilemap?.map((tile, index) => {
+            const x = index % 5;
+            const y = Math.floor(index / 5);
+            const isSelected = selectedTile?.x === x && selectedTile?.y === y;
+            const isPlayer = tile.type === 'P';
+
+            return (
+              <motion.div
+                key={tile.id}
+                className={`game-tile ${isPlayer ? 'player' : ''} ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleTileClick(x, y)}
+                animate={isSelected ? { scale: 1.1 } : { scale: 1 }}
+              >
+                {tile.type === 'P' && <div className="player-marker" />}
+                {tile.discovered && (
+                  <div className="tile-content">
+                    {tile.character && (
+                      <div className="character-preview">
+                        <CharacterImage character={tile.character} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Completion Animation */}
+        <AnimatePresence>
+          {gameState?.isCompleting && (
             <motion.div
-              initial={{ y: 50 }}
-              animate={{ y: 0 }}
-              className="bg-white rounded-lg p-8 text-center"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              className="fixed inset-0 flex items-center justify-center bg-black/50"
             >
-              <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Board Complete!</h2>
-              <p className="text-gray-600 mb-4">You've discovered all the tiles!</p>
+              <motion.div
+                initial={{ y: 50 }}
+                animate={{ y: 0 }}
+                className="bg-white rounded-lg p-8 text-center"
+              >
+                <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">Board Complete!</h2>
+                <p className="text-gray-600 mb-4">You've discovered all the tiles!</p>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
-      {/* Error Toast */}
-      <AnimatePresence>
-        {error && (
+        {/* Error Toast */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg"
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Update EventDialog to show character image */}
+        {eventDialog.isOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full space-y-4">
+              {eventDialog.imageUrl && (
+                <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-4">
+                  <img
+                    src={eventDialog.imageUrl}
+                    alt="Character"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <p className="text-lg text-white">{eventDialog.dialog}</p>
+              {eventDialog.reward > 0 && (
+                <p className="text-yellow-400">
+                  +{eventDialog.reward} gold
+                </p>
+              )}
+              <button
+                onClick={() => setEventDialog({ isOpen: false, dialog: null, reward: 0 })}
+                className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Add this component for the card flip animation */}
+        {showCardAnimation && (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg"
+            initial={{ rotateY: 0, scale: 0 }}
+            animate={{ 
+              rotateY: 360,
+              scale: [0, 1.2, 1],
+              opacity: [0, 1, 1, 0]
+            }}
+            transition={{ duration: 1.5 }}
+            className="fixed inset-0 flex items-center justify-center pointer-events-none"
           >
-            {error}
+            <div className="w-32 h-48 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-xl flex items-center justify-center">
+              <CreditCard className="w-16 h-16 text-white" />
+            </div>
           </motion.div>
         )}
-      </AnimatePresence>
+
+        {/* Add the purchase button near your other game controls */}
+        <div className="flex items-center gap-4 mb-4">
+          <CardPurchaseButton gold={playerStats.gold} onPurchase={handleBuyCard} />
+        </div>
+      </div>
     </div>
   )
 }
 
-export default function GamePage() {
+interface GamePageProps {
+  playerStats: DatabasePlayerStats | null
+  setPlayerStats: (stats: Partial<DatabasePlayerStats> | ((prev: DatabasePlayerStats) => DatabasePlayerStats)) => void
+}
+
+export default function GamePage({ playerStats, setPlayerStats }: GamePageProps) {
   return (
     <ErrorBoundary>
       <Suspense fallback={

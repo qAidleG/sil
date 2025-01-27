@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Character } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
-import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords } from 'lucide-react'
+import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords, Trash2 } from 'lucide-react'
 import { getCharacters } from '@/lib/database'
 
 interface Series {
@@ -33,10 +33,9 @@ interface CreateCharacterForm {
 }
 
 interface ImageGenerationForm {
-  pose: 'portrait' | 'action' | 'dramatic'
-  style: 'anime' | 'realistic' | 'painterly'
-  mood: 'neutral' | 'happy' | 'serious' | 'intense'
-  background: 'card' | 'scene' | 'abstract'
+  facing: 'left' | 'right'
+  mood: 'happy' | 'determined' | 'fierce' | 'calm'
+  background: 'nature' | 'battle' | 'mystical' | 'city'
 }
 
 export default function CollectionsPage() {
@@ -201,9 +200,9 @@ export default function CollectionsPage() {
     }
   }
 
-  const handleDeleteImage = async (imageId: number) => {
+  const handleDeleteImage = async (characterId: string, imageField: string) => {
     try {
-      const response = await fetch(`/api/delete-image?id=${imageId}`, {
+      const response = await fetch(`/api/delete-image?characterid=${characterId}&field=${imageField}`, {
         method: 'DELETE'
       });
 
@@ -380,7 +379,7 @@ export default function CollectionsPage() {
 interface CharacterCardProps {
   character: Character
   onQuickGenerate: (character: Character) => void
-  onDeleteImage: (imageId: number) => Promise<void>
+  onDeleteImage: (characterId: string, imageField: string) => Promise<void>
   setError: (error: string | null) => void
   fetchCharacters: () => Promise<void>
 }
@@ -389,10 +388,9 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
   const [isExpanded, setIsExpanded] = useState(false)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imageForm, setImageForm] = useState<ImageGenerationForm>({
-    pose: 'portrait',
-    style: 'anime',
-    mood: 'neutral',
-    background: 'card'
+    facing: 'right',
+    mood: 'determined',
+    background: 'nature'
   })
 
   // Get rarity color based on rarity level
@@ -409,48 +407,37 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
   const handleAdvancedGenerate = async () => {
     if (generatingImage) return
     setGeneratingImage(true)
-    setError(null)
     
     try {
-      const basePrompt = `Create a ${imageForm.style} style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. `
+      const basePrompt = `Create a high-quality Pokémon-style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. `
       
-      const posePrompt = {
-        portrait: 'Character shown in a noble portrait pose, facing slightly to the side, elegant and composed.',
-        action: 'Character in a dynamic action pose, showcasing their abilities and power.',
-        dramatic: 'Character in a dramatic pose with intense lighting and atmosphere.'
-      }[imageForm.pose]
+      const facingPrompt = {
+        left: 'Character is facing left, showing their profile with dynamic energy.',
+        right: 'Character is facing right, showing their profile with dynamic energy.'
+      }[imageForm.facing]
       
       const moodPrompt = {
-        neutral: 'Expression is calm and composed.',
-        happy: 'Expression is confident and cheerful.',
-        serious: 'Expression is determined and focused.',
-        intense: 'Expression is powerful and commanding.'
+        happy: 'Expression is cheerful and friendly, like a partner Pokémon.',
+        determined: 'Expression shows determination and readiness for battle.',
+        fierce: 'Expression is intense and powerful, like a legendary Pokémon.',
+        calm: 'Expression is serene and wise, showing inner strength.'
       }[imageForm.mood]
       
       const backgroundPrompt = {
-        card: 'Premium trading card game background with subtle magical effects and professional card frame.',
-        scene: 'Contextual background showing their world or environment.',
-        abstract: 'Abstract magical background with flowing energy and symbols.'
+        nature: 'Set in a vibrant natural environment with Pokémon-style flora and atmospheric effects.',
+        battle: 'Dynamic battle arena background with energy effects and dramatic lighting.',
+        mystical: 'Mystical location with swirling energy and magical elements, like a legendary Pokémon encounter.',
+        city: 'Modern city environment with a Pokémon world aesthetic, showing urban integration.'
       }[imageForm.background]
-      
-      const styleDetails = {
-        anime: 'High-quality anime art style, clean lines, vibrant colors.',
-        realistic: 'Detailed realistic rendering with dramatic lighting.',
-        painterly: 'Digital painting style with artistic brushstrokes.'
-      }[imageForm.style]
 
-      const fullPrompt = `${basePrompt}${posePrompt} ${moodPrompt} ${backgroundPrompt} ${styleDetails} Ensure high quality, professional trading card game art style, centered composition, high detail on character. Use dramatic lighting and rich colors.`
-
-      // Generate a seed for consistent results
-      const seed = Math.floor(Math.random() * 1000000)
-      console.log('Using seed:', seed)
+      const fullPrompt = `${basePrompt}${facingPrompt} ${moodPrompt} ${backgroundPrompt} Ensure high quality, vibrant colors, and clean linework in the style of official Pokémon card art. Add subtle energy effects and dynamic lighting.`
 
       const response = await fetch('/api/flux', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           prompt: fullPrompt,
-          seed: seed,
+          seed: Math.floor(Math.random() * 1000000),
           num_inference_steps: 20,
           guidance_scale: 7.5
         })
@@ -474,8 +461,8 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
           characterId: character.characterid,
           url: data.image_url,
           prompt: fullPrompt,
-          style: imageForm.style,
-          seed: seed
+          style: 'anime',
+          seed: Math.floor(Math.random() * 1000000)
         })
       })
 
@@ -557,22 +544,28 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
             <h3 className="text-lg font-semibold text-blue-400 mb-3">Character Images</h3>
             <div className="grid grid-cols-3 gap-4">
               {[
-                character.image1url,
-                character.image2url,
-                character.image3url,
-                character.image4url,
-                character.image5url,
-                character.image6url
-              ].filter((url): url is string => url !== null).map((url, index) => (
+                { field: 'image1url', url: character.image1url || undefined },
+                { field: 'image2url', url: character.image2url || undefined },
+                { field: 'image3url', url: character.image3url || undefined },
+                { field: 'image4url', url: character.image4url || undefined },
+                { field: 'image5url', url: character.image5url || undefined },
+                { field: 'image6url', url: character.image6url || undefined }
+              ].filter(img => img.url !== undefined).map(({ field, url }, index) => (
                 <div
                   key={index}
-                  className="relative aspect-square rounded-lg overflow-hidden cursor-pointer"
+                  className="relative aspect-square rounded-lg overflow-hidden group"
                 >
                   <img
                     src={url}
                     alt={`${character.name} art ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
+                  <button
+                    onClick={() => onDeleteImage(character.characterid.toString(), field)}
+                    className="absolute top-2 right-2 p-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={16} className="text-white" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -584,28 +577,14 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
             {/* Advanced Generation Controls */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Pose</label>
+                <label className="block text-sm font-medium mb-1">Facing</label>
                 <select
-                  value={imageForm.pose}
-                  onChange={(e) => setImageForm(prev => ({ ...prev, pose: e.target.value as any }))}
+                  value={imageForm.facing}
+                  onChange={(e) => setImageForm(prev => ({ ...prev, facing: e.target.value as any }))}
                   className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="portrait">Portrait</option>
-                  <option value="action">Action</option>
-                  <option value="dramatic">Dramatic</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Art Style</label>
-                <select
-                  value={imageForm.style}
-                  onChange={(e) => setImageForm(prev => ({ ...prev, style: e.target.value as any }))}
-                  className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="anime">Anime</option>
-                  <option value="realistic">Realistic</option>
-                  <option value="painterly">Painterly</option>
+                  <option value="left">Facing Left</option>
+                  <option value="right">Facing Right</option>
                 </select>
               </div>
               
@@ -616,10 +595,10 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
                   onChange={(e) => setImageForm(prev => ({ ...prev, mood: e.target.value as any }))}
                   className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="neutral">Neutral</option>
                   <option value="happy">Happy</option>
-                  <option value="serious">Serious</option>
-                  <option value="intense">Intense</option>
+                  <option value="determined">Determined</option>
+                  <option value="fierce">Fierce</option>
+                  <option value="calm">Calm</option>
                 </select>
               </div>
               
@@ -630,9 +609,10 @@ function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fe
                   onChange={(e) => setImageForm(prev => ({ ...prev, background: e.target.value as any }))}
                   className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-blue-500 focus:outline-none"
                 >
-                  <option value="card">Card Frame</option>
-                  <option value="scene">Scene</option>
-                  <option value="abstract">Abstract</option>
+                  <option value="nature">Nature</option>
+                  <option value="battle">Battle Arena</option>
+                  <option value="mystical">Mystical</option>
+                  <option value="city">City</option>
                 </select>
               </div>
             </div>

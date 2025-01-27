@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
+interface CharacterImages {
+  image1url: string | null
+  image2url: string | null
+  image3url: string | null
+  image4url: string | null
+  image5url: string | null
+  image6url: string | null
+  [key: string]: string | null  // Index signature for dynamic access
+}
+
 export async function POST(req: Request) {
   try {
     const { characterId, url } = await req.json()
@@ -18,17 +28,16 @@ export async function POST(req: Request) {
 
     if (getError) throw getError
 
-    // Find the first empty slot
+    // Find the first empty slot or the oldest image slot
     let updateField = null
-    if (!character.image1url) updateField = 'image1url'
-    else if (!character.image2url) updateField = 'image2url'
-    else if (!character.image3url) updateField = 'image3url'
-    else if (!character.image4url) updateField = 'image4url'
-    else if (!character.image5url) updateField = 'image5url'
-    else if (!character.image6url) updateField = 'image6url'
-
+    const imageFields = ['image1url', 'image2url', 'image3url', 'image4url', 'image5url', 'image6url']
+    
+    // First try to find an empty slot
+    updateField = imageFields.find(field => !(character as CharacterImages)[field])
+    
+    // If no empty slot, use the first slot (rotating through 1-6)
     if (!updateField) {
-      return NextResponse.json({ error: 'Maximum of 6 images allowed' }, { status: 400 })
+      updateField = 'image1url'
     }
 
     // Update the character with the new image URL
