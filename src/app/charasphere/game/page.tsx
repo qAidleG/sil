@@ -10,14 +10,15 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary'
 import { useGameState } from '@/hooks/useGameState'
 import { PlayerStats } from '@/components/PlayerStats'
 import { Button } from '@/components/ui/button'
-import { BaseTileType, TileType as GameTileType, GameState } from '@/types/game'
+import { TileType as GameTileType, GameState } from '@/types/game'
 
 interface GridPosition {
   x: number
   y: number
 }
 
-type LocalTileType = BaseTileType | 'event' | 'high-value' | 'low-value'
+// Define local tile types based on our game types
+type LocalTileType = 'event' | 'high-value' | 'low-value'
 
 interface CardState {
   revealed: boolean

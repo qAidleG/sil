@@ -24,6 +24,8 @@ export interface GameState {
   goldCollected: number
   turns: number
   gridCleared: boolean     // Track if entire grid is discovered
+  playerPosition: number   // Current position of player
+  isCompleting?: boolean   // Flag for completion animation
 }
 
 // Reward Calculation
