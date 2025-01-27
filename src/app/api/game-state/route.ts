@@ -4,7 +4,7 @@ import { INITIAL_GRID_LAYOUT, GameState, GridTile } from '@/types/game'
 
 // Check if board is completed
 function isBoardCompleted(tilemap: GridTile[]) {
-  return tilemap.every(tile => tile.discovered)  // Board is completed when all tiles are discovered
+  return tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
 }
 
 export async function GET(req: Request) {
@@ -16,35 +16,78 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Get current game state from database
-    const { data: gameState, error } = await supabaseAdmin
-      .from('GameState')
-      .select('*')
-      .eq('userId', userId)
-      .single()
+    // Get player stats and grid progress
+    const [statsResult, gridResult] = await Promise.all([
+      supabaseAdmin
+        .from('playerstats')
+        .select('*')
+        .eq('userid', userId)
+        .single(),
+      supabaseAdmin
+        .from('gridprogress')
+        .select('tilemap, goldCollected')
+        .eq('user_id', userId)
+        .single()
+    ])
 
-    if (error) {
-      return NextResponse.json({ error: 'Failed to fetch game state' }, { status: 500 })
+    if (statsResult.error) throw statsResult.error
+
+    // If no grid exists or the existing grid is completed, initialize a new one
+    if (gridResult.error || (gridResult.data && isBoardCompleted(gridResult.data.tilemap))) {
+      // Get unclaimed characters for P1-P4 tiles
+      const { data: characters, error: charactersError } = await supabaseAdmin
+        .from('Roster')
+        .select('characterid')
+        .eq('claimed', false)
+        .limit(4)
+
+      if (charactersError) throw charactersError
+
+      // Assign characters to P1-P4 tiles
+      const initialGrid = INITIAL_GRID_LAYOUT.map((tile: GridTile) => {
+        if (tile.type.startsWith('P') && tile.type !== 'P') {
+          const index = parseInt(tile.type.charAt(1)) - 1
+          return {
+            ...tile,
+            characterId: characters[index]?.characterid
+          }
+        }
+        return tile
+      })
+
+      // Create new grid progress
+      const { error: createError } = await supabaseAdmin
+        .from('gridprogress')
+        .upsert({
+          user_id: userId,
+          tilemap: initialGrid,
+          goldCollected: 0
+        })
+
+      if (createError) throw createError
+
+      return NextResponse.json({
+        stats: statsResult.data,
+        gameState: {
+          tilemap: initialGrid,
+          goldCollected: 0,
+          playerPosition: 13  // Starting position
+        }
+      })
     }
 
-    // Check if board is completed and update state if needed
-    if (gameState && !gameState.gridCleared && isBoardCompleted(gameState.tilemap)) {
-      const { error: updateError } = await supabaseAdmin
-        .from('GameState')
-        .update({ gridCleared: true })
-        .eq('userId', userId)
-
-      if (updateError) {
-        return NextResponse.json({ error: 'Failed to update game state' }, { status: 500 })
+    return NextResponse.json({
+      stats: statsResult.data,
+      gameState: {
+        tilemap: gridResult.data.tilemap,
+        goldCollected: gridResult.data.goldCollected,
+        playerPosition: gridResult.data.tilemap.findIndex((tile: GridTile) => tile.type === 'P')
       }
+    })
 
-      gameState.gridCleared = true
-    }
-
-    return NextResponse.json(gameState)
   } catch (error) {
-    console.error('Error in game state route:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error getting game state:', error)
+    return NextResponse.json({ error: 'Failed to get game state' }, { status: 500 })
   }
 }
 

@@ -1,7 +1,7 @@
 import { Character } from './database'
 
 // Grid Types
-export type TileType = 'G' | 'C' | 'C1' | 'C2' | 'C3' | 'C4'
+export type TileType = 'G' | 'C' | 'C1' | 'C2' | 'C3' | 'C4' | 'P'  // Added P back for player position
 
 export interface GridTile {
   id: number
@@ -10,7 +10,7 @@ export interface GridTile {
   y: number
   characterId?: number
   character?: Character
-  discovered?: boolean  // Track if tile has been visited
+  discovered: boolean  // Track if tile has been visited
 }
 
 // Game State
@@ -18,7 +18,7 @@ export interface GameState {
   userId: string
   tilemap: GridTile[]
   gold: number
-  goldCollected: number    // Track total gold collected in this game
+  goldCollected: number
   turns: number
   unlockedTiers: string[]  // Track which character tiers are unlocked
   gridCleared: boolean     // Track if entire grid is discovered
@@ -45,6 +45,32 @@ export function isCharacterTierAvailable(tier: string, gameState: GameState): bo
   return gameState.unlockedTiers.includes(tier)
 }
 
+// Movement validation
+export function isValidMove(from: GridTile, to: GridTile): boolean {
+  // Can only move to adjacent tiles (including diagonals)
+  const dx = Math.abs(to.x - from.x)
+  const dy = Math.abs(to.y - from.y)
+  return dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0)
+}
+
+// Get current player position
+export function getPlayerPosition(tilemap: GridTile[]): GridTile | undefined {
+  return tilemap.find(tile => tile.type === 'P')
+}
+
+// Update player position
+export function movePlayer(tilemap: GridTile[], fromId: number, toId: number): GridTile[] {
+  return tilemap.map(tile => {
+    if (tile.id === fromId) {
+      return { ...tile, type: tile.type === 'P' ? 'G' : tile.type, discovered: true }
+    }
+    if (tile.id === toId) {
+      return { ...tile, type: 'P', discovered: true }
+    }
+    return tile
+  })
+}
+
 // Initial grid layout - used to initialize new games
 export const INITIAL_GRID_LAYOUT: GridTile[] = [
   { id: 1, type: 'G', x: 0, y: 0, discovered: false },
@@ -59,7 +85,7 @@ export const INITIAL_GRID_LAYOUT: GridTile[] = [
   { id: 10, type: 'G', x: 3, y: 1, discovered: false },
   { id: 11, type: 'C2', x: 4, y: 1, discovered: false },
   { id: 12, type: 'G', x: 5, y: 1, discovered: false },
-  { id: 13, type: 'G', x: 0, y: 2, discovered: true },  // Player starting position
+  { id: 13, type: 'P', x: 0, y: 2, discovered: true },  // Player starting position
   { id: 14, type: 'G', x: 1, y: 2, discovered: false },
   { id: 15, type: 'C3', x: 2, y: 2, discovered: false },
   { id: 16, type: 'G', x: 3, y: 2, discovered: false },
