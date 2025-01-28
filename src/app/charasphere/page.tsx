@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { StarField } from '../components/StarField'
-import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2 } from 'lucide-react'
+import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2, Gift, Coins, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Character } from '@/types/database'
@@ -13,6 +13,7 @@ import { useUser } from '@/hooks/useUser'
 import { Button } from '@/components/ui/button'
 import { PlayerStats } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
+import { toast } from 'react-hot-toast'
 
 export default function CharaSpherePage() {
   const { user } = useUser()
@@ -24,6 +25,12 @@ export default function CharaSpherePage() {
   const [error, setError] = useState<string | null>(null)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [gameState, setGameState] = useState<GameState | null>(null)
+  const [playerStats, setPlayerStats] = useState<{
+    gold: number;
+    moves: number;
+    cards_collected: number;
+  } | null>(null)
+  const [loadingStarterPack, setLoadingStarterPack] = useState(false)
 
   const loadCharacters = async () => {
     setLoading(true)
@@ -174,18 +181,98 @@ export default function CharaSpherePage() {
     </div>
   )
 
+  // Load player stats
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!user?.id) return
+      try {
+        const { data, error } = await supabase
+          .from('playerstats')
+          .select('gold, moves, cards_collected')
+          .eq('userid', user.id)
+          .single()
+
+        if (error) throw error
+        setPlayerStats(data)
+      } catch (err) {
+        console.error('Error loading stats:', err)
+      }
+    }
+    loadStats()
+  }, [user?.id])
+
+  // Handle starter pack claim
+  const handleStarterPack = async () => {
+    if (!user?.id) return
+    setLoadingStarterPack(true)
+    try {
+      const response = await fetch('/api/starter-pack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      })
+      
+      if (!response.ok) throw new Error('Failed to claim starter pack')
+      
+      const result = await response.json()
+      if (result.success) {
+        toast.success('Starter pack claimed! Check your collection.')
+        // Refresh player stats
+        const { data } = await supabase
+          .from('playerstats')
+          .select('*')
+          .eq('userid', user.id)
+          .single()
+        setPlayerStats(data)
+      }
+    } catch (err) {
+      console.error('Error claiming starter pack:', err)
+      toast.error('Failed to claim starter pack')
+    } finally {
+      setLoadingStarterPack(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+        {/* Header with Stats */}
+        <div className="mb-12">
+          <h1 className="text-5xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-4">
             CharaSphere
           </h1>
-          <p className="mt-4 text-xl text-gray-300">
+          <p className="text-xl text-center text-gray-300 mb-8">
             Collect, build decks, and battle with your favorite characters
           </p>
+
+          {playerStats && (
+            <div className="max-w-md mx-auto bg-gray-800/50 rounded-xl p-4 backdrop-blur-sm border border-gray-700">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 text-yellow-500 mb-1">
+                    <Coins className="w-5 h-5" />
+                    <span className="font-bold">{playerStats.gold}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Gold</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 text-blue-500 mb-1">
+                    <Clock className="w-5 h-5" />
+                    <span className="font-bold">{playerStats.moves}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Moves</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 text-purple-500 mb-1">
+                    <Gift className="w-5 h-5" />
+                    <span className="font-bold">{playerStats.cards_collected}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Cards</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Menu Grid */}
@@ -218,28 +305,55 @@ export default function CharaSpherePage() {
             </div>
           </Link>
 
+          {/* Starter Pack Section */}
+          {playerStats?.cards_collected === 0 && (
+            <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-purple-900/30 to-purple-800/20 border border-purple-700/50 backdrop-blur-sm p-6 flex flex-col justify-center items-center">
+              <h2 className="text-2xl font-bold text-purple-300 mb-4">Welcome to CharaSphere!</h2>
+              <p className="text-gray-300 mb-6 text-center">Begin your journey with a starter pack of characters</p>
+              <button
+                onClick={handleStarterPack}
+                disabled={loadingStarterPack}
+                className="flex items-center gap-2 px-6 py-3 bg-purple-600 rounded-lg text-white hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingStarterPack ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Claiming Starter Pack...</span>
+                  </>
+                ) : (
+                  <>
+                    <Gift className="w-5 h-5" />
+                    <span>Claim Starter Pack</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Future Features Section */}
-          <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm p-6">
-            <h2 className="text-xl font-bold text-blue-400 mb-4">Coming Soon</h2>
-            <ul className="space-y-2 text-gray-300">
-              <li className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                <span>Deck building with strategy guides</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                <span>Real-time battles with other players</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                <span>Character abilities and special moves</span>
-              </li>
-              <li className="flex items-center space-x-2">
-                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
-                <span>Seasonal rankings and rewards</span>
-              </li>
-            </ul>
-          </div>
+          {(!playerStats || playerStats.cards_collected > 0) && (
+            <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm p-6">
+              <h2 className="text-xl font-bold text-blue-400 mb-4">Coming Soon</h2>
+              <ul className="space-y-2 text-gray-300">
+                <li className="flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  <span>Economy system with daily rewards and achievements</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  <span>Game balancing and card rarity adjustments</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  <span>Event-based character interactions</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  <span>More characters and series to collect</span>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </main>
