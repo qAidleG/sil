@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useUser } from './useUser'
-import { GameState, GridTile } from '@/types/game'
+import { GameState, GridTile, TileType } from '@/types/game'
 import { useRouter } from 'next/navigation'
+
+interface PlayerStats {
+  moves: number;
+  gold: number;
+}
 
 const MOVE_COST = 1  // Cost in turns to move to a new tile
 
@@ -11,11 +16,11 @@ export function useGameState() {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [playerStats, setPlayerStats] = useState<{ moves: number } | null>(null)
+  const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
 
   // Check if board is completed
   const checkBoardCompletion = (tilemap: GridTile[]) => {
-    // Board is complete if all tiles are either claimed ('C') or the player ('P')
+    // Board is complete if all tiles except current position are claimed ('C')
     return tilemap.every(tile => tile.type === 'C' || tile.type === 'P')
   }
 
@@ -193,12 +198,16 @@ export function useGameState() {
       setPlayerStats(prev => prev ? { ...prev, moves: remainingMoves } : null)
 
       // Update game state
-      const updatedTilemap = gameState.tilemap.map((tile: GridTile) => ({
-        ...tile,
-        type: tile.id === gameState.playerPosition ? 'C' : 
-              tile.id === newPosition ? 'P' : 
-              tile.type
-      }))
+      const updatedTilemap = gameState.tilemap.map((tile: GridTile) => {
+        if (tile.id === gameState.playerPosition) {
+          // Mark the tile as claimed when player leaves it
+          return { ...tile, type: 'C' as TileType, discovered: true }
+        }
+        if (tile.id === newPosition) {
+          return { ...tile, type: 'P' as TileType, discovered: true }
+        }
+        return tile
+      })
 
       setGameState(prev => prev ? {
         ...prev,
@@ -209,6 +218,7 @@ export function useGameState() {
       // Check board completion after move
       if (checkBoardCompletion(updatedTilemap)) {
         await saveGame()  // Save before showing completion
+        showCompletionAnimation()  // Show completion animation
       }
     } catch (err) {
       console.error('Error moving player:', err)

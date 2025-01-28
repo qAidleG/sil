@@ -4,7 +4,7 @@ import { Character } from './database'
 export type GoldTileType = 'G1' | 'G2' | 'G3'  // Different gold values
 export type EventTileType = 'E1' | 'E2' | 'E3'  // Event tiles
 export type CharacterTileType = 'C1' | 'C2' | 'C3'  // Character tiles (C4 is board completion reward)
-export type TileType = GoldTileType | EventTileType | CharacterTileType | 'P'  // All tile types
+export type TileType = GoldTileType | EventTileType | CharacterTileType | 'P' | 'C'  // All tile types
 
 export interface GridTile {
   id: number
