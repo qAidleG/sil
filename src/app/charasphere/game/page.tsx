@@ -95,7 +95,7 @@ function GameContent() {
   if (gameError) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
-        <p className="text-red-500">{gameError.message || 'Failed to load game'}</p>
+        <p className="text-red-500">{getErrorMessage(gameError)}</p>
       </div>
     )
   }
