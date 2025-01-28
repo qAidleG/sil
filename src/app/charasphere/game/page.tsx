@@ -18,11 +18,14 @@ interface GridPosition {
   y: number
 }
 
-// Use GridTile type from game.ts with local extensions
-interface LocalGridTile extends GridTile {
+// UI-specific tile properties
+interface UITile extends GridTile {
   revealed: boolean;
-  value: number;
   eventSeen?: boolean;
+  value?: number;
+  tileType?: string;
+  character: Character | undefined;
+  discovered: boolean;
 }
 
 interface EventDialogState {
@@ -55,7 +58,7 @@ const DEFAULT_ABILITY: SeriesAbility = {
 }
 
 // Create empty grid with proper typing
-function createEmptyGrid(): LocalGridTile[][] {
+const createEmptyGrid = (): UITile[][] => {
   return Array(5).fill(null).map((_, y) => 
     Array(5).fill(null).map((_, x) => ({
       id: y * 5 + x + 1,
@@ -67,7 +70,8 @@ function createEmptyGrid(): LocalGridTile[][] {
       character: undefined,
       characterId: undefined,
       eventContent: undefined,
-      value: 0
+      value: 0,
+      tileType: 'default'
     }))
   );
 }
@@ -79,7 +83,7 @@ function GameContent() {
   
   const [playerPosition, setPlayerPosition] = useState<GridPosition>({ x: 2, y: 2 })
   const [selectedCharacter, setSelectedCharacter] = useState<Character | undefined>(undefined)
-  const [grid, setGrid] = useState<LocalGridTile[][]>(createEmptyGrid())
+  const [grid, setGrid] = useState<UITile[][]>(createEmptyGrid())
   const [isMuted, setIsMuted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -107,6 +111,7 @@ function GameContent() {
   const [showCardAnimation, setShowCardAnimation] = useState(false)
   const [selectedTile, setSelectedTile] = useState<{x: number, y: number} | null>(null)
   const [showAnimation, setShowAnimation] = useState(false)
+  const [moves, setMoves] = useState<number>(30)
 
   // Add development mode check
   const isDevelopment = process.env.NODE_ENV === 'development'
@@ -120,12 +125,12 @@ function GameContent() {
     saveAndExit, 
     resetGame, 
     discoverTile, 
-    movePlayer, 
-    handleGameStateUpdate
+    movePlayer,
+    updateGameState 
   } = useGameState()
 
   const [gameStateState, setGameStateState] = useState<{
-    grid: LocalGridTile[][];
+    grid: UITile[][];
     stats: DatabasePlayerStats;
     selectedCharacter: Character | null;
   }>({
@@ -346,7 +351,7 @@ function GameContent() {
   }
 
   // Update saveGridProgress
-  const saveGridProgress = useCallback(async (newGrid: LocalGridTile[][], newGold: number) => {
+  const saveGridProgress = useCallback(async (newGrid: UITile[][], newGold: number) => {
     try {
       const discoveredTiles = newGrid.flatMap((row, y) => 
         row.map((tile, x) => ({
@@ -383,7 +388,7 @@ function GameContent() {
   }, [moves, lastMoveRefresh, user?.id]);
 
   // Update generateGameGrid to not require character
-  const generateGameGrid = (): LocalGridTile[][] => {
+  const generateGameGrid = (): UITile[][] => {
     const newGrid = createEmptyGrid();
     const positions: GridPosition[] = [];
     
@@ -419,11 +424,12 @@ function GameContent() {
     // Center tile is always revealed
     newGrid[2][2] = {
       revealed: true,
-      character: null,
+      character: undefined,
       tileType: 'low-value',
       value: 0,
       x: 2,
-      y: 2
+      y: 2,
+      discovered: true
     };
 
     return newGrid;
@@ -816,8 +822,8 @@ function GameContent() {
   // Update game state when it changes
   useEffect(() => {
     if (!gameState) return;
-    handleGameStateUpdate(gameState);
-  }, [gameState, handleGameStateUpdate]);
+    updateGameState(gameState);
+  }, [gameState, updateGameState]);
 
   // Update useEffect for game initialization
   useEffect(() => {
@@ -841,7 +847,7 @@ function GameContent() {
         }
 
         const { gameState, c4Image } = await response.json()
-        handleGameStateUpdate(gameState)
+        updateGameState(gameState)
         setC4Background(c4Image) // Store the C4 character image
       } catch (error) {
         console.error('Error initializing game:', error)
@@ -856,7 +862,7 @@ function GameContent() {
 
   // Handle tile click
   const handleTileClick = async (x: number, y: number) => {
-    if (gameLoading || !gameState || !playerStats?.moves) return;
+    if (gameLoading || !gameState || !playerStats?.moves || moves < 1) return;
 
     const tileId = y * 5 + x + 1;
     
@@ -867,7 +873,7 @@ function GameContent() {
     const dy = Math.abs(y - playerY);
     
     if (dx > 1 || dy > 1) {
-      console.log('Can only move to adjacent tiles');
+      toast.error('Can only move to adjacent tiles');
       return;
     }
 
@@ -881,10 +887,23 @@ function GameContent() {
       // Discover the tile
       const result = await discoverTile(tileId);
       if (result?.success) {
-        handleGameStateUpdate(result.updatedGameState);
+        updateGameState(result.updatedGameState);
+        
+        if (result.reward) {
+          toast.success(`Found ${result.reward} gold!`);
+        }
+        
+        if (result.eventContent) {
+          setEventDialog({
+            isOpen: true,
+            dialog: result.eventContent,
+            reward: result.reward || 0
+          });
+        }
       }
     } catch (err) {
       console.error('Error handling tile click:', err);
+      toast.error('Failed to move to tile');
     } finally {
       setShowAnimation(false);
       setSelectedTile(null);
@@ -916,13 +935,13 @@ function GameContent() {
 
   // Update card purchase handler
   const handleBuyCard = async () => {
-    if (!user?.id || !playerStats) return;
+    if (!gameState?.userId || !playerStats?.gold) return;
     
     try {
       const response = await fetch('/api/buy-cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ userId: gameState.userId })
       });
 
       const data = await response.json();
@@ -930,16 +949,6 @@ function GameContent() {
       if (!response.ok) {
         toast.error(data.error);
         return;
-      }
-
-      if (playerStats) {
-        const updatedStats = {
-          ...playerStats,
-          gold: data.newGold,
-          cards: data.newCards
-        };
-        // Update local state
-        setPlayerStats(updatedStats);
       }
 
       toast.success('Card purchased!');

@@ -231,6 +231,16 @@ export function useGameState() {
     saveAndExit,
     resetGame,
     discoverTile,
-    movePlayer
+    movePlayer,
+    updateGameState: (newState: GameState) => {
+      setGameState(newState);
+      // Update player stats if needed
+      if (newState.goldCollected !== gameState?.goldCollected) {
+        setPlayerStats(prev => prev ? {
+          ...prev,
+          gold: (prev.gold || 0) + (newState.goldCollected - (gameState?.goldCollected || 0))
+        } : null);
+      }
+    }
   }
 } 
