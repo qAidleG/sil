@@ -7,23 +7,33 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
 
   // Refresh session if expired
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    console.error('Session error:', sessionError)
+    return res
+  }
 
   // If we have a session, ensure player is initialized
   if (session?.user) {
-    const response = await fetch(`${req.nextUrl.origin}/api/player-init`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userid: session.user.id,
-        email: session.user.email
+    try {
+      const response = await fetch(`${req.nextUrl.origin}/api/player-init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userid: session.user.id,
+          email: session.user.email
+        })
       })
-    })
 
-    if (!response.ok) {
-      console.error('Failed to initialize player:', await response.text())
+      if (!response.ok) {
+        console.error('Failed to initialize player:', await response.text())
+      }
+    } catch (error) {
+      console.error('Error in player initialization:', error)
     }
   }
 
@@ -32,8 +42,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/collections/:path*',
-    '/api/starter-pack',
-    '/game/:path*'  // Add game routes to protected paths
+    '/charasphere/:path*',
+    '/api/((?!auth|player-init).*)' // Exclude auth and player-init endpoints
   ]
 } 

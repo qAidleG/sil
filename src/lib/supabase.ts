@@ -14,9 +14,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'charasphere-auth',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'charasphere'
+    }
   }
 })
+
+// Export a function to get a fresh client
+export function getSupabaseClient() {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'charasphere-auth',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      flowType: 'pkce'
+    }
+  })
+}
 
 // Remove client-side admin checks and exports
 export const modifySchema = {

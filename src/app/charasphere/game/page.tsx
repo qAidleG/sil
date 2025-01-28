@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, Suspense } from 'react'
+import React, { useState, Suspense, useEffect } from 'react'
 import { Character } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { useGameState } from '@/hooks/useGameState'
 import { PlayerStats } from '@/components/PlayerStats'
 import { GridTile, TileType } from '@/types/game'
 import { toast } from 'react-hot-toast'
+import { useUser } from '@/hooks/useUser'
 
 // Simplified tile interface
 interface UITile extends GridTile {
@@ -94,7 +95,7 @@ function GameContent() {
   if (gameError) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center">
-        <p className="text-red-500">{gameError}</p>
+        <p className="text-red-500">{gameError.message || 'Failed to load game'}</p>
       </div>
     )
   }
@@ -132,7 +133,47 @@ function GameContent() {
   )
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'An unknown error occurred'
+}
+
 export default function GamePage() {
+  const { user, loading: userLoading } = useUser()
+  const { gameState, loading: gameLoading, error } = useGameState()
+
+  useEffect(() => {
+    if (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }, [error])
+
+  if (userLoading || gameLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading game...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Please sign in to play</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-red-500">Error loading game: {getErrorMessage(error)}</p>
+      </div>
+    )
+  }
+
   return (
     <ErrorBoundary>
       <Suspense fallback={<div>Loading...</div>}>
