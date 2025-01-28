@@ -16,6 +16,7 @@ const Home = () => {
     moves: number;
     cards_collected: number;
   } | null>(null)
+  const [loadingStarterPack, setLoadingStarterPack] = useState(false)
 
   // Load player stats
   useEffect(() => {
@@ -44,17 +45,33 @@ const Home = () => {
 
   // Handle starter pack claim
   const handleStarterPack = async () => {
+    if (!user?.id) return
+    setLoadingStarterPack(true)
     try {
       const response = await fetch('/api/starter-pack', {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
       })
       
       if (!response.ok) throw new Error('Failed to claim starter pack')
       
-      toast.success('Starter pack claimed! Check your collection.')
-    } catch (error) {
-      console.error('Error claiming starter pack:', error)
+      const result = await response.json()
+      if (result.success) {
+        toast.success('Starter pack claimed! Check your collection.')
+        // Refresh player stats
+        const { data } = await supabase
+          .from('playerstats')
+          .select('*')
+          .eq('userid', user.id)
+          .single()
+        setPlayerStats(data)
+      }
+    } catch (err) {
+      console.error('Error claiming starter pack:', err)
       toast.error('Failed to claim starter pack')
+    } finally {
+      setLoadingStarterPack(false)
     }
   }
 
@@ -195,15 +212,15 @@ const Home = () => {
                   <div className="flex gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Coins className="w-4 h-4 text-yellow-500" />
-                      <span>{playerStats.gold}</span>
+                      <span className="text-yellow-100">{playerStats.gold} Gold</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-blue-500" />
-                      <span>{playerStats.moves}</span>
+                      <span className="text-blue-100">{playerStats.moves} Moves</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Gift className="w-4 h-4 text-purple-500" />
-                      <span>{playerStats.cards_collected}</span>
+                      <span className="text-purple-100">{playerStats.cards_collected} Cards</span>
                     </div>
                   </div>
 
@@ -224,12 +241,29 @@ const Home = () => {
                           e.stopPropagation()
                           handleStarterPack()
                         }}
-                        className="px-3 py-1.5 bg-purple-600 rounded-lg text-sm hover:bg-purple-500 transition-colors"
+                        disabled={loadingStarterPack}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 rounded-lg text-sm hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Claim Starter Pack
+                        {loadingStarterPack ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Claiming...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Gift className="w-4 h-4" />
+                            <span>Claim Starter Pack</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {!user && (
+                <div className="mt-4 p-3 bg-gray-800/80 rounded-lg">
+                  <p className="text-gray-400 text-sm">Sign in to start your collection!</p>
                 </div>
               )}
             </div>

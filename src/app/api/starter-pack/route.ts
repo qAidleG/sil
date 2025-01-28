@@ -2,53 +2,57 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-export async function POST() {
+export async function POST(request: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+  
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
-    // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
+    const { userId } = await request.json()
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
     }
 
-    // Fetch characters
-    const { data: characters, error: fetchError } = await supabase
+    // Get user's current stats
+    const { data: stats } = await supabase
+      .from('playerstats')
+      .select('cards_collected')
+      .eq('userid', userId)
+      .single()
+
+    // Only allow claiming if they have no cards
+    if (stats && stats.cards_collected > 0) {
+      return NextResponse.json({ success: false, error: 'Starter pack already claimed' }, { status: 400 })
+    }
+
+    // Get 3 random common characters (rarity 1-2)
+    const { data: starterCharacters } = await supabase
       .from('Character')
-      .select('id')
+      .select('characterid')
+      .in('rarity', [1, 2])
+      .limit(3)
+      .order('RANDOM()')
 
-    if (fetchError) throw fetchError
-    if (!characters || characters.length === 0) {
-      return NextResponse.json(
-        { error: 'No starter characters available' },
-        { status: 404 }
-      )
+    if (!starterCharacters || starterCharacters.length < 3) {
+      return NextResponse.json({ success: false, error: 'Not enough characters available' }, { status: 500 })
     }
 
-    // Select 3 random characters
-    const selectedCharacters = characters
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3)
+    // Start a transaction
+    const { data: transaction, error: transactionError } = await supabase.rpc('claim_starter_pack', {
+      p_userid: userId,
+      p_character_ids: starterCharacters.map(c => c.characterid)
+    })
 
-    // Create the collections
-    const { error: insertError } = await supabase
-      .from('UserCollection')
-      .insert(selectedCharacters.map(char => ({
-        userId: user.id,
-        characterId: char.id
-      })))
+    if (transactionError) {
+      throw transactionError
+    }
 
-    if (insertError) throw insertError
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Starter pack claimed successfully',
+      characters: starterCharacters 
+    })
 
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Error in starter pack route:', error)
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error('Starter pack error:', error)
+    return NextResponse.json({ success: false, error: 'Failed to claim starter pack' }, { status: 500 })
   }
 }
