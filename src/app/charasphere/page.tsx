@@ -181,7 +181,43 @@ export default function CharaSpherePage() {
     </div>
   )
 
-  // Load player stats
+  // Initialize player stats for new users
+  const initializePlayerStats = async (userId: string) => {
+    try {
+      // First check if stats exist
+      const { data: existingStats } = await supabase
+        .from('playerstats')
+        .select('*')
+        .eq('userid', userId)
+        .single()
+
+      if (!existingStats) {
+        // Create initial stats
+        const { data: newStats, error: insertError } = await supabase
+          .from('playerstats')
+          .insert([
+            {
+              userid: userId,
+              gold: 0,
+              moves: 10,
+              cards_collected: 0
+            }
+          ])
+          .select()
+          .single()
+
+        if (insertError) throw insertError
+        setPlayerStats(newStats)
+      } else {
+        setPlayerStats(existingStats)
+      }
+    } catch (err) {
+      console.error('Error initializing player stats:', err)
+      toast.error('Failed to initialize player stats')
+    }
+  }
+
+  // Load or initialize player stats
   useEffect(() => {
     const loadStats = async () => {
       if (!user?.id) return
@@ -192,8 +228,15 @@ export default function CharaSpherePage() {
           .eq('userid', user.id)
           .single()
 
-        if (error) throw error
-        setPlayerStats(data)
+        if (error) {
+          if (error.code === 'PGRST116') {  // Record not found
+            await initializePlayerStats(user.id)
+          } else {
+            throw error
+          }
+        } else {
+          setPlayerStats(data)
+        }
       } catch (err) {
         console.error('Error loading stats:', err)
       }
