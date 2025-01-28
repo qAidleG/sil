@@ -246,33 +246,64 @@ export default function CharaSpherePage() {
             Collect, build decks, and battle with your favorite characters
           </p>
 
-          {playerStats && (
-            <div className="max-w-md mx-auto bg-gray-800/50 rounded-xl p-4 backdrop-blur-sm border border-gray-700">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-yellow-500 mb-1">
-                    <Coins className="w-5 h-5" />
-                    <span className="font-bold">{playerStats.gold}</span>
+          {/* Player Stats Card */}
+          <div className="max-w-md mx-auto bg-gray-800/50 rounded-xl p-4 backdrop-blur-sm border border-gray-700">
+            {playerStats ? (
+              <>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 text-yellow-500 mb-1">
+                      <Coins className="w-5 h-5" />
+                      <span className="font-bold">{playerStats.gold}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Gold</p>
                   </div>
-                  <p className="text-xs text-gray-400">Gold</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-blue-500 mb-1">
-                    <Clock className="w-5 h-5" />
-                    <span className="font-bold">{playerStats.moves}</span>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 text-blue-500 mb-1">
+                      <Clock className="w-5 h-5" />
+                      <span className="font-bold">{playerStats.moves}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Moves</p>
                   </div>
-                  <p className="text-xs text-gray-400">Moves</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 text-purple-500 mb-1">
-                    <Gift className="w-5 h-5" />
-                    <span className="font-bold">{playerStats.cards_collected}</span>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 text-purple-500 mb-1">
+                      <Gift className="w-5 h-5" />
+                      <span className="font-bold">{playerStats.cards_collected}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Cards</p>
                   </div>
-                  <p className="text-xs text-gray-400">Cards</p>
                 </div>
+
+                {/* Starter Pack Button */}
+                {playerStats.cards_collected === 0 && (
+                  <div className="text-center">
+                    <button
+                      onClick={handleStarterPack}
+                      disabled={loadingStarterPack}
+                      className="flex items-center gap-2 px-6 py-3 bg-purple-600 rounded-lg text-white hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
+                    >
+                      {loadingStarterPack ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Claiming Starter Pack...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Gift className="w-5 h-5" />
+                          <span>Claim Starter Pack</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-2">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-400" />
+                <p className="text-sm text-gray-400 mt-2">Loading stats...</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Main Menu Grid */}
@@ -294,14 +325,19 @@ export default function CharaSpherePage() {
           {/* Play CharaSphere */}
           <Link 
             href="/charasphere/game"
-            className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm"
+            className={`group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm ${
+              !playerStats?.cards_collected ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            onClick={e => !playerStats?.cards_collected && e.preventDefault()}
           >
             <div className="absolute inset-0 flex items-center justify-center">
               <Swords className="w-16 h-16 text-green-400 group-hover:scale-110 transition-transform duration-500" />
             </div>
             <div className="absolute bottom-0 inset-x-0 p-4 text-center">
               <h2 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">Play CharaSphere</h2>
-              <p className="text-sm text-gray-400">Start your adventure</p>
+              <p className="text-sm text-gray-400">
+                {playerStats?.cards_collected ? 'Start your adventure' : 'Claim starter pack to play'}
+              </p>
             </div>
           </Link>
 
