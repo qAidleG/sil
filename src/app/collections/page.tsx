@@ -122,7 +122,30 @@ export default function CollectionsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       console.log('Current user:', user);
       
-      const characters = await getCharacters(user?.id || '', showAll);
+      if (!user?.id) {
+        console.log('No user found, returning empty array');
+        setCharacters([]);
+        return;
+      }
+
+      const { data: userCollection, error: collectionError } = await supabase
+        .from('UserCollection')
+        .select(`
+          *,
+          Roster (
+            *,
+            Series (
+              name,
+              universe,
+              seriesability
+            )
+          )
+        `)
+        .eq('userid', user.id);
+
+      if (collectionError) throw collectionError;
+      
+      const characters = userCollection?.map(uc => uc.Roster) || [];
       console.log('Fetched characters:', characters);
       
       setCharacters(characters);
@@ -227,9 +250,12 @@ export default function CollectionsPage() {
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <h1 className="text-2xl font-bold mb-4">Please sign in to view your collection</h1>
             <button
-              onClick={() => {
-                // Implement login functionality
-              }}
+              onClick={() => supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                  redirectTo: window.location.href
+                }
+              })}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
             >
               Sign in with Google

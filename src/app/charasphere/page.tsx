@@ -178,14 +178,6 @@ export default function CharaSpherePage() {
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
-        {/* Navigation */}
-        <div className="mb-6">
-          <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors w-fit">
-            <Home size={20} />
-            <span>Home</span>
-          </Link>
-        </div>
-
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
@@ -212,9 +204,9 @@ export default function CharaSpherePage() {
             </div>
           </Link>
 
-          {/* Play CharaSphere - Updated to open modal */}
-          <button 
-            onClick={handlePlayClick}
+          {/* Play CharaSphere */}
+          <Link 
+            href="/charasphere/game"
             className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm"
           >
             <div className="absolute inset-0 flex items-center justify-center">
@@ -224,160 +216,30 @@ export default function CharaSpherePage() {
               <h2 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">Play CharaSphere</h2>
               <p className="text-sm text-gray-400">Start your adventure</p>
             </div>
-          </button>
+          </Link>
 
-          {/* Deck Builder Link - Coming Soon */}
-          <div className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm">
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <LayoutGrid className="w-16 h-16 text-gray-600" />
-              <span className="mt-4 text-gray-500 font-semibold">Coming Soon</span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 p-4 text-center">
-              <h2 className="text-xl font-bold text-gray-600">Deck Builder</h2>
-              <p className="text-sm text-gray-500">Create and customize decks</p>
-            </div>
+          {/* Future Features Section */}
+          <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm p-6">
+            <h2 className="text-xl font-bold text-blue-400 mb-4">Coming Soon</h2>
+            <ul className="space-y-2 text-gray-300">
+              <li className="flex items-center space-x-2">
+                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                <span>Deck building with strategy guides</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                <span>Real-time battles with other players</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                <span>Character abilities and special moves</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                <span>Seasonal rankings and rewards</span>
+              </li>
+            </ul>
           </div>
-
-          {/* Battle Arena Link - Coming Soon */}
-          <div className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm">
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <Swords className="w-16 h-16 text-gray-600" />
-              <span className="mt-4 text-gray-500 font-semibold">Coming Soon</span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 p-4 text-center">
-              <h2 className="text-xl font-bold text-gray-600">Battle Arena</h2>
-              <p className="text-sm text-gray-500">Challenge other players</p>
-            </div>
-          </div>
-
-          {/* Rankings Link - Coming Soon */}
-          <div className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm">
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <Trophy className="w-16 h-16 text-gray-600" />
-              <span className="mt-4 text-gray-500 font-semibold">Coming Soon</span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 p-4 text-center">
-              <h2 className="text-xl font-bold text-gray-600">Rankings</h2>
-              <p className="text-sm text-gray-500">Global leaderboards</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Coming Soon Banner */}
-        <div className="mt-12 p-6 rounded-xl bg-blue-500/10 border border-blue-500/20">
-          <h3 className="text-xl font-bold text-blue-400 mb-2">🎮 Game Features Coming Soon</h3>
-          <ul className="list-disc list-inside text-gray-300 space-y-2">
-            <li>Deck building with strategy guides</li>
-            <li>Real-time battles with other players</li>
-            <li>Character abilities and special moves</li>
-            <li>Seasonal rankings and rewards</li>
-            <li>Character evolution and power-ups</li>
-          </ul>
-        </div>
-
-        {/* Character Selection Modal */}
-        <AnimatePresence>
-          {showPlayModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-              onClick={() => !selectedCharacter && setShowPlayModal(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
-                onClick={e => e.stopPropagation()}
-              >
-                {selectedCharacter ? (
-                  <div className="relative">
-                    <button
-                      onClick={handleCloseDetails}
-                      className="absolute right-0 top-0 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <X size={24} />
-                    </button>
-                    <CharacterDetails 
-                      character={selectedCharacter}
-                      onUpdate={(updatedChar: Character) => {
-                        setCharacters(chars => 
-                          chars.map(c => c.characterid === updatedChar.characterid ? updatedChar : c)
-                        )
-                        setSelectedCharacter(updatedChar)
-                      }}
-                    />
-                    <div className="mt-6 flex justify-end">
-                      <button
-                        onClick={handlePlay}
-                        disabled={!selectedCharacter.image1url}
-                        className={`
-                          px-6 py-3 rounded-lg font-semibold
-                          ${selectedCharacter.image1url
-                            ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
-                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'}
-                          transition-colors
-                        `}
-                      >
-                        {selectedCharacter.image1url
-                          ? 'Play Game'
-                          : 'Generate Image to Play'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-blue-400">Select Character</h2>
-                      <button
-                        onClick={() => setShowPlayModal(false)}
-                        className="text-gray-400 hover:text-white transition-colors"
-                      >
-                        <X size={24} />
-                      </button>
-                    </div>
-
-                    {loading ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400" />
-                      </div>
-                    ) : characters.length === 0 ? (
-                      <div className="text-center py-12">
-                        <p className="text-gray-400 text-lg">No characters found</p>
-                        <Link href="/collections" className="mt-4 text-blue-400 hover:text-blue-300">
-                          Add characters to your collection
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {filteredCharacters.map(renderCharacterCard)}
-                      </div>
-                    )}
-                  </>
-                )}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <PlayerStats className="mb-8" />
-        
-        <div className="flex flex-col items-center gap-4">
-          {loading ? (
-            <div>Loading...</div>
-          ) : (
-            <Button
-              onClick={handleGameStart}
-              size="lg"
-              className="w-48"
-            >
-              {gameState && !isBoardCompleted(gameState)
-                ? 'Continue Game'
-                : 'New Game'}
-            </Button>
-          )}
         </div>
       </div>
     </main>

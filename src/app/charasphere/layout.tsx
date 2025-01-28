@@ -6,6 +6,7 @@ import { Home } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Loader2 } from 'lucide-react'
+import { PlayerStats } from '@/components/PlayerStats'
 
 export default function CharaSphereLayout({
   children,
@@ -79,16 +80,24 @@ export default function CharaSphereLayout({
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
         {/* Navigation */}
-        <div className="mb-6 flex items-center space-x-4">
+        <nav className="mb-6 flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
             <Home size={20} />
             <span>Home</span>
           </Link>
-          <span className="text-gray-600">/</span>
-          <Link href="/charasphere" className="text-blue-400 hover:text-blue-300 transition-colors">
-            CharaSphere
-          </Link>
-        </div>
+          {/* Only show CharaSphere link if we're not on the main CharaSphere page */}
+          {window.location.pathname !== '/charasphere' && (
+            <>
+              <span className="text-gray-600">/</span>
+              <Link href="/charasphere" className="text-blue-400 hover:text-blue-300 transition-colors">
+                CharaSphere
+              </Link>
+            </>
+          )}
+        </nav>
+
+        {/* Player Stats */}
+        <PlayerStats className="mb-4" />
 
         {children}
       </div>
