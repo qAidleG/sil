@@ -59,7 +59,7 @@
 | player1Id   | text                    | Foreign key to auth.users |
 | player2Id   | text                    | Foreign key to auth.users |
 | winner      | text                    | Foreign key to auth.users |
-| turns       | jsonb[]                 | Array of turn data |
+| moves       | jsonb[]                 | Array of move data |
 | startedAt   | timestamp without time zone | Battle start time |
 | endedAt     | timestamp without time zone | Battle end time |
 

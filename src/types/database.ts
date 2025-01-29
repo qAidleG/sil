@@ -35,7 +35,7 @@ export interface UserCollection {
 export interface PlayerStats {
   id: string
   created_at: string
-  user_id: string
+  userid: string
   gold: number
   moves: number
   cards: number
@@ -47,7 +47,7 @@ export interface PlayerStats {
 export const INITIAL_PLAYER_STATS: Partial<PlayerStats> = {
   gold: 0,
   moves: 30,
-  cards: 3,
+  cards: 0,
   cards_collected: 0
 }
 

@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.UserCollection (
 -- Create the player stats table
 CREATE TABLE IF NOT EXISTS public.playerstats (
     userid UUID PRIMARY KEY,
-    turns INTEGER DEFAULT 30,
     gold INTEGER DEFAULT 500,
     email TEXT,
     cards INTEGER DEFAULT 2,
