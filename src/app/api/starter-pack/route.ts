@@ -11,12 +11,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
     }
 
-    // Get 3 random unclaimed characters (rarity 1-3)
+    // Get 3 random unclaimed characters
     const { data: characters, error: charError } = await supabase
       .from('Roster')
-      .select('*')
+      .select('characterid, name, rarity, claimed')
       .eq('claimed', false)
-      .in('rarity', [1, 2, 3])
+      .order('random()')
       .limit(3)
 
     if (charError) {
@@ -24,11 +24,15 @@ export async function POST(request: Request) {
       throw charError
     }
     
+    // Log available characters
+    console.log('Available characters:', characters)
+
     if (!characters || characters.length < 3) {
-      console.error('Not enough characters available:', characters?.length ?? 0)
+      const availableCount = characters?.length ?? 0
+      console.error(`Not enough starter characters available (found ${availableCount}):`, characters)
       return NextResponse.json({ 
         success: false, 
-        error: `Not enough starter characters available (found ${characters?.length ?? 0})` 
+        error: `Not enough starter characters available (found ${availableCount}). Please contact the administrator.` 
       }, { status: 400 })
     }
 
