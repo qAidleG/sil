@@ -1,63 +1,55 @@
-import { supabase } from './supabase'
+import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from './supabase-admin'
 import type {
-  Character,
+  Roster,
   Series,
   UserCollection,
   NewSeries,
+  NewRoster,
   NewUserCollection,
+  PlayerStats,
+  UpdatePlayerStats,
+  UpdateRoster,
   UpdateSeries,
   UpdateUserCollection,
+  GridProgress,
+  UpdateGridProgress
 } from '@/types/database'
 
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 // Character Operations
-export const getCharacter = async (characterid: number) => {
+export async function getCharacter(id: number): Promise<Roster> {
   const { data, error } = await supabase
     .from('Roster')
-    .select(`
-      *,
-      Series (
-        name,
-        universe,
-        seriesability
-      )
-    `)
-    .eq('characterid', characterid)
+    .select('*, Series(*)')
+    .eq('characterid', id)
     .single()
-  
+    
   if (error) throw error
-  return data as Character
+  return data as Roster
 }
 
-export async function getCharacters(userId: string, showAll: boolean = false) {
-  let query = supabase
+export async function getCharacters(): Promise<Roster[]> {
+  const query = supabase
     .from('Roster')
     .select(`
       *,
       Series (
+        seriesid,
         name,
-        universe,
-        seriesability
+        universe
       )
     `)
     .order('name')
-
-  if (!showAll) {
-    // Only show claimed characters for the user
-    const { data: userCollection } = await supabase
-      .from('UserCollection')
-      .select('characterid')
-      .eq('userid', userId)
-
-    if (userCollection) {
-      const characterIds = userCollection.map(uc => uc.characterid)
-      query = query.in('characterid', characterIds)
-    }
-  }
-
+    
   const { data, error } = await query
   if (error) throw error
-  return data as Character[]
+  return data as Roster[]
 }
 
 // Series Operations
@@ -96,24 +88,24 @@ export const getSeriesById = async (seriesid: number) => {
 }
 
 // User Collection Operations
-export const getUserCollection = async (userId: string) => {
+export async function getUserCollection(userId: string): Promise<UserCollection[]> {
   const { data, error } = await supabase
     .from('UserCollection')
     .select(`
       *,
       Roster (
         *,
-        Series (
-          name,
-          universe,
-          seriesability
-        )
+        Series (*)
       )
     `)
     .eq('userid', userId)
+    .order('id')
   
   if (error) throw error
-  return data as UserCollection[]
+  return data.map((uc: UserCollection) => ({
+    ...uc,
+    Roster: uc.Roster as Roster
+  }))
 }
 
 export const addToUserCollection = async (collection: NewUserCollection) => {
@@ -160,4 +152,85 @@ export const handleDatabaseError = (error: any) => {
     console.error('Database error:', error)
     throw new Error('An unexpected database error occurred.')
   }
+}
+
+export async function getPlayerStats(userId: string): Promise<PlayerStats | null> {
+  const { data, error } = await supabase
+    .from('playerstats')
+    .select('*')
+    .eq('userid', userId)
+    .single()
+  
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+  return data
+}
+
+export async function updatePlayerStats(
+  userId: string,
+  updates: UpdatePlayerStats
+): Promise<PlayerStats> {
+  const { data, error } = await supabase
+    .from('playerstats')
+    .update(updates)
+    .eq('userid', userId)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export async function getGridProgress(userId: string): Promise<GridProgress | null> {
+  const { data, error } = await supabase
+    .from('gridprogress')
+    .select('*')
+    .eq('userid', userId)
+    .single()
+  
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+  return data
+}
+
+export async function updateGridProgress(
+  userId: string,
+  updates: UpdateGridProgress
+): Promise<GridProgress> {
+  const { data, error } = await supabase
+    .from('gridprogress')
+    .update(updates)
+    .eq('userid', userId)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export async function createGridProgress(
+  userId: string,
+  initialData: Partial<GridProgress>
+): Promise<GridProgress> {
+  const { data, error } = await supabase
+    .from('gridprogress')
+    .insert([{ userid: userId, ...initialData }])
+    .select()
+    .single()
+  
+  if (error) throw error
+  return data
+}
+
+export async function deleteGridProgress(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('gridprogress')
+    .delete()
+    .eq('userid', userId)
+  
+  if (error) throw error
 } 

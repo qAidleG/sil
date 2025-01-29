@@ -75,7 +75,7 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
 
       // Refresh character data
       const { data: refreshedChar, error: refreshError } = await supabase
-        .from('Character')
+        .from('Roster')
         .select(`
           *,
           Series (
@@ -163,7 +163,7 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
 
       // Refresh character data
       const { data: refreshedChar, error: refreshError } = await supabase
-        .from('Character')
+        .from('Roster')
         .select(`
           *,
           Series (
@@ -186,7 +186,7 @@ export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps)
   const handleImageSelect = async (imageId: number) => {
     try {
       const { data, error } = await supabase
-        .from('Character')
+        .from('Roster')
         .update({ selected_image_id: imageId })
         .eq('characterid', character.characterid)
         .select(`

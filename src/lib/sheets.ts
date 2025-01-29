@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
+import type { Roster } from '@/types/database'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -16,7 +17,8 @@ const sheets = google.sheets({ version: 'v4', auth })
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!
 const RANGE = 'Roster!A2:M' // Updated to match the Roster table name
 
-interface CharacterRow {
+// Sheet row interface
+interface RosterRow {
   characterid: number
   name: string
   bio: string
@@ -32,41 +34,41 @@ interface CharacterRow {
   claimed: boolean
 }
 
-// Convert sheet row to character object
-function rowToCharacter(row: (string | number)[]): CharacterRow {
+// Convert sheet row to roster object
+function rowToRoster(row: (string | number)[]): RosterRow {
   return {
     characterid: parseInt(row[0] as string),
     name: row[1] as string,
     bio: row[2] as string,
     rarity: parseInt(row[3] as string),
     seriesid: parseInt(row[4] as string),
-    dialogs: row[5] ? JSON.parse(row[5] as string) : [],
+    dialogs: (row[5] as string).split('|'),
     image1url: row[6] as string || null,
     image2url: row[7] as string || null,
     image3url: row[8] as string || null,
     image4url: row[9] as string || null,
     image5url: row[10] as string || null,
     image6url: row[11] as string || null,
-    claimed: row[12] === 'true'
+    claimed: row[12] === 'TRUE'
   }
 }
 
-// Convert character object to sheet row
-function characterToRow(char: CharacterRow): any[] {
+// Convert roster object to sheet row
+function rosterToRow(roster: RosterRow): any[] {
   return [
-    char.characterid.toString(),
-    char.name,
-    char.bio,
-    char.rarity.toString(),
-    char.seriesid.toString(),
-    JSON.stringify(char.dialogs),
-    char.image1url || '',
-    char.image2url || '',
-    char.image3url || '',
-    char.image4url || '',
-    char.image5url || '',
-    char.image6url || '',
-    char.claimed.toString()
+    roster.characterid.toString(),
+    roster.name,
+    roster.bio,
+    roster.rarity.toString(),
+    roster.seriesid.toString(),
+    roster.dialogs.join('|'),
+    roster.image1url || '',
+    roster.image2url || '',
+    roster.image3url || '',
+    roster.image4url || '',
+    roster.image5url || '',
+    roster.image6url || '',
+    roster.claimed ? 'TRUE' : 'FALSE'
   ]
 }
 
@@ -84,7 +86,7 @@ export async function syncFromSheets() {
     }
 
     // Convert rows to character objects
-    const characters = rows.map(row => rowToCharacter(row))
+    const characters = rows.map(row => rowToRoster(row))
 
     // Upsert to Supabase
     const { data, error } = await supabase
@@ -112,7 +114,7 @@ export async function syncToSheets() {
     if (!characters) throw new Error('No characters found in database')
 
     // Convert to sheet rows
-    const rows = characters.map(char => characterToRow(char))
+    const rows = characters.map(char => rosterToRow(char))
 
     // Update Google Sheets
     await sheets.spreadsheets.values.update({
