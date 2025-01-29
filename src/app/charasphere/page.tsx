@@ -38,9 +38,9 @@ export default function CharaSpherePage() {
       return
     }
 
-    const loadCharacters = async () => {
+  const loadCharacters = async () => {
       try {
-        setLoading(true)
+    setLoading(true)
         const response = await fetch(`/api/characters?userId=${user.id}`)
         if (!response.ok) throw new Error('Failed to load characters')
         
@@ -194,7 +194,7 @@ export default function CharaSpherePage() {
         if (stats) {
           setPlayerStats(stats)
         } else {
-          // This should never happen due to middleware, but handle it just in case
+          // This should never happen due to auth callback, but handle it just in case
           console.error('Player stats not found')
           setError('Failed to load player stats')
         }
@@ -242,6 +242,21 @@ export default function CharaSpherePage() {
     } finally {
       setClaimingStarter(false)
     }
+  }
+
+  // Show loading state while auth is being checked
+  if (userLoading) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white">
+        <StarField />
+        <div className="relative z-10 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-400 mb-4" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
