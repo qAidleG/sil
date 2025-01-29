@@ -105,8 +105,7 @@ export async function POST(req: Request) {
     const { error: updateError } = await supabaseAdmin
       .from('playerstats')
       .update({ 
-        gold: player.gold - PULL_COST,
-        cards_collected: supabaseAdmin.rpc('increment_cards_collected')
+        gold: player.gold - PULL_COST
       })
       .eq('userid', userid)
 

@@ -32,7 +32,6 @@ export async function GET(request: Request) {
               gold: 0,
               moves: 30,
               cards: 0,
-              cards_collected: 0,
               email: session.user.email
             }])
       }

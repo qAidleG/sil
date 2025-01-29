@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS public.playerstats (
     email TEXT,
     cards INTEGER DEFAULT 2,
     moves INTEGER DEFAULT 30,
-    cards_collected INTEGER DEFAULT 0
+    cards_collected INTEGER DEFAULT 0,
+    last_move_refresh TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the grid progress table

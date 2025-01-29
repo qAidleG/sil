@@ -39,7 +39,6 @@ export interface PlayerStats {
   gold: number
   moves: number
   cards: number
-  cards_collected: number
   email: string
 }
 
@@ -47,8 +46,7 @@ export interface PlayerStats {
 export const INITIAL_PLAYER_STATS: Partial<PlayerStats> = {
   gold: 0,
   moves: 30,
-  cards: 0,
-  cards_collected: 0
+  cards: 0
 }
 
 export interface GridProgress {

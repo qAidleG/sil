@@ -14,21 +14,22 @@ const Home = () => {
   const [playerStats, setPlayerStats] = useState<{
     gold: number;
     moves: number;
-    cards_collected: number;
   } | null>(null)
+  const [hasCards, setHasCards] = useState(false)
   const [loadingStarterPack, setLoadingStarterPack] = useState(false)
 
   // Load player stats
   useEffect(() => {
     if (!user) {
       setPlayerStats(null)
+      setHasCards(false)
       return
     }
 
     const loadStats = async () => {
       const { data, error } = await supabase
         .from('playerstats')
-        .select('gold, moves, cards_collected')
+        .select('gold, moves')
         .eq('userid', user.id)
         .single()
 
@@ -38,6 +39,14 @@ const Home = () => {
       }
 
       setPlayerStats(data)
+
+      // Check if user has any cards (for starter pack)
+      const { count } = await supabase
+        .from('UserCollection')
+        .select('*', { count: 'exact', head: true })
+        .eq('userid', user.id)
+
+      setHasCards(!!count)
     }
 
     loadStats()
@@ -59,13 +68,15 @@ const Home = () => {
       const result = await response.json()
       if (result.success) {
         toast.success('Starter pack claimed! Check your collection.')
-        // Refresh player stats
+        // Refresh stats and card status
         const { data } = await supabase
           .from('playerstats')
-          .select('*')
+          .select('gold, moves')
           .eq('userid', user.id)
           .single()
+        
         setPlayerStats(data)
+        setHasCards(true)
       }
     } catch (err) {
       console.error('Error claiming starter pack:', err)
@@ -218,10 +229,6 @@ const Home = () => {
                       <Clock className="w-4 h-4 text-blue-500" />
                       <span className="text-blue-100">{playerStats.moves} Moves</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Gift className="w-4 h-4 text-purple-500" />
-                      <span className="text-purple-100">{playerStats.cards_collected} Cards</span>
-                    </div>
                   </div>
 
                   {/* Action Buttons */}
@@ -234,7 +241,7 @@ const Home = () => {
                       <PlayCircle className="w-4 h-4" />
                       Play
                     </Link>
-                    {playerStats.cards_collected === 0 && (
+                    {!hasCards && (
                       <button
                         onClick={e => {
                           e.preventDefault()
