@@ -155,32 +155,42 @@ export const handleDatabaseError = (error: any) => {
 }
 
 export async function getPlayerStats(userId: string): Promise<PlayerStats | null> {
-  const { data, error } = await supabase
-    .from('playerstats')
-    .select('*')
-    .eq('userid', userId)
-    .single()
-  
-  if (error) {
-    if (error.code === 'PGRST116') return null
+  try {
+    const { data, error } = await supabase
+      .from('playerstats')
+      .select('*')
+      .eq('userid', userId)
+      .single()
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw handleDatabaseError(error)
+    }
+    return data
+  } catch (error) {
+    console.error('Error getting player stats:', error)
     throw error
   }
-  return data
 }
 
 export async function updatePlayerStats(
   userId: string,
   updates: UpdatePlayerStats
 ): Promise<PlayerStats> {
-  const { data, error } = await supabase
-    .from('playerstats')
-    .update(updates)
-    .eq('userid', userId)
-    .select()
-    .single()
-  
-  if (error) throw error
-  return data
+  try {
+    const { data, error } = await supabase
+      .from('playerstats')
+      .update(updates)
+      .eq('userid', userId)
+      .select()
+      .single()
+    
+    if (error) throw handleDatabaseError(error)
+    return data
+  } catch (error) {
+    console.error('Error updating player stats:', error)
+    throw error
+  }
 }
 
 export async function getGridProgress(userId: string): Promise<GridProgress | null> {
@@ -236,18 +246,23 @@ export async function deleteGridProgress(userId: string): Promise<void> {
 }
 
 export async function initializePlayerStats(userId: string): Promise<PlayerStats> {
-  const { data, error } = await supabase
-    .from('playerstats')
-    .insert([{
-      userid: userId,
-      gold: 0,
-      moves: 30,
-      cards: 0,
-      cards_collected: 0
-    }])
-    .select()
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('playerstats')
+      .insert([{
+        userid: userId,
+        gold: 0,
+        moves: 30,
+        cards: 0,
+        cards_collected: 0
+      }])
+      .select()
+      .single()
 
-  if (error) throw error
-  return data
+    if (error) throw handleDatabaseError(error)
+    return data
+  } catch (error) {
+    console.error('Error initializing player stats:', error)
+    throw error
+  }
 } 

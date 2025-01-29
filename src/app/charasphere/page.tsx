@@ -185,33 +185,35 @@ export default function CharaSpherePage() {
     </div>
   )
 
-  // Load or initialize player stats
+  // Load player stats
   useEffect(() => {
     const loadStats = async () => {
       if (!user?.id) return
       try {
-        // Try to get existing stats
         const stats = await getPlayerStats(user.id)
-        
-        if (!stats) {
-          // Initialize new player stats
-          const newStats = await initializePlayerStats(user.id)
-          setPlayerStats(newStats)
-          toast.success('Welcome! Your player stats have been initialized.')
-        } else {
+        if (stats) {
           setPlayerStats(stats)
+        } else {
+          // This should never happen due to middleware, but handle it just in case
+          console.error('Player stats not found')
+          setError('Failed to load player stats')
         }
       } catch (err) {
         console.error('Error loading stats:', err)
-        toast.error('Failed to load player stats')
         setError('Failed to load player stats')
       } finally {
         setLoading(false)
       }
     }
 
-    loadStats()
-  }, [user?.id])
+    if (!userLoading) {
+      if (!user?.id) {
+        router.push('/login')
+      } else {
+        loadStats()
+      }
+    }
+  }, [user?.id, userLoading, router])
 
   const handleStarterPack = async () => {
     if (!user?.id) return
