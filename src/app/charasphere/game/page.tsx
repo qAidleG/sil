@@ -10,6 +10,7 @@ import { PlayerStats } from '@/components/PlayerStats'
 import { GridTile, TileType } from '@/types/game'
 import { toast } from 'react-hot-toast'
 import { useUser } from '@/hooks/useUser'
+import { supabase } from '@/lib/supabase'
 
 // Simplified tile interface
 interface UITile extends GridTile {
@@ -139,39 +140,65 @@ function getErrorMessage(error: unknown): string {
   return 'An unknown error occurred'
 }
 
+const CARD_COST = 1  // Cost in moves to start a game
+
 export default function GamePage() {
-  const { user, loading: userLoading } = useUser()
-  const { gameState, loading: gameLoading, error } = useGameState()
+  const { user } = useUser()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (error) {
-      toast.error(getErrorMessage(error))
+    const checkPlayerStats = async () => {
+      if (!user?.id) return
+
+      try {
+        // Check if player has any cards
+        const { data: stats, error } = await supabase
+          .from('playerstats')
+          .select('cards_collected')
+          .eq('userid', user.id)
+          .single()
+
+        if (error) throw error
+
+        // Check if player has cards available
+        if (!stats.cards_collected) {
+          toast.error('You need at least one card to start a game! Claim your starter pack first.')
+          router.push('/charasphere')
+          return
+        }
+
+        // Use up one card for the game
+        const { error: updateError } = await supabase
+          .from('playerstats')
+          .update({ cards_collected: stats.cards_collected - 1 })
+          .eq('userid', user.id)
+
+        if (updateError) throw updateError
+
+        toast.success('Card used to start game!')
+        // Initialize game state here...
+        
+      } catch (err) {
+        console.error('Error checking player stats:', err)
+        setError('Failed to start game')
+        router.push('/charasphere')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [error])
 
-  if (userLoading || gameLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading game...</span>
-      </div>
-    )
-  }
+    checkPlayerStats()
+  }, [user?.id])
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Please sign in to play</p>
-      </div>
-    )
+  if (loading) {
+    return <div>Loading...</div>
   }
 
   if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-red-500">Error loading game: {getErrorMessage(error)}</p>
-      </div>
-    )
+    return <div>{error}</div>
   }
 
   return (

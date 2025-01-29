@@ -6,43 +6,36 @@ import { StarField } from '../components/StarField'
 import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2, Gift, Coins, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Character } from '@/types/database'
+import { RosterCharacter, PlayerStats } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
-import { useUser } from '@/hooks/useUser'
+import { useUser } from '@supabase/auth-helpers-react'
 import { Button } from '@/components/ui/button'
-import { PlayerStats } from '@/components/PlayerStats'
+import { PlayerStats as PlayerStatsComponent } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
 import { toast } from 'react-hot-toast'
 
 export default function CharaSpherePage() {
-  const { user } = useUser()
+  const userContext = useUser()
   const router = useRouter()
   const [showPlayModal, setShowPlayModal] = useState(false)
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null)
-  const [characters, setCharacters] = useState<Character[]>([])
+  const [selectedCharacter, setSelectedCharacter] = useState<RosterCharacter | null>(null)
+  const [characters, setCharacters] = useState<RosterCharacter[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [gameState, setGameState] = useState<GameState | null>(null)
-  const [playerStats, setPlayerStats] = useState<{
-    gold: number;
-    moves: number;
-    cards_collected: number;
-  } | null>(null)
+  const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
   const [loadingStarterPack, setLoadingStarterPack] = useState(false)
 
   const loadCharacters = async () => {
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .from('Character')
+        .from('Roster')
         .select(`
           *,
-          id,
-          characterid,
           Series (
-            id,
             seriesid,
             name,
             universe
@@ -65,7 +58,7 @@ export default function CharaSpherePage() {
     setShowPlayModal(true)
   }
 
-  const handleCharacterClick = (character: Character) => {
+  const handleCharacterClick = (character: RosterCharacter) => {
     setSelectedCharacter(character)
     router.push(`/charasphere/game?character=${character.characterid}`)
   }
@@ -83,10 +76,10 @@ export default function CharaSpherePage() {
   // Check if there's a game in progress
   useEffect(() => {
     const checkGameState = async () => {
-      if (!user?.id) return
+      if (!userContext?.id) return
 
       try {
-        const response = await fetch(`/api/game-state?userId=${user.id}`)
+        const response = await fetch(`/api/game-state?userId=${userContext.id}`)
         if (!response.ok) throw new Error('Failed to check game state')
         
         const data = await response.json()
@@ -99,7 +92,7 @@ export default function CharaSpherePage() {
     }
 
     checkGameState()
-  }, [user?.id])
+  }, [userContext?.id])
 
   // Check if board is completed
   const isBoardCompleted = (state: GameState) => {
@@ -107,7 +100,7 @@ export default function CharaSpherePage() {
   }
 
   const handleGameStart = async () => {
-    if (!user?.id) return
+    if (!userContext?.id) return
 
     if (gameState && !isBoardCompleted(gameState)) {
       // Continue existing game
@@ -116,7 +109,7 @@ export default function CharaSpherePage() {
       // Start new game
       try {
         // Delete any existing completed game
-        await fetch(`/api/game-state?userId=${user.id}`, {
+        await fetch(`/api/game-state?userId=${userContext.id}`, {
           method: 'DELETE'
         })
         
@@ -134,7 +127,7 @@ export default function CharaSpherePage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Update character grid
-  const renderCharacterCard = (character: Character) => (
+  const renderCharacterCard = (character: RosterCharacter) => (
     <div
       key={character.characterid}
       onClick={() => handleCharacterClick(character)}
@@ -184,75 +177,76 @@ export default function CharaSpherePage() {
   // Initialize player stats for new users
   const initializePlayerStats = async (userId: string) => {
     try {
-      // First check if stats exist
-      const { data: existingStats } = await supabase
+      // Create initial stats
+      const { data: newStats, error: insertError } = await supabase
         .from('playerstats')
-        .select('*')
-        .eq('userid', userId)
+        .insert([
+          {
+            userid: userId,
+            gold: 0,
+            moves: 10,
+            cards_collected: 0
+          }
+        ])
+        .select()
         .single()
 
-      if (!existingStats) {
-        // Create initial stats
-        const { data: newStats, error: insertError } = await supabase
-          .from('playerstats')
-          .insert([
-            {
-              userid: userId,
-              gold: 0,
-              moves: 10,
-              cards_collected: 0
-            }
-          ])
-          .select()
-          .single()
-
-        if (insertError) throw insertError
-        setPlayerStats(newStats)
-      } else {
-        setPlayerStats(existingStats)
+      if (insertError) {
+        console.error('Error creating stats:', insertError)
+        throw insertError
       }
+
+      setPlayerStats(newStats)
+      return newStats
     } catch (err) {
       console.error('Error initializing player stats:', err)
       toast.error('Failed to initialize player stats')
+      return null
     }
   }
 
   // Load or initialize player stats
   useEffect(() => {
     const loadStats = async () => {
-      if (!user?.id) return
+      if (!userContext?.id) return
       try {
         const { data, error } = await supabase
           .from('playerstats')
-          .select('gold, moves, cards_collected')
-          .eq('userid', user.id)
+          .select('*')
+          .eq('userid', userContext.id)
           .single()
 
         if (error) {
-          if (error.code === 'PGRST116') {  // Record not found
-            await initializePlayerStats(user.id)
+          // If no record found, create one
+          if (error.code === 'PGRST116') {
+            const newStats = await initializePlayerStats(userContext.id)
+            if (newStats) {
+              toast.success('Welcome! Your player stats have been initialized.')
+            }
           } else {
-            throw error
+            console.error('Error loading stats:', error)
+            toast.error('Failed to load player stats')
           }
         } else {
           setPlayerStats(data)
         }
       } catch (err) {
-        console.error('Error loading stats:', err)
+        console.error('Error in loadStats:', err)
       }
     }
+
     loadStats()
-  }, [user?.id])
+  }, [userContext?.id])
 
   // Handle starter pack claim
   const handleStarterPack = async () => {
-    if (!user?.id) return
+    if (!userContext?.id) return
     setLoadingStarterPack(true)
     try {
       const response = await fetch('/api/starter-pack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ userId: userContext.id })
       })
       
       if (!response.ok) throw new Error('Failed to claim starter pack')
@@ -264,7 +258,7 @@ export default function CharaSpherePage() {
         const { data } = await supabase
           .from('playerstats')
           .select('*')
-          .eq('userid', user.id)
+          .eq('userid', userContext.id)
           .single()
         setPlayerStats(data)
       }

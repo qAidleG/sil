@@ -1,3 +1,6 @@
+-- Grant schema usage
+GRANT USAGE ON SCHEMA public TO authenticated;
+
 -- Enable RLS
 ALTER TABLE public.playerstats ENABLE ROW LEVEL SECURITY;
 
@@ -23,4 +26,7 @@ TO authenticated
 WITH CHECK (auth.uid() = userid);
 
 -- Grant necessary permissions
-GRANT SELECT, INSERT, UPDATE ON public.playerstats TO authenticated; 
+GRANT ALL ON public.playerstats TO authenticated;
+
+-- Grant sequence usage if it exists
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated; 
