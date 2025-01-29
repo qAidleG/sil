@@ -5,7 +5,7 @@ export interface Series {
   seriesability?: string | null
 }
 
-export interface RosterCharacter {
+export interface Roster {
   characterid: number
   name: string
   bio: string
@@ -16,6 +16,8 @@ export interface RosterCharacter {
   image2url: string | null
   image3url: string | null
   image4url: string | null
+  image5url: string | null
+  image6url: string | null
   claimed: boolean
   Series?: Series | null
 }
@@ -27,13 +29,14 @@ export interface UserCollection {
   customName?: string | null
   favorite: boolean
   selectedImageId?: number | null
-  Roster?: RosterCharacter
+  Roster?: Roster
 }
 
 export interface PlayerStats {
-  userid: string
+  id: string
+  created_at: string
+  user_id: string
   gold: number
-  turns: number
   moves: number
   cards: number
   cards_collected: number
@@ -41,11 +44,10 @@ export interface PlayerStats {
 }
 
 // Initial stats for new players
-export const INITIAL_PLAYER_STATS: Omit<PlayerStats, 'userid' | 'email'> = {
-  gold: 500,
-  turns: 30,
+export const INITIAL_PLAYER_STATS: Partial<PlayerStats> = {
+  gold: 0,
   moves: 30,
-  cards: 2,
+  cards: 3,
   cards_collected: 0
 }
 
@@ -57,14 +59,14 @@ export interface GridProgress {
 }
 
 // Type for updates
-export type UpdateRosterCharacter = Partial<RosterCharacter>
+export type UpdateRoster = Partial<Roster>
 export type UpdateSeries = Partial<Series>
 export type UpdateUserCollection = Partial<UserCollection>
 export type UpdatePlayerStats = Partial<PlayerStats>
 export type UpdateGridProgress = Partial<GridProgress>
 
-// Type guard for RosterCharacter
-export function isDatabaseCharacter(obj: any): obj is RosterCharacter {
+// Type guard for Roster
+export function isDatabaseCharacter(obj: any): obj is Roster {
   return (
     typeof obj === 'object' &&
     obj !== null &&
@@ -84,7 +86,7 @@ export function isDatabaseCharacter(obj: any): obj is RosterCharacter {
   )
 }
 
-export interface NewRosterCharacter {
+export interface NewRoster {
   name: string
   bio: string
   rarity: number

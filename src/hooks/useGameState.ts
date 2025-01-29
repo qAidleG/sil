@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useUser } from './useUser'
-import { GameState, GridTile, TileType } from '@/types/game'
+import { GridTile, TileType, GameState as BaseGameState } from '@/types/game'
 import { useRouter } from 'next/navigation'
 
 interface PlayerStats {
@@ -8,12 +8,43 @@ interface PlayerStats {
   gold: number;
 }
 
-const MOVE_COST = 1  // Cost in turns to move to a new tile
+const MOVE_COST = 1  // Cost in moves to move to a new tile
+
+// Extend the base GameState for our local usage
+interface LocalGameState extends BaseGameState {
+  // Add any local state we need
+}
+
+// Helper to convert number to basic GridTile
+const toGridTile = (value: number, index: number): GridTile => {
+  const x = index % 5
+  const y = Math.floor(index / 5)
+  // Safe cast since we validate the values before using them
+  const tileType = ['G1', 'G2', 'G3', 'E1', 'E2', 'E3', 'C1', 'C2', 'C3', 'P'][value % 10] as TileType
+  return {
+    id: index + 1,
+    type: tileType,
+    x,
+    y,
+    discovered: false
+  }
+}
+
+export const INITIAL_GAME_STATE: LocalGameState = {
+  userId: '',
+  tilemap: [],
+  gold: 0,
+  goldCollected: 0,
+  moves: 30,
+  gridCleared: false,
+  playerPosition: 0,
+  unlockedCharacters: []
+}
 
 export function useGameState() {
   const { user } = useUser()
   const router = useRouter()
-  const [gameState, setGameState] = useState<GameState | null>(null)
+  const [gameState, setGameState] = useState<LocalGameState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
@@ -170,30 +201,27 @@ export function useGameState() {
   }
 
   // Move player
-  const movePlayer = async (newPosition: number) => {
-    if (!gameState || !playerStats) return
+  const movePlayer = async (tileId: number) => {
+    if (!gameState) return;
     
-    // Check if player has enough turns
-    if (playerStats.moves < MOVE_COST) {
-      setError('Not enough turns! Wait for turns to regenerate.')
-      return
+    // Validate move
+    if (gameState.moves < MOVE_COST) {
+      throw new Error('Not enough moves remaining');
     }
 
-    // Update moves first
     try {
+      // Update moves first
       const response = await fetch('/api/use-moves', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id,
           moves: MOVE_COST
         })
       })
 
-      if (!response.ok) throw new Error('Failed to use turns')
-      
+      if (!response.ok) throw new Error('Failed to use moves')
+
       const { remainingMoves } = await response.json()
       setPlayerStats(prev => prev ? { ...prev, moves: remainingMoves } : null)
 
@@ -203,7 +231,7 @@ export function useGameState() {
           // Mark the tile as claimed when player leaves it
           return { ...tile, type: 'C' as TileType, discovered: true }
         }
-        if (tile.id === newPosition) {
+        if (tile.id === tileId) {
           return { ...tile, type: 'P' as TileType, discovered: true }
         }
         return tile
@@ -212,7 +240,7 @@ export function useGameState() {
       setGameState(prev => prev ? {
         ...prev,
         tilemap: updatedTilemap,
-        playerPosition: newPosition
+        playerPosition: tileId
       } : null)
 
       // Check board completion after move
@@ -220,9 +248,9 @@ export function useGameState() {
         await saveGame()  // Save before showing completion
         showCompletionAnimation()  // Show completion animation
       }
-    } catch (err) {
-      console.error('Error moving player:', err)
-      setError('Failed to move player')
+    } catch (error) {
+      console.error('Error moving:', error)
+      return false
     }
   }
 
@@ -242,7 +270,7 @@ export function useGameState() {
     resetGame,
     discoverTile,
     movePlayer,
-    updateGameState: (newState: GameState) => {
+    updateGameState: (newState: LocalGameState) => {
       setGameState(newState);
       // Update player stats if needed
       if (newState.goldCollected !== gameState?.goldCollected) {

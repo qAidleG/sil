@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, Suspense, useEffect } from 'react'
-import { Character } from '@/types/database'
+import { Roster } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { ErrorBoundary } from '@/app/components/ErrorBoundary'
@@ -18,14 +18,14 @@ interface UITile extends GridTile {
   discovered: boolean;
   value: number;
   tileType: string;
-  character?: Character;
+  character?: Roster;
 }
 
 function GameContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const characterId = searchParams.get('character')
-
+  
   // Core game state from hook
   const { 
     gameState, 
@@ -114,11 +114,11 @@ function GameContent() {
           const isPlayerTile = gameState.playerPosition === tile.id
 
           return (
-            <button
+                  <button
               key={tile.id}
               onClick={() => handleTileClick(x, y)}
               disabled={gameLoading}
-              className={`
+                    className={`
                 w-20 h-20 rounded-lg transition-all
                 ${isPlayerTile ? 'bg-blue-500' : 'bg-gray-200'}
                 ${isSelected ? 'ring-2 ring-yellow-400' : ''}
@@ -126,7 +126,7 @@ function GameContent() {
               `}
             >
               {tile.type === 'P' && '👤'}
-            </button>
+                  </button>
           )
         })}
       </div>
@@ -157,14 +157,14 @@ export default function GamePage() {
         // Check if player has any cards
         const { data: stats, error } = await supabase
           .from('playerstats')
-          .select('cards_collected')
+          .select('cards')
           .eq('userid', user.id)
           .single()
 
         if (error) throw error
 
         // Check if player has cards available
-        if (!stats.cards_collected) {
+        if (!stats.cards) {
           toast.error('You need at least one card to start a game! Claim your starter pack first.')
           router.push('/charasphere')
           return
@@ -173,7 +173,7 @@ export default function GamePage() {
         // Use up one card for the game
         const { error: updateError } = await supabase
           .from('playerstats')
-          .update({ cards_collected: stats.cards_collected - 1 })
+          .update({ cards: stats.cards - 1 })
           .eq('userid', user.id)
 
         if (updateError) throw updateError

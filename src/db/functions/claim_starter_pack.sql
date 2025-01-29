@@ -47,7 +47,7 @@ BEGIN
   -- Update player stats
   UPDATE public.playerstats
   SET 
-    cards_collected = cards_collected + array_length(v_character_ids, 1),
+    cards = cards + array_length(v_character_ids, 1),
     gold = gold + 100  -- Bonus gold for new players
   WHERE userid = p_userid;
 

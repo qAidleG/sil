@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Character } from '@/types/database'
+import { Roster } from '@/types/database'
 import { StarField } from '../components/StarField'
 import Link from 'next/link'
 import { Home, Search, SortAsc, Star, Plus, X, ImageIcon, Upload, Swords, Trash2 } from 'lucide-react'
@@ -38,10 +38,18 @@ interface ImageGenerationForm {
   background: 'nature' | 'battle' | 'mystical' | 'city'
 }
 
+interface CharacterCardProps {
+  character: Roster
+  onQuickGenerate: (character: Roster) => void
+  onDeleteImage: (characterId: string, imageField: string) => Promise<void>
+  setError: (error: string | null) => void
+  fetchCharacters: () => Promise<void>
+}
+
 export default function CollectionsPage() {
   console.log('CollectionsPage: Component initialized')
   
-  const [characters, setCharacters] = useState<Character[]>([])
+  const [characters, setCharacters] = useState<Roster[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -162,7 +170,7 @@ export default function CollectionsPage() {
     fetchCharacters();
   }, [showAll]);
 
-  const handleQuickGenerate = async (character: Character) => {
+  const handleQuickGenerate = async (character: Roster) => {
     if (!character) return
     setError(null)
     
@@ -400,14 +408,6 @@ export default function CollectionsPage() {
       </div>
     </main>
   )
-}
-
-interface CharacterCardProps {
-  character: Character
-  onQuickGenerate: (character: Character) => void
-  onDeleteImage: (characterId: string, imageField: string) => Promise<void>
-  setError: (error: string | null) => void
-  fetchCharacters: () => Promise<void>
 }
 
 function CharacterCard({ character, onQuickGenerate, onDeleteImage, setError, fetchCharacters }: CharacterCardProps) {

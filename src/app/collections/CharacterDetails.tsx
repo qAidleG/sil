@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Character } from '@/types/database'
+import { Roster } from '@/types/database'
 import { ImageIcon, Upload } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -13,8 +13,8 @@ interface ImageGenerationForm {
 }
 
 interface CharacterDetailsProps {
-  character: Character
-  onUpdate: (character: Character) => void
+  character: Roster
+  onUpdate: (character: Roster) => void
 }
 
 export function CharacterDetails({ character, onUpdate }: CharacterDetailsProps) {

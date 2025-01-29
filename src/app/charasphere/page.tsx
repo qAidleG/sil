@@ -6,7 +6,7 @@ import { StarField } from '../components/StarField'
 import { Home, LayoutGrid, Swords, Trophy, User, X, Loader2, Gift, Coins, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { RosterCharacter, PlayerStats } from '@/types/database'
+import { Roster, PlayerStats } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
 import { useUser } from '@supabase/auth-helpers-react'
@@ -16,17 +16,15 @@ import { GameState } from '@/types/game'
 import { toast } from 'react-hot-toast'
 
 export default function CharaSpherePage() {
-  const userContext = useUser()
   const router = useRouter()
-  const [showPlayModal, setShowPlayModal] = useState(false)
-  const [selectedCharacter, setSelectedCharacter] = useState<RosterCharacter | null>(null)
-  const [characters, setCharacters] = useState<RosterCharacter[]>([])
+  const { user } = useUser()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [loadingMessage, setLoadingMessage] = useState('')
-  const [gameState, setGameState] = useState<GameState | null>(null)
+  const [selectedCharacter, setSelectedCharacter] = useState<Roster | null>(null)
+  const [characters, setCharacters] = useState<Roster[]>([])
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
-  const [loadingStarterPack, setLoadingStarterPack] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [claimingStarter, setClaimingStarter] = useState(false)
 
   const loadCharacters = async () => {
     setLoading(true)
@@ -55,12 +53,11 @@ export default function CharaSpherePage() {
   const handlePlayClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     await loadCharacters()
-    setShowPlayModal(true)
+    setShowClaimModal(true)
   }
 
-  const handleCharacterClick = (character: RosterCharacter) => {
+  const handleCharacterClick = (character: Roster) => {
     setSelectedCharacter(character)
-    router.push(`/charasphere/game?character=${character.characterid}`)
   }
 
   const handleCloseDetails = () => {
@@ -76,10 +73,10 @@ export default function CharaSpherePage() {
   // Check if there's a game in progress
   useEffect(() => {
     const checkGameState = async () => {
-      if (!userContext?.id) return
+      if (!user?.id) return
 
       try {
-        const response = await fetch(`/api/game-state?userId=${userContext.id}`)
+        const response = await fetch(`/api/game-state?userId=${user.id}`)
         if (!response.ok) throw new Error('Failed to check game state')
         
         const data = await response.json()
@@ -92,7 +89,7 @@ export default function CharaSpherePage() {
     }
 
     checkGameState()
-  }, [userContext?.id])
+  }, [user?.id])
 
   // Check if board is completed
   const isBoardCompleted = (state: GameState) => {
@@ -100,7 +97,7 @@ export default function CharaSpherePage() {
   }
 
   const handleGameStart = async () => {
-    if (!userContext?.id) return
+    if (!user?.id) return
 
     if (gameState && !isBoardCompleted(gameState)) {
       // Continue existing game
@@ -109,7 +106,7 @@ export default function CharaSpherePage() {
       // Start new game
       try {
         // Delete any existing completed game
-        await fetch(`/api/game-state?userId=${userContext.id}`, {
+        await fetch(`/api/game-state?userId=${user.id}`, {
           method: 'DELETE'
         })
         
@@ -127,7 +124,7 @@ export default function CharaSpherePage() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Update character grid
-  const renderCharacterCard = (character: RosterCharacter) => (
+  const renderCharacterCard = (character: Roster) => (
     <div
       key={character.characterid}
       onClick={() => handleCharacterClick(character)}
@@ -185,7 +182,7 @@ export default function CharaSpherePage() {
             userid: userId,
             gold: 0,
             moves: 10,
-            cards_collected: 0
+            cards: 0
           }
         ])
         .select()
@@ -208,18 +205,18 @@ export default function CharaSpherePage() {
   // Load or initialize player stats
   useEffect(() => {
     const loadStats = async () => {
-      if (!userContext?.id) return
+      if (!user?.id) return
       try {
         const { data, error } = await supabase
           .from('playerstats')
           .select('*')
-          .eq('userid', userContext.id)
+          .eq('userid', user.id)
           .single()
 
         if (error) {
           // If no record found, create one
           if (error.code === 'PGRST116') {
-            const newStats = await initializePlayerStats(userContext.id)
+            const newStats = await initializePlayerStats(user.id)
             if (newStats) {
               toast.success('Welcome! Your player stats have been initialized.')
             }
@@ -236,17 +233,17 @@ export default function CharaSpherePage() {
     }
 
     loadStats()
-  }, [userContext?.id])
+  }, [user?.id])
 
   // Handle starter pack claim
   const handleStarterPack = async () => {
-    if (!userContext?.id) return
-    setLoadingStarterPack(true)
+    if (!user?.id) return
+    setClaimingStarter(true)
     try {
       const response = await fetch('/api/starter-pack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userContext.id })
+        body: JSON.stringify({ userId: user.id })
       })
       
       if (!response.ok) throw new Error('Failed to claim starter pack')
@@ -258,7 +255,7 @@ export default function CharaSpherePage() {
         const { data } = await supabase
           .from('playerstats')
           .select('*')
-          .eq('userid', userContext.id)
+          .eq('userid', user.id)
           .single()
         setPlayerStats(data)
       }
@@ -266,7 +263,7 @@ export default function CharaSpherePage() {
       console.error('Error claiming starter pack:', err)
       toast.error('Failed to claim starter pack')
     } finally {
-      setLoadingStarterPack(false)
+      setClaimingStarter(false)
     }
   }
 
@@ -305,21 +302,21 @@ export default function CharaSpherePage() {
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-2 text-purple-500 mb-1">
                       <Gift className="w-5 h-5" />
-                      <span className="font-bold">{playerStats.cards_collected}</span>
+                      <span className="font-bold">{playerStats.cards}</span>
                     </div>
                     <p className="text-xs text-gray-400">Cards</p>
                   </div>
                 </div>
 
                 {/* Starter Pack Button */}
-                {playerStats.cards_collected === 0 && (
+                {playerStats.cards === 0 && (
                   <div className="text-center">
                     <button
                       onClick={handleStarterPack}
-                      disabled={loadingStarterPack}
+                      disabled={claimingStarter}
                       className="flex items-center gap-2 px-6 py-3 bg-purple-600 rounded-lg text-white hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
                     >
-                      {loadingStarterPack ? (
+                      {claimingStarter ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
                           <span>Claiming Starter Pack...</span>
@@ -363,9 +360,9 @@ export default function CharaSpherePage() {
           <Link 
             href="/charasphere/game"
             className={`group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm ${
-              !playerStats?.cards_collected ? 'opacity-50 cursor-not-allowed' : ''
+              !playerStats?.cards ? 'opacity-50 cursor-not-allowed' : ''
             }`}
-            onClick={e => !playerStats?.cards_collected && e.preventDefault()}
+            onClick={e => !playerStats?.cards && e.preventDefault()}
           >
             <div className="absolute inset-0 flex items-center justify-center">
               <Swords className="w-16 h-16 text-green-400 group-hover:scale-110 transition-transform duration-500" />
@@ -373,22 +370,22 @@ export default function CharaSpherePage() {
             <div className="absolute bottom-0 inset-x-0 p-4 text-center">
               <h2 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">Play CharaSphere</h2>
               <p className="text-sm text-gray-400">
-                {playerStats?.cards_collected ? 'Start your adventure' : 'Claim starter pack to play'}
+                {playerStats?.cards ? 'Start your adventure' : 'Claim starter pack to play'}
               </p>
             </div>
           </Link>
 
           {/* Starter Pack Section */}
-          {playerStats?.cards_collected === 0 && (
+          {(!playerStats || playerStats.cards === 0) && (
             <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-purple-900/30 to-purple-800/20 border border-purple-700/50 backdrop-blur-sm p-6 flex flex-col justify-center items-center">
               <h2 className="text-2xl font-bold text-purple-300 mb-4">Welcome to CharaSphere!</h2>
               <p className="text-gray-300 mb-6 text-center">Begin your journey with a starter pack of characters</p>
               <button
                 onClick={handleStarterPack}
-                disabled={loadingStarterPack}
+                disabled={claimingStarter}
                 className="flex items-center gap-2 px-6 py-3 bg-purple-600 rounded-lg text-white hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loadingStarterPack ? (
+                {claimingStarter ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     <span>Claiming Starter Pack...</span>
@@ -404,7 +401,7 @@ export default function CharaSpherePage() {
           )}
 
           {/* Future Features Section */}
-          {(!playerStats || playerStats.cards_collected > 0) && (
+          {(!playerStats || playerStats.cards > 0) && (
             <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm p-6">
               <h2 className="text-xl font-bold text-blue-400 mb-4">Coming Soon</h2>
               <ul className="space-y-2 text-gray-300">

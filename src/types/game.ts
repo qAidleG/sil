@@ -1,4 +1,4 @@
-import { Character } from './database'
+import { Roster } from './database'
 
 // Grid Types
 export type GoldTileType = 'G1' | 'G2' | 'G3'  // Different gold values
@@ -12,7 +12,7 @@ export interface GridTile {
   x: number
   y: number
   characterId?: number    // ID of the unclaimed character assigned to this tile
-  character?: Character   // Character data if loaded
+  character?: Roster   // Character data if loaded
   discovered: boolean     // Track if tile has been visited
   eventContent?: string   // Store Grok-generated content for events and encounters
 }
@@ -28,7 +28,7 @@ export interface GameState {
   tilemap: GridTile[]
   gold: number
   goldCollected: number
-  turns: number
+  moves: number     // Changed from turns to moves for consistency
   gridCleared: boolean     // Track if entire grid is discovered
   playerPosition: number   // Current position of player
   isCompleting?: boolean   // Flag for completion animation
@@ -152,7 +152,7 @@ export interface NewPlayer {
 export interface PullResult {
   success: boolean
   characterId?: number
-  character?: Character
+  character?: Roster
   error?: string
 }
 
@@ -167,12 +167,12 @@ export type NewUserCollection = {
 export interface DiscoverTileResponse {
   success: boolean
   reward?: number
-  character?: Character
+  character?: Roster
   eventContent?: string
   updatedTilemap: GridTile[]
   gridCleared?: boolean    // Indicate if grid was cleared
-  unlockedCharacter?: Character  // Character unlocked from tile
-  boardCompletionCharacter?: Character  // C4 character unlocked from completing board
+  unlockedCharacter?: Roster  // Character unlocked from tile
+  boardCompletionCharacter?: Roster  // C4 character unlocked from completing board
 }
 
 export interface NewGameResponse {

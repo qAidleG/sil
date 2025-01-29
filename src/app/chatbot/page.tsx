@@ -12,10 +12,14 @@ import { sendGrokMessage, generateImage } from '@/lib/api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StarField } from '../components/StarField'
 import { supabase } from '@/lib/supabase'
-import { Character } from '@/types/database'
+import { Roster } from '@/types/database'
+import { useUser } from '@supabase/auth-helpers-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Send, User, Bot } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 // Extend Character type to include display image
-interface ChatCharacter extends Character {
+interface ChatCharacter extends Roster {
   displayImage: string
 }
 

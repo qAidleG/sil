@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { calculateGoldReward, GridTile, TileType } from '@/types/game'
-import { Character } from '@/types/database'
+import { Roster } from '@/types/database'
 
-async function generateEventContent(character: Character) {
+async function generateEventContent(character: Roster) {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/event-content`, {
       method: 'POST',
@@ -24,7 +24,7 @@ async function generateEventContent(character: Character) {
   }
 }
 
-async function generateCharacterEncounter(discoveredCharacter: Character, playerCharacter: Character) {
+async function generateCharacterEncounter(discoveredCharacter: Roster, playerCharacter: Roster) {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/generate-dialog`, {
       method: 'POST',
@@ -50,7 +50,7 @@ async function generateCharacterEncounter(discoveredCharacter: Character, player
   }
 }
 
-async function generateCharacterImage(character: Character) {
+async function generateCharacterImage(character: Roster) {
   try {
     // Generate image using Flux API
     const basePrompt = `Create an anime style trading card art of ${character.name}, a ${character.bio?.split('.')[0]}. Character shown in a noble portrait pose, facing slightly to the side, elegant and composed. Expression is confident and cheerful. Premium trading card game background with subtle magical effects and professional card frame. High-quality anime art style, clean lines, vibrant colors.`
