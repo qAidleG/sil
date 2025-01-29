@@ -19,9 +19,17 @@ export async function POST(request: Request) {
       .in('rarity', [1, 2, 3])
       .limit(3)
 
-    if (charError) throw charError
+    if (charError) {
+      console.error('Error fetching characters:', charError)
+      throw charError
+    }
+    
     if (!characters || characters.length < 3) {
-      return NextResponse.json({ success: false, error: 'Not enough characters available' }, { status: 400 })
+      console.error('Not enough characters available:', characters?.length ?? 0)
+      return NextResponse.json({ 
+        success: false, 
+        error: `Not enough starter characters available (found ${characters?.length ?? 0})` 
+      }, { status: 400 })
     }
 
     // Mark characters as claimed
@@ -30,7 +38,10 @@ export async function POST(request: Request) {
       .update({ claimed: true })
       .in('characterid', characters.map(c => c.characterid))
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error('Error marking characters as claimed:', updateError)
+      throw updateError
+    }
 
     // Add characters to user's collection
     const { error: collectionError } = await supabase
@@ -43,7 +54,10 @@ export async function POST(request: Request) {
         }))
       )
 
-    if (collectionError) throw collectionError
+    if (collectionError) {
+      console.error('Error adding to collection:', collectionError)
+      throw collectionError
+    }
 
     // Update player stats
     const { error: statsError } = await supabase
@@ -51,11 +65,17 @@ export async function POST(request: Request) {
       .update({ cards: 3 })
       .eq('userid', userId)
 
-    if (statsError) throw statsError
+    if (statsError) {
+      console.error('Error updating player stats:', statsError)
+      throw statsError
+    }
 
     return NextResponse.json({ success: true, characters: characters }, { status: 200 })
   } catch (error) {
     console.error('Starter pack error:', error)
-    return NextResponse.json({ success: false, error: 'Failed to claim starter pack' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to claim starter pack'
+    }, { status: 500 })
   }
 }
