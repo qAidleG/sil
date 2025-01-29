@@ -233,4 +233,21 @@ export async function deleteGridProgress(userId: string): Promise<void> {
     .eq('userid', userId)
   
   if (error) throw error
+}
+
+export async function initializePlayerStats(userId: string): Promise<PlayerStats> {
+  const { data, error } = await supabase
+    .from('playerstats')
+    .insert([{
+      userid: userId,
+      gold: 0,
+      moves: 30,
+      cards: 0,
+      cards_collected: 0
+    }])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 } 

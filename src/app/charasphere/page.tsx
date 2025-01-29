@@ -15,6 +15,8 @@ import { PlayerStats as PlayerStatsComponent } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
 import { toast } from 'react-hot-toast'
 import { useGameState } from '@/hooks/useGameState'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { getPlayerStats, initializePlayerStats } from '@/lib/database'
 
 export default function CharaSpherePage() {
   const router = useRouter()
@@ -27,6 +29,7 @@ export default function CharaSpherePage() {
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null)
   const [showClaimModal, setShowClaimModal] = useState(false)
   const [claimingStarter, setClaimingStarter] = useState(false)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     if (userLoading) return
@@ -182,60 +185,28 @@ export default function CharaSpherePage() {
     </div>
   )
 
-  const initializePlayerStats = async (userId: string) => {
-    try {
-      const { data: newStats, error: insertError } = await supabase
-        .from('playerstats')
-        .insert([
-          {
-            userid: userId,
-            gold: 0,
-            moves: 10,
-            cards: 0
-          }
-        ])
-        .select()
-        .single()
-
-      if (insertError) {
-        console.error('Error creating stats:', insertError)
-        throw insertError
-      }
-
-      setPlayerStats(newStats)
-      return newStats
-    } catch (err) {
-      console.error('Error initializing player stats:', err)
-      toast.error('Failed to initialize player stats')
-      return null
-    }
-  }
-
+  // Load or initialize player stats
   useEffect(() => {
     const loadStats = async () => {
       if (!user?.id) return
       try {
-        const { data, error } = await supabase
-          .from('playerstats')
-          .select('*')
-          .eq('userid', user.id)
-          .single()
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            const newStats = await initializePlayerStats(user.id)
-            if (newStats) {
-              toast.success('Welcome! Your player stats have been initialized.')
-            }
-          } else {
-            console.error('Error loading stats:', error)
-            toast.error('Failed to load player stats')
-          }
+        // Try to get existing stats
+        const stats = await getPlayerStats(user.id)
+        
+        if (!stats) {
+          // Initialize new player stats
+          const newStats = await initializePlayerStats(user.id)
+          setPlayerStats(newStats)
+          toast.success('Welcome! Your player stats have been initialized.')
         } else {
-          setPlayerStats(data)
+          setPlayerStats(stats)
         }
       } catch (err) {
-        console.error('Error in loadStats:', err)
+        console.error('Error loading stats:', err)
+        toast.error('Failed to load player stats')
+        setError('Failed to load player stats')
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -257,12 +228,11 @@ export default function CharaSpherePage() {
       const result = await response.json()
       if (result.success) {
         toast.success('Starter pack claimed! Check your collection.')
-        const { data } = await supabase
-          .from('playerstats')
-          .select('*')
-          .eq('userid', user.id)
-          .single()
-        setPlayerStats(data)
+        // Get updated stats
+        const stats = await getPlayerStats(user.id)
+        if (stats) {
+          setPlayerStats(stats)
+        }
       }
     } catch (err) {
       console.error('Error claiming starter pack:', err)
