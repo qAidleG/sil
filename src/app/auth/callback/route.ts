@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const { data: { session } } = await supabase.auth.getSession()
 
     if (session?.user) {
+      try {
         // Check if player stats exist
         const { data: stats, error: statsError } = await supabase
           .from('playerstats')
@@ -25,15 +26,28 @@ export async function GET(request: Request) {
 
         if (statsError && statsError.code === 'PGRST116') {
           // Initialize player stats if they don't exist
-          await supabase
+          const { error: insertError } = await supabase
             .from('playerstats')
             .insert([{
               userid: session.user.id,
               gold: 0,
               moves: 30,
               cards: 0,
-              email: session.user.email
+              email: session.user.email,
+              last_move_refresh: new Date().toISOString()
             }])
+
+          if (insertError) {
+            console.error('Error initializing player stats:', insertError)
+            throw insertError
+          }
+        } else if (statsError) {
+          console.error('Error checking player stats:', statsError)
+          throw statsError
+        }
+      } catch (error) {
+        console.error('Auth callback error:', error)
+        // Still redirect to home page where error will be handled
       }
     }
   }

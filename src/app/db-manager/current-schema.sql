@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS public.playerstats (
     email TEXT,
     cards INTEGER DEFAULT 2,
     moves INTEGER DEFAULT 30,
-    cards_collected INTEGER DEFAULT 0,
     last_move_refresh TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -90,6 +89,12 @@ FOR UPDATE
 TO authenticated
 USING (userid = auth.uid())
 WITH CHECK (userid = auth.uid());
+
+CREATE POLICY "Allow users to delete from their own collection"
+ON public.UserCollection
+FOR DELETE
+TO authenticated
+USING (userid = auth.uid());
 
 -- RLS Policies for playerstats
 CREATE POLICY "Allow users to read their own stats"
