@@ -9,15 +9,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Roster, PlayerStats } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
-import { useUser } from '@supabase/auth-helpers-react'
+import { useUser } from '@/hooks/useUser'
 import { Button } from '@/components/ui/button'
 import { PlayerStats as PlayerStatsComponent } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
 import { toast } from 'react-hot-toast'
+import { useGameState } from '@/hooks/useGameState'
 
 export default function CharaSpherePage() {
   const router = useRouter()
-  const { user } = useUser()
+  const { user, loading: userLoading } = useUser()
+  const { gameState } = useGameState()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedCharacter, setSelectedCharacter] = useState<Roster | null>(null)
@@ -26,34 +28,49 @@ export default function CharaSpherePage() {
   const [showClaimModal, setShowClaimModal] = useState(false)
   const [claimingStarter, setClaimingStarter] = useState(false)
 
-  const loadCharacters = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('Roster')
-        .select(`
-          *,
-          Series (
-            seriesid,
-            name,
-            universe
-          )
-        `)
-        .order('name')
-
-      if (error) throw error
-      if (data) setCharacters(data)
-    } catch (err) {
-      console.error('Error loading characters:', err)
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (userLoading) return
+    if (!user?.id) {
+      router.push('/login')
+      return
     }
-  }
+
+    const loadCharacters = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/characters?userId=${user.id}`)
+        if (!response.ok) throw new Error('Failed to load characters')
+        
+        const data = await response.json()
+        setCharacters(data)
+        setError(null)
+      } catch (err) {
+        console.error('Error loading characters:', err)
+        setError('Failed to load characters')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCharacters()
+  }, [user, userLoading, router])
 
   const handlePlayClick = async (e: React.MouseEvent) => {
     e.preventDefault()
-    await loadCharacters()
-    setShowClaimModal(true)
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/characters?userId=${user?.id}`)
+      if (!response.ok) throw new Error('Failed to load characters')
+      
+      const data = await response.json()
+      setCharacters(data)
+      setShowClaimModal(true)
+    } catch (err) {
+      console.error('Error loading characters:', err)
+      setError('Failed to load characters')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleCharacterClick = (character: Roster) => {
@@ -70,7 +87,6 @@ export default function CharaSpherePage() {
     }
   }
 
-  // Check if there's a game in progress
   useEffect(() => {
     const checkGameState = async () => {
       if (!user?.id) return
@@ -80,7 +96,9 @@ export default function CharaSpherePage() {
         if (!response.ok) throw new Error('Failed to check game state')
         
         const data = await response.json()
-        setGameState(data.gameState)
+        if (data.gameState) {
+          router.push('/charasphere/game')
+        }
       } catch (error) {
         console.error('Error checking game state:', error)
       } finally {
@@ -89,9 +107,8 @@ export default function CharaSpherePage() {
     }
 
     checkGameState()
-  }, [user?.id])
+  }, [user?.id, router])
 
-  // Check if board is completed
   const isBoardCompleted = (state: GameState) => {
     return state.tilemap.every(tile => tile.discovered)
   }
@@ -100,17 +117,13 @@ export default function CharaSpherePage() {
     if (!user?.id) return
 
     if (gameState && !isBoardCompleted(gameState)) {
-      // Continue existing game
       router.push('/charasphere/game')
     } else {
-      // Start new game
       try {
-        // Delete any existing completed game
         await fetch(`/api/game-state?userId=${user.id}`, {
           method: 'DELETE'
         })
         
-        // Navigate to game page (it will initialize a new game)
         router.push('/charasphere/game')
       } catch (error) {
         console.error('Error starting new game:', error)
@@ -118,12 +131,10 @@ export default function CharaSpherePage() {
     }
   }
 
-  // Update character filtering and sorting
   const filteredCharacters = characters
     .filter(char => char.characterid)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Update character grid
   const renderCharacterCard = (character: Roster) => (
     <div
       key={character.characterid}
@@ -171,10 +182,8 @@ export default function CharaSpherePage() {
     </div>
   )
 
-  // Initialize player stats for new users
   const initializePlayerStats = async (userId: string) => {
     try {
-      // Create initial stats
       const { data: newStats, error: insertError } = await supabase
         .from('playerstats')
         .insert([
@@ -202,7 +211,6 @@ export default function CharaSpherePage() {
     }
   }
 
-  // Load or initialize player stats
   useEffect(() => {
     const loadStats = async () => {
       if (!user?.id) return
@@ -214,7 +222,6 @@ export default function CharaSpherePage() {
           .single()
 
         if (error) {
-          // If no record found, create one
           if (error.code === 'PGRST116') {
             const newStats = await initializePlayerStats(user.id)
             if (newStats) {
@@ -235,7 +242,6 @@ export default function CharaSpherePage() {
     loadStats()
   }, [user?.id])
 
-  // Handle starter pack claim
   const handleStarterPack = async () => {
     if (!user?.id) return
     setClaimingStarter(true)
@@ -251,7 +257,6 @@ export default function CharaSpherePage() {
       const result = await response.json()
       if (result.success) {
         toast.success('Starter pack claimed! Check your collection.')
-        // Refresh player stats
         const { data } = await supabase
           .from('playerstats')
           .select('*')
@@ -271,7 +276,6 @@ export default function CharaSpherePage() {
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
-        {/* Header with Stats */}
         <div className="mb-12">
           <h1 className="text-5xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-4">
             CharaSphere
@@ -280,7 +284,6 @@ export default function CharaSpherePage() {
             Collect, build decks, and battle with your favorite characters
           </p>
 
-          {/* Player Stats Card */}
           <div className="max-w-md mx-auto bg-gray-800/50 rounded-xl p-4 backdrop-blur-sm border border-gray-700">
             {playerStats ? (
               <>
@@ -308,7 +311,6 @@ export default function CharaSpherePage() {
                   </div>
                 </div>
 
-                {/* Starter Pack Button */}
                 {playerStats.cards === 0 && (
                   <div className="text-center">
                     <button
@@ -340,9 +342,7 @@ export default function CharaSpherePage() {
           </div>
         </div>
 
-        {/* Main Menu Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Collection Link */}
           <Link 
             href="/collections" 
             className="group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-blue-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm"
@@ -356,7 +356,6 @@ export default function CharaSpherePage() {
             </div>
           </Link>
 
-          {/* Play CharaSphere */}
           <Link 
             href="/charasphere/game"
             className={`group relative aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 hover:border-green-500 transition-all duration-500 hover:scale-105 backdrop-blur-sm ${
@@ -375,7 +374,6 @@ export default function CharaSpherePage() {
             </div>
           </Link>
 
-          {/* Starter Pack Section */}
           {(!playerStats || playerStats.cards === 0) && (
             <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-purple-900/30 to-purple-800/20 border border-purple-700/50 backdrop-blur-sm p-6 flex flex-col justify-center items-center">
               <h2 className="text-2xl font-bold text-purple-300 mb-4">Welcome to CharaSphere!</h2>
@@ -400,7 +398,6 @@ export default function CharaSpherePage() {
             </div>
           )}
 
-          {/* Future Features Section */}
           {(!playerStats || playerStats.cards > 0) && (
             <div className="lg:col-span-2 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 backdrop-blur-sm p-6">
               <h2 className="text-xl font-bold text-blue-400 mb-4">Coming Soon</h2>

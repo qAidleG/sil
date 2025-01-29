@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClientComponentClient, User } from '@supabase/auth-helpers-nextjs'
+
+export interface AuthUser extends User {
+  id: string;
+  email?: string;
+}
 
 export function useUser() {
   const supabase = createClientComponentClient()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -16,12 +21,12 @@ export function useUser() {
         return
       }
 
-      setUser(session?.user ?? null)
+      setUser(session?.user as AuthUser ?? null)
       setLoading(false)
 
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null)
+        setUser(session?.user as AuthUser ?? null)
       })
 
       return () => {
