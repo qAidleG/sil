@@ -9,10 +9,10 @@ export async function middleware(req: NextRequest) {
   // Refresh session if expired
   const { data: { session } } = await supabase.auth.getSession()
 
-  // If no session and trying to access protected route, redirect to login
-  if (!session && !req.nextUrl.pathname.startsWith('/login')) {
+  // If no session and trying to access protected route, redirect to root
+  if (!session && req.nextUrl.pathname !== '/') {
     const redirectUrl = req.nextUrl.clone()
-    redirectUrl.pathname = '/login'
+    redirectUrl.pathname = '/'
     return NextResponse.redirect(redirectUrl)
   }
 

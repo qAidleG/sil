@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear any existing auth state
     await supabase.auth.signOut()
     
-    const productionUrl = 'https://sil-peach.vercel.app'
+    const productionUrl = 'https://sill-git-main-chris-ss-projects-8ecdc1bb.vercel.app'
     const redirectTo = process.env.NODE_ENV === 'production' 
       ? `${productionUrl}`  // Redirect to root in production
       : `${window.location.origin}`  // Redirect to root in development
