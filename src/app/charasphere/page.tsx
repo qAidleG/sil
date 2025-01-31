@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Roster, PlayerStats } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { CharacterDetails } from '@/app/collections/CharacterDetails'
-import { useUser } from '@/hooks/useUser'
+import { useAuth, AuthContextType } from '@/app/providers'
 import { Button } from '@/components/ui/button'
 import { PlayerStats as PlayerStatsComponent } from '@/components/PlayerStats'
 import { GameState } from '@/types/game'
@@ -20,7 +20,8 @@ import { getPlayerStats, initializePlayerStats } from '@/lib/database'
 
 export default function CharaSpherePage() {
   const router = useRouter()
-  const { user, loading: userLoading, userDetails } = useUser()
+  const auth = useAuth() as AuthContextType
+  const { user, loading: userLoading, userDetails } = auth
   const { gameState } = useGameState()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
