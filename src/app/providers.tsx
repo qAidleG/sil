@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: () => Promise<void>
