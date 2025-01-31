@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies })
-  
   try {
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    
     // Get the current session to verify the user
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
