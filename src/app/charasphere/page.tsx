@@ -20,7 +20,7 @@ import { getPlayerStats, initializePlayerStats } from '@/lib/database'
 
 export default function CharaSpherePage() {
   const router = useRouter()
-  const { user, loading: userLoading } = useUser()
+  const { user, loading: userLoading, userDetails } = useUser()
   const { gameState } = useGameState()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -263,6 +263,29 @@ export default function CharaSpherePage() {
     <main className="min-h-screen bg-gray-900 text-white">
       <StarField />
       <div className="relative z-10 max-w-7xl mx-auto p-8">
+        {/* User Profile Section */}
+        {user && (
+          <div className="flex items-center gap-4 mb-8">
+            {userDetails?.avatar_url ? (
+              <img
+                src={userDetails.avatar_url}
+                alt="Profile"
+                className="w-12 h-12 rounded-full border-2 border-purple-500"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center border-2 border-purple-500">
+                <User className="w-6 h-6 text-gray-400" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                {userDetails?.name || user.email?.split('@')[0]}
+              </h2>
+              <p className="text-gray-400 text-sm">{user.email}</p>
+            </div>
+          </div>
+        )}
+
         <div className="mb-12">
           <h1 className="text-5xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-4">
             CharaSphere

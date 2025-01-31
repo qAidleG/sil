@@ -4,13 +4,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { StarField } from './components/StarField'
 import { useAuth } from './providers'
-import { Loader2, Coins, Clock, PlayCircle, Gift } from 'lucide-react'
+import { Loader2, Coins, Clock, PlayCircle, Gift, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
 
 const Home = () => {
-  const { user, loading, signIn, signOut } = useAuth()
+  const { user, loading, signIn, signOut, userDetails } = useAuth()
   const [playerStats, setPlayerStats] = useState<{
     gold: number;
     moves: number;
@@ -96,9 +96,25 @@ const Home = () => {
           <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
         ) : user ? (
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-300">
-              Welcome, {user.email?.split('@')[0]}
-            </span>
+            {/* User Profile */}
+            <div className="flex items-center gap-3">
+              {/* Profile Picture */}
+              {userDetails?.avatar_url ? (
+                <img
+                  src={userDetails.avatar_url}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full border border-gray-600"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                  <User className="w-4 h-4 text-gray-400" />
+                </div>
+              )}
+              {/* User Name */}
+              <span className="text-sm text-gray-300">
+                {userDetails?.name || user.email?.split('@')[0]}
+              </span>
+            </div>
             <button
               onClick={signOut}
               className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm transition-colors"

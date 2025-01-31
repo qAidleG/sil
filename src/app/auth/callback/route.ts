@@ -9,14 +9,14 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = createRouteHandlerClient({ cookies })
     
-    // Exchange code for session
-    await supabase.auth.exchangeCodeForSession(code)
+    try {
+      // Exchange code for session
+      await supabase.auth.exchangeCodeForSession(code)
 
-    // Get current session to get user details
-    const { data: { session } } = await supabase.auth.getSession()
+      // Get current session to get user details
+      const { data: { session } } = await supabase.auth.getSession()
 
-    if (session?.user) {
-      try {
+      if (session?.user) {
         // Check if player stats exist
         const { data: stats, error: statsError } = await supabase
           .from('playerstats')
@@ -30,28 +30,34 @@ export async function GET(request: Request) {
             .from('playerstats')
             .insert([{
               userid: session.user.id,
-              gold: 0,
+              gold: 50,
               moves: 30,
               cards: 0,
+              cards_collected: 0,
               email: session.user.email,
               last_move_refresh: new Date().toISOString()
             }])
 
           if (insertError) {
             console.error('Error initializing player stats:', insertError)
-            throw insertError
+            // Redirect to error page instead of home
+            return NextResponse.redirect(new URL('/error?message=Failed%20to%20initialize%20player%20data', requestUrl.origin))
           }
         } else if (statsError) {
           console.error('Error checking player stats:', statsError)
-          throw statsError
+          // Redirect to error page instead of home
+          return NextResponse.redirect(new URL('/error?message=Failed%20to%20check%20player%20data', requestUrl.origin))
         }
-      } catch (error) {
-        console.error('Auth callback error:', error)
-        // Still redirect to home page where error will be handled
       }
+
+      // Only redirect to home if everything succeeded
+      return NextResponse.redirect(new URL('/', requestUrl.origin))
+    } catch (error) {
+      console.error('Auth callback error:', error)
+      return NextResponse.redirect(new URL('/error?message=Authentication%20failed', requestUrl.origin))
     }
   }
 
-  // Redirect to the home page
-  return NextResponse.redirect(requestUrl.origin)
+  // Redirect to home page if no code (shouldn't happen)
+  return NextResponse.redirect(new URL('/', requestUrl.origin))
 } 

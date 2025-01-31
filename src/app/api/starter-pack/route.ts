@@ -11,11 +11,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
     }
 
-    // Get 3 random unclaimed characters
+    // Check if user already has cards in their collection
+    const { count: existingCards, error: countError } = await supabase
+      .from('UserCollection')
+      .select('*', { count: 'exact', head: true })
+      .eq('userid', userId)
+
+    if (countError) {
+      console.error('Error checking existing cards:', countError)
+      throw countError
+    }
+
+    if (existingCards && existingCards > 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'You have already claimed your starter pack' 
+      }, { status: 400 })
+    }
+
+    // Get 3 random unclaimed high-rarity characters
     const { data: characters, error: charError } = await supabase
       .from('Roster')
       .select('characterid, name, rarity, claimed')
       .eq('claimed', false)
+      .gte('rarity', 4)
+      .lte('rarity', 6)
       .order('random()')
       .limit(3)
 
@@ -29,10 +49,10 @@ export async function POST(request: Request) {
 
     if (!characters || characters.length < 3) {
       const availableCount = characters?.length ?? 0
-      console.error(`Not enough starter characters available (found ${availableCount}):`, characters)
+      console.error(`Not enough high-rarity starter characters available (found ${availableCount}):`, characters)
       return NextResponse.json({ 
         success: false, 
-        error: `Not enough starter characters available (found ${availableCount}). Please contact the administrator.` 
+        error: `Not enough starter characters available. Please contact the administrator.` 
       }, { status: 400 })
     }
 
@@ -63,10 +83,13 @@ export async function POST(request: Request) {
       throw collectionError
     }
 
-    // Update player stats
+    // Update player stats with cards and bonus gold
     const { error: statsError } = await supabase
       .from('playerstats')
-      .update({ cards: 3 })
+      .update({ 
+        cards: 3,
+        gold: supabase.rpc('increment_gold', { amount: 100 })  // Add bonus gold
+      })
       .eq('userid', userId)
 
     if (statsError) {

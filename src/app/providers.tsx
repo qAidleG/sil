@@ -10,18 +10,24 @@ interface AuthContextType {
   loading: boolean
   signIn: () => Promise<void>
   signOut: () => Promise<void>
+  userDetails: {
+    name: string | null
+    avatar_url: string | null
+  } | null
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signIn: async () => {},
-  signOut: async () => {}
+  signOut: async () => {},
+  userDetails: null
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userDetails, setUserDetails] = useState<{ name: string | null; avatar_url: string | null } | null>(null)
 
   // Initialize player data when user signs in
   const initializePlayer = async (userId: string, email: string) => {
@@ -67,6 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) {
+        // Get user details from metadata
+        const { user_metadata } = session.user
+        setUserDetails({
+          name: user_metadata?.full_name || user_metadata?.name || null,
+          avatar_url: user_metadata?.avatar_url || null
+        })
         initializePlayer(session.user.id, session.user.email!)
       }
       setLoading(false)
@@ -77,7 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
+        // Get user details from metadata
+        const { user_metadata } = session.user
+        setUserDetails({
+          name: user_metadata?.full_name || user_metadata?.name || null,
+          avatar_url: user_metadata?.avatar_url || null
+        })
         initializePlayer(session.user.id, session.user.email!)
+      } else {
+        setUserDetails(null)
       }
       setLoading(false)
     })
@@ -111,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, userDetails }}>
       {children}
     </AuthContext.Provider>
   )
