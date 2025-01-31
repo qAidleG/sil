@@ -1,18 +1,25 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies })
   
   try {
-    const { userId } = await request.json()
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
+    // Get the current session to verify the user
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Check if user already has cards in their collection
-    const { count: existingCards, error: countError } = await supabase
+    const { userId } = await request.json()
+    if (!userId || userId !== session.user.id) {
+      return NextResponse.json({ success: false, error: 'Invalid user ID' }, { status: 400 })
+    }
+
+    // Use admin client for operations that need to bypass RLS
+    const { count: existingCards, error: countError } = await supabaseAdmin
       .from('UserCollection')
       .select('*', { count: 'exact', head: true })
       .eq('userid', userId)
@@ -30,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     // Get 3 random unclaimed high-rarity characters
-    const { data: characters, error: charError } = await supabase
+    const { data: characters, error: charError } = await supabaseAdmin
       .from('Roster')
       .select('characterid, name, rarity, claimed')
       .eq('claimed', false)
@@ -56,8 +63,8 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Mark characters as claimed
-    const { error: updateError } = await supabase
+    // Mark characters as claimed using admin client
+    const { error: updateError } = await supabaseAdmin
       .from('Roster')
       .update({ claimed: true })
       .in('characterid', characters.map(c => c.characterid))
@@ -67,8 +74,8 @@ export async function POST(request: Request) {
       throw updateError
     }
 
-    // Add characters to user's collection
-    const { error: collectionError } = await supabase
+    // Add characters to user's collection using admin client
+    const { error: collectionError } = await supabaseAdmin
       .from('UserCollection')
       .insert(
         characters.map(char => ({
@@ -83,12 +90,12 @@ export async function POST(request: Request) {
       throw collectionError
     }
 
-    // Update player stats with cards and bonus gold
-    const { error: statsError } = await supabase
+    // Update player stats with cards and bonus gold using admin client
+    const { error: statsError } = await supabaseAdmin
       .from('playerstats')
       .update({ 
         cards: 3,
-        gold: supabase.rpc('increment_gold', { amount: 100 })  // Add bonus gold
+        gold: supabaseAdmin.rpc('increment_gold', { amount: 100 })  // Add bonus gold
       })
       .eq('userid', userId)
 
