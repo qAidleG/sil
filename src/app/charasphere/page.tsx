@@ -226,9 +226,11 @@ export default function CharaSpherePage() {
         body: JSON.stringify({ userId: user.id })
       })
       
-      if (!response.ok) throw new Error('Failed to claim starter pack')
-      
       const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to claim starter pack')
+      }
+      
       if (result.success) {
         toast.success('Starter pack claimed! Check your collection.')
         // Get updated stats
@@ -239,7 +241,7 @@ export default function CharaSpherePage() {
       }
     } catch (err) {
       console.error('Error claiming starter pack:', err)
-      toast.error('Failed to claim starter pack')
+      toast.error(err instanceof Error ? err.message : 'Failed to claim starter pack')
     } finally {
       setClaimingStarter(false)
     }
