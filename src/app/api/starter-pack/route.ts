@@ -5,19 +5,46 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function POST(request: Request) {
   try {
+    // Initialize both clients
     const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({ 
+      cookies: () => cookieStore,
+    })
     
     // Get the current session to verify the user
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 })
+    const sessionResponse = await supabase.auth.getSession()
+    console.log('Session response:', JSON.stringify(sessionResponse, null, 2))
+    
+    const session = sessionResponse.data.session
+    if (!session?.user?.id) {
+      console.log('No session or user found')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Not authenticated',
+        debug: { sessionResponse }
+      }, { status: 401 })
     }
+
+    // Log the authenticated user
+    console.log('Authenticated user:', session.user.id)
 
     const { userId } = await request.json()
     if (!userId || userId !== session.user.id) {
+      console.log('User ID mismatch:', { providedId: userId, sessionUserId: session.user.id })
       return NextResponse.json({ success: false, error: 'Invalid user ID' }, { status: 400 })
     }
+
+    // Verify admin client is working
+    const { data: adminTest, error: adminError } = await supabaseAdmin
+      .from('UserCollection')
+      .select('*', { count: 'exact', head: true })
+      .limit(1)
+    
+    if (adminError) {
+      console.error('Admin client test failed:', adminError)
+      throw new Error('Admin client configuration error')
+    }
+    console.log('Admin client test successful')
 
     // Use admin client for operations that need to bypass RLS
     const { count: existingCards, error: countError } = await supabaseAdmin
