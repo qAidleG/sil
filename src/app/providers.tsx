@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
+import { initializePlayerStats } from '@/lib/database'
 
 export interface AuthContextType {
   user: User | null
@@ -32,39 +33,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize player data when user signs in
   const initializePlayer = async (userId: string, email: string) => {
     try {
-      const { data: existingStats, error: checkError } = await supabase
-        .from('playerstats')
-        .select('*')
-        .eq('userid', userId)
-        .single()
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking player stats:', checkError)
-        return
-      }
-
-      // If player stats don't exist, create them
-      if (!existingStats) {
-        const { error: insertError } = await supabase
-          .from('playerstats')
-          .insert({
-            userid: userId,
-            email: email,
-            moves: 30,
-            gold: 50,
-            last_move_refresh: new Date().toISOString()
-          })
-
-        if (insertError) {
-          console.error('Error creating player stats:', insertError)
-          toast.error('Failed to initialize player data')
-          return
-        }
-
-        toast.success('Welcome to the game! Initial stats created.')
-      }
+      await initializePlayerStats(userId, email)
+      toast.success('Welcome to the game!')
     } catch (error) {
       console.error('Error in player initialization:', error)
+      toast.error('Failed to initialize player data')
     }
   }
 
@@ -86,24 +59,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const previousUser = user
+      const currentUser = session?.user ?? null
+      
+      setUser(currentUser)
+      
+      if (currentUser && (!previousUser || previousUser.id !== currentUser.id)) {
         // Get user details from metadata
-        const { user_metadata } = session.user
+        const { user_metadata } = currentUser
         setUserDetails({
           name: user_metadata?.full_name || user_metadata?.name || null,
           avatar_url: user_metadata?.avatar_url || null
         })
-        initializePlayer(session.user.id, session.user.email!)
-      } else {
+        await initializePlayer(currentUser.id, currentUser.email!)
+      } else if (!currentUser) {
         setUserDetails(null)
       }
+      
       setLoading(false)
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [user]) // Add user to dependency array to track changes
 
   const signIn = async () => {
     // Clear any existing auth state

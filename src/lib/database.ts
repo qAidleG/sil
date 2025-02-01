@@ -245,24 +245,47 @@ export async function deleteGridProgress(userId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function initializePlayerStats(userId: string): Promise<PlayerStats> {
-  try {
-    const { data, error } = await supabase
-      .from('playerstats')
-      .insert([{
-        userid: userId,
-        gold: 0,
-        moves: 30,
-        cards: 0,
-        cards_collected: 0
-      }])
-      .select()
-      .single()
+export async function initializePlayerStats(userId: string, email: string): Promise<PlayerStats> {
+  const { data: existingStats, error: checkError } = await supabase
+    .from('playerstats')
+    .select('*')
+    .eq('userid', userId)
+    .single()
 
-    if (error) throw handleDatabaseError(error)
-    return data
-  } catch (error) {
-    console.error('Error initializing player stats:', error)
-    throw error
+  // If stats exist, return them
+  if (existingStats) {
+    return existingStats as PlayerStats
   }
+
+  // If error is not "no rows" error, throw it
+  if (checkError && checkError.code !== 'PGRST116') {
+    throw handleDatabaseError(checkError)
+  }
+
+  // Use upsert with on_conflict to ensure atomicity
+  const { data: newStats, error: insertError } = await supabase
+    .from('playerstats')
+    .upsert({
+      userid: userId,
+      email: email,
+      gold: 50,
+      moves: 30,
+      cards: 0,
+      last_move_refresh: new Date().toISOString()
+    }, {
+      onConflict: 'userid',
+      ignoreDuplicates: true
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    throw handleDatabaseError(insertError)
+  }
+
+  if (!newStats) {
+    throw new Error('Failed to initialize player stats')
+  }
+
+  return newStats as PlayerStats
 } 
