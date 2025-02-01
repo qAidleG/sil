@@ -246,7 +246,8 @@ export async function deleteGridProgress(userId: string): Promise<void> {
 }
 
 export async function initializePlayerStats(userId: string, email: string): Promise<PlayerStats> {
-  const { data: existingStats, error: checkError } = await supabase
+  // First check if stats exist using admin client to bypass RLS
+  const { data: existingStats, error: checkError } = await supabaseAdmin
     .from('playerstats')
     .select('*')
     .eq('userid', userId)
@@ -262,24 +263,22 @@ export async function initializePlayerStats(userId: string, email: string): Prom
     throw handleDatabaseError(checkError)
   }
 
-  // Use upsert with on_conflict to ensure atomicity
+  // Use regular client for insert since we now have proper RLS policies
   const { data: newStats, error: insertError } = await supabase
     .from('playerstats')
-    .upsert({
+    .insert({
       userid: userId,
       email: email,
       gold: 50,
       moves: 30,
       cards: 0,
       last_move_refresh: new Date().toISOString()
-    }, {
-      onConflict: 'userid',
-      ignoreDuplicates: true
     })
     .select()
     .single()
 
   if (insertError) {
+    console.error('Insert error:', insertError)
     throw handleDatabaseError(insertError)
   }
 

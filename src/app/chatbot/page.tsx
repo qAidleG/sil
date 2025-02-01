@@ -104,7 +104,7 @@ export default function ChatbotPage() {
     scrollToBottom()
   }, [threads, currentThreadId])
 
-  const createNewThread = () => {
+  const createNewThread = async () => {
     const character = characters.find(c => c.characterid === selectedCharacter?.characterid) || characters[0]
     const newThread: Thread = {
       id: Date.now().toString(),
@@ -115,6 +115,46 @@ export default function ChatbotPage() {
     }
     setThreads([newThread, ...threads])
     setCurrentThreadId(newThread.id)
+
+    // If character has no image, generate one in the background
+    if (!character.image1url && fluxKey) {
+      try {
+        const basePrompt = `Create an anime style portrait of ${character.name}, a ${character.bio?.split('.')[0]}. Character shown in a noble pose, facing slightly to the side, elegant and composed. Expression is confident and cheerful. Premium quality background with subtle magical effects. High-quality anime art style, clean lines, vibrant colors.`
+        
+        const response = await fetch('/api/flux', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            prompt: basePrompt,
+            seed: Math.floor(Math.random() * 1000000)
+          })
+        })
+
+        if (!response.ok) throw new Error('Failed to generate image')
+        const data = await response.json()
+        
+        // Store image using server-side API route
+        const storeResponse = await fetch('/api/store-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId: character.characterid,
+            url: data.image_url,
+            prompt: basePrompt,
+            style: 'anime',
+            seed: Math.floor(Math.random() * 1000000)
+          })
+        })
+
+        if (!storeResponse.ok) throw new Error('Failed to store image')
+        
+        // Refresh characters to get the new image
+        loadCharacters()
+      } catch (error) {
+        console.error('Error generating character image:', error)
+        // Don't show error to user since this is a background operation
+      }
+    }
   }
 
   const deleteThread = (threadId: string) => {
@@ -297,62 +337,28 @@ export default function ChatbotPage() {
     setEditingThreadId(null)
   }
 
-  // Update loadCharacters to use selectedImageId
+  // Update loadCharacters to use Roster directly
   const loadCharacters = async () => {
     try {
-      const { data: userCollection, error } = await supabase
-        .from('UserCollection')
+      const { data: characters, error } = await supabase
+        .from('Roster')
         .select(`
           *,
-          Character:Roster (
-            characterid,
+          Series (
             name,
-            bio,
-            dialogs,
-            image1url,
-            image2url,
-            image3url,
-            image4url,
-            image5url,
-            image6url,
-            Series (
-              name,
-              universe
-            )
+            universe
           )
         `)
-        .order('favorite', { ascending: false })
+        .order('name')
 
       if (error) throw error
-      if (userCollection) {
-        // Map UserCollection to include both Character data and selected image
-        const chars = userCollection
-          .filter(uc => uc.Character !== null)
-          .map(uc => {
-            const char = uc.Character!
-            // Get all image URLs
-            const imageUrls = [
-              char.image1url,
-              char.image2url,
-              char.image3url,
-              char.image4url,
-              char.image5url,
-              char.image6url
-            ].filter((url): url is string => url !== null)
-            
-            // Get selected image based on selectedImageId (1-based index)
-            let displayImage = '/default-character.png'
-            if (uc.selectedImageId && uc.selectedImageId > 0 && uc.selectedImageId <= imageUrls.length) {
-              displayImage = imageUrls[uc.selectedImageId - 1] || imageUrls[0] || '/default-character.png'
-            } else if (imageUrls.length > 0) {
-              displayImage = imageUrls[0]
-            }
-            
-            return {
-              ...char,
-              displayImage
-            }
-          })
+      
+      if (characters) {
+        // Map characters to include display image
+        const chars = characters.map(char => ({
+          ...char,
+          displayImage: char.image1url || '/default-character.png'
+        }))
         setCharacters(chars)
         // Set initial selected character if none selected
         if (!selectedCharacter && chars.length > 0) {
