@@ -1,14 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Get environment variables with fallback
+const getSupabaseUrl = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) {
+    console.error('NEXT_PUBLIC_SUPABASE_URL is not set')
+    return ''
+  }
+  return url
+}
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+const getSupabaseAnonKey = () => {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!key) {
+    console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set')
+    return ''
+  }
+  return key
 }
 
 // Create public client with auth config
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -26,7 +38,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Export a function to get a fresh client
 export function getSupabaseClient() {
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
